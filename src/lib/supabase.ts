@@ -14,6 +14,10 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   },
 });
 
+const DROP_STORAGE_BUCKET = 'drop-files';
+const MAX_DROP_FILE_SIZE = 20 * 1024 * 1024;
+const DROP_SIGNED_URL_TTL_SECONDS = 60 * 60;
+
 let authenticationInFlight: Promise<User> | null = null;
 
 // All RLS-protected operations must use the user carried by the current
@@ -262,43 +266,48 @@ export interface FetchDropItemsResult {
 }
 
 const inferDropItemType = (kind?: string, path?: string, mimeType?: string): DropItem['type'] => {
-  if (mimeType?.startsWith('image/') || path?.startsWith('data:image/')) return 'image';
-  if (path && mimeType) return 'file';
-  if (kind === 'image') return 'image';
+  if (mimeType?.startsWith('image/')) return 'image';
   if (path) return 'file';
+  if (kind === 'image') return 'image';
   return 'text';
 };
 
-const getDataUrlMetadata = (dataUrl?: string) => {
-  if (!dataUrl?.startsWith('data:')) {
-    return { mimeType: undefined, fileSize: undefined };
-  }
+const isDropStoragePath = (path?: string) =>
+  Boolean(path && /^[0-9a-f]{8}-[0-9a-f-]{27}\//i.test(path));
 
-  const commaIndex = dataUrl.indexOf(',');
-  if (commaIndex === -1) {
-    return { mimeType: undefined, fileSize: undefined };
-  }
-
-  const header = dataUrl.slice(5, commaIndex);
-  const mimeType = header.split(';')[0] || undefined;
-  const encoded = dataUrl.slice(commaIndex + 1);
-  const fileSize = header.includes(';base64')
-    ? Math.max(0, Math.floor((encoded.length * 3) / 4) - (encoded.endsWith('==') ? 2 : encoded.endsWith('=') ? 1 : 0))
-    : new Blob([decodeURIComponent(encoded)]).size;
-
-  return { mimeType, fileSize };
-};
-
-const mapDbRowToDropItem = (row: any): DropItem => {
+const mapDbRowToDropItem = async (row: any): Promise<DropItem> => {
   const path = row.file_path || row.url || row.file_url || row.image_url || undefined;
+  const fileName = row.file_name || row.filename || undefined;
+  const mimeType = row.mime_type || undefined;
+  const type = inferDropItemType(row.kind, path, mimeType);
+  let resolvedUrl: string | undefined;
+
+  if (isDropStoragePath(path)) {
+    const { data, error } = await supabase.storage
+      .from(DROP_STORAGE_BUCKET)
+      .createSignedUrl(
+        path,
+        DROP_SIGNED_URL_TTL_SECONDS,
+        type === 'file' ? { download: fileName || true } : undefined
+      );
+
+    if (error) {
+      console.warn('Could not create signed URL for Drop attachment:', error.message || error);
+      resolvedUrl = undefined;
+    } else {
+      resolvedUrl = data.signedUrl;
+    }
+  }
+
   return {
     id: String(row.id),
     content: row.content || row.text || row.message || row.title || '',
-    url: path,
-    file_name: row.file_name || row.filename || undefined,
+    url: resolvedUrl,
+    storage_path: isDropStoragePath(path) ? path : undefined,
+    file_name: fileName,
     file_size: row.file_size == null ? undefined : Number(row.file_size),
-    mime_type: row.mime_type || undefined,
-    type: inferDropItemType(row.kind, path, row.mime_type),
+    mime_type: mimeType,
+    type,
     created_at: row.created_at || new Date().toISOString(),
     expires_at: row.expires_at || undefined,
     user_id: row.user_id || undefined,
@@ -327,7 +336,7 @@ export const fetchDropItemsFromSupabase = async (
 
   // The query pages from newest to oldest so the first page always contains
   // the latest records. Reverse each page for chat-style oldest-to-newest UI.
-  const items = (data || []).map(mapDbRowToDropItem).reverse();
+  const items = (await Promise.all((data || []).map(mapDbRowToDropItem))).reverse();
   return {
     items,
     hasMore: offset + items.length < (count ?? 0),
@@ -358,39 +367,82 @@ export const subscribeToDropItems = (userId: string, onUpdate: () => void) => {
 };
 
 // Add / Insert a new Drop item to Supabase drop_items table
-export const addDropItemToSupabase = async (item: Partial<DropItem>): Promise<DropItem> => {
+const sanitizeStorageFileName = (fileName: string) => {
+  const sanitized = fileName
+    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_')
+    .trim()
+    .slice(0, 120);
+  return sanitized || 'attachment';
+};
+
+const removeStoredAttachments = async (paths: Array<string | undefined>) => {
+  const storedPaths = paths.filter((path): path is string => isDropStoragePath(path));
+  if (storedPaths.length === 0) return;
+
+  for (let index = 0; index < storedPaths.length; index += 100) {
+    const { error } = await supabase.storage
+      .from(DROP_STORAGE_BUCKET)
+      .remove(storedPaths.slice(index, index + 100));
+    if (error) {
+      console.warn('Could not remove Drop attachment from Storage:', error.message || error);
+    }
+  }
+};
+
+export const addDropItemToSupabase = async (
+  item: Partial<DropItem>,
+  attachment?: File
+): Promise<DropItem> => {
   const activeUser = await ensureAuthenticatedUser();
-  const dataUrlMetadata = getDataUrlMetadata(item.url);
+  if (attachment && attachment.size > MAX_DROP_FILE_SIZE) {
+    throw new Error('Attachments must be 20 MB or smaller.');
+  }
+
+  let uploadedPath: string | undefined;
+  if (attachment) {
+    const objectId =
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    uploadedPath = `${activeUser.id}/${objectId}-${sanitizeStorageFileName(attachment.name)}`;
+
+    const { error } = await supabase.storage
+      .from(DROP_STORAGE_BUCKET)
+      .upload(uploadedPath, attachment, {
+        cacheControl: '3600',
+        contentType: attachment.type || 'application/octet-stream',
+        upsert: false,
+      });
+    if (error) throw error;
+  }
+
   // The deployed constraint accepts "text" and "image". Non-image
   // attachments are distinguished by mime_type in the UI, while using the
   // attachment-compatible database kind.
-  const kind = item.url ? 'image' : 'text';
+  const kind = attachment ? 'image' : 'text';
 
   const payload = {
     user_id: activeUser.id,
     kind,
     content: item.content || '',
-    file_path: item.url || null,
-    file_name: item.file_name || null,
-    file_size: item.file_size ?? dataUrlMetadata.fileSize ?? null,
-    mime_type: item.mime_type ?? dataUrlMetadata.mimeType ?? null,
+    file_path: uploadedPath || null,
+    file_name: attachment?.name || item.file_name || null,
+    file_size: attachment?.size ?? item.file_size ?? null,
+    mime_type: attachment?.type || item.mime_type || null,
     // Use 89 days rather than exactly 90 so modest client/server clock skew
     // cannot push the row beyond the policy's 90-day upper bound.
     expires_at: new Date(Date.now() + 89 * 24 * 60 * 60 * 1000).toISOString(),
   };
 
-  const { data, error } = await supabase
-    .from('drop_items')
-    .insert(payload)
-    .select()
-    .single();
+  const { data, error } = await supabase.from('drop_items').insert(payload).select().single();
 
   if (error) {
+    if (uploadedPath) await removeStoredAttachments([uploadedPath]);
     console.error('Insert to drop_items failed:', error.message || error);
     throw error;
   }
 
-  return mapDbRowToDropItem(data);
+  return await mapDbRowToDropItem(data);
 };
 
 // Delete a Drop item from Supabase drop_items table
@@ -401,17 +453,25 @@ export const deleteDropItemFromSupabase = async (id: string) => {
     .delete()
     .eq('id', id)
     .eq('user_id', activeUser.id)
-    .select('id');
+    .select('id,file_path');
   if (error) throw error;
   if (!data?.length) throw new Error('Drop item was not found or you no longer have permission to delete it.');
+  await removeStoredAttachments(data.map((row: any) => row.file_path));
 };
 
 // Clear all Drop items from Supabase
 export const clearAllDropItemsFromSupabase = async () => {
   const activeUser = await ensureAuthenticatedUser();
+  const { data: existingItems, error: fetchError } = await supabase
+    .from('drop_items')
+    .select('file_path')
+    .eq('user_id', activeUser.id);
+  if (fetchError) throw fetchError;
+
   const { error } = await supabase
     .from('drop_items')
     .delete()
     .eq('user_id', activeUser.id);
   if (error) throw error;
+  await removeStoredAttachments((existingItems || []).map((row: any) => row.file_path));
 };

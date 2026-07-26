@@ -145,3 +145,36 @@ begin
   end if;
 end
 $$;
+
+
+-- 4. Private Storage bucket for Drop attachments (20 MB per object)
+insert into storage.buckets (id, name, public, file_size_limit)
+values ('drop-files', 'drop-files', false, 20971520)
+on conflict (id) do update
+set public = false,
+    file_size_limit = excluded.file_size_limit;
+
+drop policy if exists "Drop users can read own files" on storage.objects;
+drop policy if exists "Drop users can upload own files" on storage.objects;
+drop policy if exists "Drop users can delete own files" on storage.objects;
+
+create policy "Drop users can read own files" on storage.objects
+  for select to authenticated
+  using (
+    bucket_id = 'drop-files'
+    and (storage.foldername(name))[1] = (select auth.uid()::text)
+  );
+
+create policy "Drop users can upload own files" on storage.objects
+  for insert to authenticated
+  with check (
+    bucket_id = 'drop-files'
+    and (storage.foldername(name))[1] = (select auth.uid()::text)
+  );
+
+create policy "Drop users can delete own files" on storage.objects
+  for delete to authenticated
+  using (
+    bucket_id = 'drop-files'
+    and (storage.foldername(name))[1] = (select auth.uid()::text)
+  );

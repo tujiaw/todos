@@ -49,6 +49,7 @@ export interface DropItem {
   id: string;
   content: string;
   url?: string;
+  storage_path?: string;
   file_name?: string;
   file_size?: number;
   mime_type?: string;

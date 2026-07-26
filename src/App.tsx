@@ -133,10 +133,18 @@ export default function App() {
     }
   };
 
-  const handleAddDropItem = async (content: string, url?: string, fileName?: string) => {
+  const handleAddDropItem = async (content: string, attachment?: File) => {
     try {
       setDropError(null);
-      const saved = await addDropItemToSupabase({ content, url, file_name: fileName });
+      const saved = await addDropItemToSupabase(
+        {
+          content,
+          file_name: attachment?.name,
+          file_size: attachment?.size,
+          mime_type: attachment?.type,
+        },
+        attachment
+      );
       setDropItems((prev) => [...prev.filter((i) => i.id !== saved.id), saved]);
     } catch (err: any) {
       console.error('Failed to add drop item to Supabase:', err);

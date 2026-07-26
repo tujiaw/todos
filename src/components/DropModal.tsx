@@ -8,6 +8,7 @@ import {
   Image as ImageIcon,
   Paperclip,
   ExternalLink,
+  Download,
   PlusCircle,
   RefreshCw,
   Search,
@@ -17,7 +18,7 @@ import {
 } from 'lucide-react';
 import { DropItem } from '../types';
 
-const MAX_ATTACHMENT_SIZE = 2 * 1024 * 1024;
+const MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024;
 
 interface DropModalProps {
   isOpen: boolean;
@@ -30,7 +31,7 @@ interface DropModalProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onLoadMore: () => void;
-  onAddDropItem: (content: string, url?: string, fileName?: string) => Promise<void>;
+  onAddDropItem: (content: string, attachment?: File) => Promise<void>;
   onDeleteDropItem: (id: string) => Promise<void>;
   onClearAllDropItems: () => Promise<void>;
   onRefreshDropItems: () => Promise<void>;
@@ -61,8 +62,7 @@ export const DropModal: React.FC<DropModalProps> = ({
   onSignIn,
 }) => {
   const [inputText, setInputText] = useState('');
-  const [attachedUrl, setAttachedUrl] = useState('');
-  const [fileName, setFileName] = useState('');
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [convertedId, setConvertedId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -107,14 +107,13 @@ export const DropModal: React.FC<DropModalProps> = ({
   if (!isOpen) return null;
 
   const handleSend = async () => {
-    if (!inputText.trim() && !attachedUrl) return;
+    if (!inputText.trim() && !attachedFile) return;
 
     setIsSubmitting(true);
     try {
-      await onAddDropItem(inputText.trim(), attachedUrl || undefined, fileName || undefined);
+      await onAddDropItem(inputText.trim(), attachedFile || undefined);
       setInputText('');
-      setAttachedUrl('');
-      setFileName('');
+      setAttachedFile(null);
     } catch (err) {
       console.error('Failed to add drop item:', err);
     } finally {
@@ -140,19 +139,10 @@ export const DropModal: React.FC<DropModalProps> = ({
   const attachFile = (file: File) => {
     setAttachmentError(null);
     if (file.size > MAX_ATTACHMENT_SIZE) {
-      setAttachmentError('Attachments must be 2 MB or smaller.');
+      setAttachmentError('Attachments must be 20 MB or smaller.');
       return;
     }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (typeof event.target?.result === 'string') {
-        setAttachedUrl(event.target.result);
-        setFileName(file.name || 'Pasted Image');
-      }
-    };
-    reader.onerror = () => setAttachmentError('Could not read this attachment.');
-    reader.readAsDataURL(file);
+    setAttachedFile(file);
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
@@ -482,7 +472,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                   {/* Attachment / Image Preview */}
                   {item.url && (
                     <div className="pt-1">
-                      {item.type === 'image' || item.url.startsWith('data:image') || item.url.match(/\.(jpeg|jpg|gif|png|webp)$/i) ? (
+                      {item.type === 'image' ? (
                         <div className="relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-900/5 dark:bg-slate-900/40 max-h-56 group/img">
                           <img
                             src={item.url}
@@ -500,8 +490,8 @@ export const DropModal: React.FC<DropModalProps> = ({
                       ) : (
                         <a
                           href={item.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                          download={item.file_name || 'drop-attachment'}
+                          title={`Download ${item.file_name || 'attachment'}`}
                           className="p-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2 text-xs hover:bg-slate-100 transition-colors"
                         >
                           <div className="flex items-center gap-2 truncate">
@@ -510,7 +500,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                               {item.file_name || 'Attached File'}
                             </span>
                           </div>
-                          <ExternalLink className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <Download className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                         </a>
                       )}
                     </div>
@@ -535,19 +525,22 @@ export const DropModal: React.FC<DropModalProps> = ({
           )}
 
           {/* Attachment Preview Chip */}
-          {attachedUrl && (
+          {attachedFile && (
             <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-xs">
               <div className="flex items-center gap-2 truncate">
-                <ImageIcon className="w-4 h-4 text-blue-600 shrink-0" />
+                {attachedFile.type.startsWith('image/') ? (
+                  <ImageIcon className="w-4 h-4 text-blue-600 shrink-0" />
+                ) : (
+                  <Paperclip className="w-4 h-4 text-blue-600 shrink-0" />
+                )}
                 <span className="font-medium text-blue-900 dark:text-blue-200 truncate">
-                  {fileName || 'Image Attached'}
+                  {attachedFile.name || 'Attachment'}
                 </span>
               </div>
               <button
                 type="button"
                 onClick={() => {
-                  setAttachedUrl('');
-                  setFileName('');
+                  setAttachedFile(null);
                   setAttachmentError(null);
                 }}
                 className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
@@ -596,7 +589,7 @@ export const DropModal: React.FC<DropModalProps> = ({
               <button
                 type="button"
                 onClick={handleSend}
-                disabled={!isAuthenticated || isSubmitting || (!inputText.trim() && !attachedUrl)}
+                disabled={!isAuthenticated || isSubmitting || (!inputText.trim() && !attachedFile)}
                 className="px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white font-medium text-xs rounded-lg transition-all flex items-center gap-1.5 shadow-2xs shrink-0"
                 title={isAuthenticated ? 'Send drop note' : 'Sign in before sending'}
               >
