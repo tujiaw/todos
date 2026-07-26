@@ -1,0 +1,25 @@
+{
+  "short_name": "DailyTODOs",
+  "name": "Daily TODOs - Task Planner",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192 512x512",
+      "purpose": "maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0f172a",
+  "theme_color": "#2563eb",
+  "display": "standalone",
+  "orientation": "portrait",
+  "description": "Minimalist and efficient daily task planner with offline PWA support.",
+  "categories": ["productivity", "utilities"]
+}

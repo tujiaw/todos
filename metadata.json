@@ -1,0 +1,8 @@
+{
+  "name": "Remix: 每日待办",
+  "description": "现代化的每日待办事项管理应用，支持分类标签与进度同步统计",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
