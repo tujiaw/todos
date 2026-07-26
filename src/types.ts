@@ -50,7 +50,10 @@ export interface DropItem {
   content: string;
   url?: string;
   file_name?: string;
+  file_size?: number;
+  mime_type?: string;
   type?: 'text' | 'link' | 'image' | 'file';
   created_at: string | number;
+  expires_at?: string | number;
   user_id?: string;
 }

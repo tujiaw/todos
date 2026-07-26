@@ -90,6 +90,39 @@ create policy "Users can update own tasks" on public.todo_tasks
 
 create policy "Users can delete own tasks" on public.todo_tasks
   for delete using (auth.uid() = user_id);
+
+-- 3. Create Edge Drop table
+create table if not exists public.drop_items (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete cascade not null default auth.uid(),
+  kind text not null default 'text',
+  content text,
+  file_name text,
+  file_path text,
+  file_size bigint,
+  mime_type text,
+  created_at timestamp with time zone default now() not null,
+  expires_at timestamp with time zone default (now() + interval '90 days') not null
+);
+
+alter table public.drop_items enable row level security;
+
+drop policy if exists "drop_items_select_own" on public.drop_items;
+drop policy if exists "drop_items_insert_own" on public.drop_items;
+drop policy if exists "drop_items_delete_own" on public.drop_items;
+
+create policy "drop_items_select_own" on public.drop_items
+  for select using (auth.uid() = user_id);
+
+create policy "drop_items_insert_own" on public.drop_items
+  for insert with check (
+    auth.uid() = user_id
+    and expires_at > now()
+    and expires_at <= now() + interval '90 days 5 minutes'
+  );
+
+create policy "drop_items_delete_own" on public.drop_items
+  for delete using (auth.uid() = user_id);
 `;
 
 export const SyncModal: React.FC<SyncModalProps> = ({
@@ -102,12 +135,12 @@ export const SyncModal: React.FC<SyncModalProps> = ({
   onSyncWithSupabase,
   isSyncing,
 }) => {
-  if (!isOpen) return null;
-
   const [importJsonText, setImportJsonText] = useState('');
   const [feedback, setFeedback] = useState<{ success: boolean; message: string } | null>(null);
   const [copiedSql, setCopiedSql] = useState(false);
   const [showSqlModal, setShowSqlModal] = useState(false);
+
+  if (!isOpen) return null;
 
   const handleExport = () => {
     exportDataAsJSON();
