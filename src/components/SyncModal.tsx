@@ -95,7 +95,7 @@ create policy "Users can delete own tasks" on public.todo_tasks
 create table if not exists public.drop_items (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users(id) on delete cascade not null default auth.uid(),
-  kind text not null default 'text',
+  kind text not null default 'text' check (kind in ('text', 'image')),
   content text,
   file_name text,
   file_path text,
@@ -104,6 +104,10 @@ create table if not exists public.drop_items (
   created_at timestamp with time zone default now() not null,
   expires_at timestamp with time zone default (now() + interval '90 days') not null
 );
+
+alter table public.drop_items drop constraint if exists drop_items_kind_check;
+alter table public.drop_items add constraint drop_items_kind_check
+  check (kind in ('text', 'image'));
 
 alter table public.drop_items enable row level security;
 

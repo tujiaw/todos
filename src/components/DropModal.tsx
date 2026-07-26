@@ -73,6 +73,36 @@ export const DropModal: React.FC<DropModalProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const wasOpenRef = useRef(false);
+  const lastNewestItemIdRef = useRef<string | null>(null);
+  const newestItemId = dropItems.length > 0 ? dropItems[dropItems.length - 1].id : null;
+
+  useEffect(() => {
+    if (!isOpen) {
+      wasOpenRef.current = false;
+      return;
+    }
+
+    const isOpening = !wasOpenRef.current;
+    const hasNewLatestItem =
+      newestItemId !== null && newestItemId !== lastNewestItemIdRef.current;
+    wasOpenRef.current = true;
+    lastNewestItemIdRef.current = newestItemId;
+
+    if (!isOpening && !hasNewLatestItem) return;
+
+    const frame = requestAnimationFrame(() => {
+      const container = scrollContainerRef.current;
+      if (container) {
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: isOpening ? 'auto' : 'smooth',
+        });
+      }
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [isOpen, newestItemId]);
 
   if (!isOpen) return null;
 
@@ -100,9 +130,9 @@ export const DropModal: React.FC<DropModalProps> = ({
   };
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-    // Trigger load more when user scrolls near bottom (or top)
-    if (scrollHeight - scrollTop - clientHeight < 100 && hasMore && !isLoadingMore && !isLoading) {
+    const { scrollTop } = e.currentTarget;
+    // Older records are prepended, so fetch them when approaching the top.
+    if (scrollTop < 100 && hasMore && !isLoadingMore && !isLoading) {
       onLoadMore();
     }
   };
@@ -319,7 +349,7 @@ export const DropModal: React.FC<DropModalProps> = ({
         <div
           ref={scrollContainerRef}
           onScroll={handleScroll}
-          className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-100/50 dark:bg-slate-950/40"
+          className="drop-scrollbar flex-1 overflow-y-auto p-4 space-y-3 bg-slate-100/50 dark:bg-slate-950/40"
         >
           {isLoading && dropItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-slate-400 text-xs gap-2 py-12">
@@ -342,6 +372,27 @@ export const DropModal: React.FC<DropModalProps> = ({
             </div>
           ) : (
             <>
+              {/* Older pages are loaded above the current conversation. */}
+              {hasMore && (
+                <div className="pt-1 pb-2 text-center">
+                  <button
+                    type="button"
+                    onClick={onLoadMore}
+                    disabled={isLoadingMore}
+                    className="w-full py-2 px-3 text-xs text-blue-600 dark:text-blue-400 bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-800/80 hover:bg-blue-100 dark:hover:bg-blue-900/60 rounded-xl transition-all flex items-center justify-center gap-2 font-medium"
+                  >
+                    {isLoadingMore ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Loading older items...</span>
+                      </>
+                    ) : (
+                      <span>Load older items (50 items/page)</span>
+                    )}
+                  </button>
+                </div>
+              )}
+
               {dropItems.map((item) => (
                 <div
                   key={item.id}
@@ -438,6 +489,12 @@ export const DropModal: React.FC<DropModalProps> = ({
                             alt={item.file_name || 'Drop attachment'}
                             className="w-full h-full object-contain max-h-56 rounded-xl cursor-pointer hover:opacity-95 transition-opacity"
                             onClick={() => setPreviewImage(item.url || null)}
+                            onLoad={() => {
+                              if (item.id === newestItemId) {
+                                const container = scrollContainerRef.current;
+                                container?.scrollTo({ top: container.scrollHeight });
+                              }
+                            }}
                           />
                         </div>
                       ) : (
@@ -461,26 +518,6 @@ export const DropModal: React.FC<DropModalProps> = ({
                 </div>
               ))}
 
-              {/* Load More Trigger Button & Status */}
-              {hasMore && (
-                <div className="pt-2 pb-1 text-center">
-                  <button
-                    type="button"
-                    onClick={onLoadMore}
-                    disabled={isLoadingMore}
-                    className="w-full py-2 px-3 text-xs text-blue-600 dark:text-blue-400 bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-800/80 hover:bg-blue-100 dark:hover:bg-blue-900/60 rounded-xl transition-all flex items-center justify-center gap-2 font-medium"
-                  >
-                    {isLoadingMore ? (
-                      <>
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>Loading older items...</span>
-                      </>
-                    ) : (
-                      <span>Load older items (50 items/page)</span>
-                    )}
-                  </button>
-                </div>
-              )}
             </>
           )}
         </div>

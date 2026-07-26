@@ -89,7 +89,7 @@ create index if not exists todo_tasks_user_date_idx on public.todo_tasks(user_id
 create table if not exists public.drop_items (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users(id) on delete cascade not null default auth.uid(),
-  kind text not null default 'text' check (kind in ('text', 'image', 'file')),
+  kind text not null default 'text' check (kind in ('text', 'image')),
   content text,
   file_name text,
   file_path text,
@@ -105,6 +105,9 @@ alter table public.drop_items add column if not exists mime_type text;
 alter table public.drop_items add column if not exists expires_at timestamp with time zone;
 alter table public.drop_items alter column user_id set default auth.uid();
 alter table public.drop_items alter column expires_at set default (now() + interval '90 days');
+alter table public.drop_items drop constraint if exists drop_items_kind_check;
+alter table public.drop_items add constraint drop_items_kind_check
+  check (kind in ('text', 'image'));
 
 alter table public.drop_items enable row level security;
 

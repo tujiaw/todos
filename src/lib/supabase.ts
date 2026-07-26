@@ -261,9 +261,11 @@ export interface FetchDropItemsResult {
   hasMore: boolean;
 }
 
-const inferDropItemType = (kind?: string, path?: string): DropItem['type'] => {
-  if (kind === 'image' || path?.startsWith('data:image/')) return 'image';
-  if (kind === 'file' || path) return 'file';
+const inferDropItemType = (kind?: string, path?: string, mimeType?: string): DropItem['type'] => {
+  if (mimeType?.startsWith('image/') || path?.startsWith('data:image/')) return 'image';
+  if (path && mimeType) return 'file';
+  if (kind === 'image') return 'image';
+  if (path) return 'file';
   return 'text';
 };
 
@@ -296,7 +298,7 @@ const mapDbRowToDropItem = (row: any): DropItem => {
     file_name: row.file_name || row.filename || undefined,
     file_size: row.file_size == null ? undefined : Number(row.file_size),
     mime_type: row.mime_type || undefined,
-    type: inferDropItemType(row.kind, path),
+    type: inferDropItemType(row.kind, path, row.mime_type),
     created_at: row.created_at || new Date().toISOString(),
     expires_at: row.expires_at || undefined,
     user_id: row.user_id || undefined,
@@ -323,7 +325,9 @@ export const fetchDropItemsFromSupabase = async (
   const { data, error, count } = await query.range(offset, offset + limit - 1);
   if (error) throw error;
 
-  const items = (data || []).map(mapDbRowToDropItem);
+  // The query pages from newest to oldest so the first page always contains
+  // the latest records. Reverse each page for chat-style oldest-to-newest UI.
+  const items = (data || []).map(mapDbRowToDropItem).reverse();
   return {
     items,
     hasMore: offset + items.length < (count ?? 0),
@@ -357,9 +361,10 @@ export const subscribeToDropItems = (userId: string, onUpdate: () => void) => {
 export const addDropItemToSupabase = async (item: Partial<DropItem>): Promise<DropItem> => {
   const activeUser = await ensureAuthenticatedUser();
   const dataUrlMetadata = getDataUrlMetadata(item.url);
-  const kind = item.url
-    ? (item.url.startsWith('data:image/') ? 'image' : 'file')
-    : 'text';
+  // The deployed constraint accepts "text" and "image". Non-image
+  // attachments are distinguished by mime_type in the UI, while using the
+  // attachment-compatible database kind.
+  const kind = item.url ? 'image' : 'text';
 
   const payload = {
     user_id: activeUser.id,

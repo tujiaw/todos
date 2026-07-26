@@ -91,7 +91,7 @@ export default function App() {
           setDropItems((prev) => {
             const existingIds = new Set(prev.map((i) => i.id));
             const newItems = res.items.filter((i) => !existingIds.has(i.id));
-            return [...prev, ...newItems];
+            return [...newItems, ...prev];
           });
         } else {
           setDropItems(res.items);
@@ -137,7 +137,7 @@ export default function App() {
     try {
       setDropError(null);
       const saved = await addDropItemToSupabase({ content, url, file_name: fileName });
-      setDropItems((prev) => [saved, ...prev.filter((i) => i.id !== saved.id)]);
+      setDropItems((prev) => [...prev.filter((i) => i.id !== saved.id), saved]);
     } catch (err: any) {
       console.error('Failed to add drop item to Supabase:', err);
       setDropError(err?.message || 'Failed to save note to database.');
