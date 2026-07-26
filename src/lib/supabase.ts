@@ -28,7 +28,12 @@ export const ensureAuthenticatedUser = async (): Promise<User> => {
     if (sessionData.session?.user) return sessionData.session.user;
 
     const { data, error } = await supabase.auth.signInAnonymously();
-    if (error) throw error;
+    if (error) {
+      if (error.code === 'anonymous_provider_disabled') {
+        throw new Error('Please sign in with GitHub before using Drop. Anonymous access is disabled.');
+      }
+      throw error;
+    }
     if (!data.user) throw new Error('Authentication succeeded without a user.');
     return data.user;
   })();

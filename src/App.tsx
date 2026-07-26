@@ -635,6 +635,8 @@ export default function App() {
         onRefreshDropItems={() => loadDropItems(dropSearchQuery, 0, false)}
         onDismissError={() => setDropError(null)}
         onConvertToTask={handleConvertToTask}
+        isAuthenticated={Boolean(user)}
+        onSignIn={handleGitHubLoginClick}
       />
 
       {/* Mobile Smartphone Bottom Navigation Toolbar */}

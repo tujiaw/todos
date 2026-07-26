@@ -36,6 +36,8 @@ interface DropModalProps {
   onRefreshDropItems: () => Promise<void>;
   onDismissError: () => void;
   onConvertToTask: (content: string, imageUrl?: string) => void;
+  isAuthenticated: boolean;
+  onSignIn: () => void;
 }
 
 export const DropModal: React.FC<DropModalProps> = ({
@@ -55,6 +57,8 @@ export const DropModal: React.FC<DropModalProps> = ({
   onRefreshDropItems,
   onDismissError,
   onConvertToTask,
+  isAuthenticated,
+  onSignIn,
 }) => {
   const [inputText, setInputText] = useState('');
   const [attachedUrl, setAttachedUrl] = useState('');
@@ -483,6 +487,16 @@ export const DropModal: React.FC<DropModalProps> = ({
 
         {/* Input Composer Footer */}
         <div className="p-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-2">
+          {!isAuthenticated && (
+            <button
+              type="button"
+              onClick={onSignIn}
+              className="w-full px-3 py-2 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 text-xs font-semibold text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors"
+            >
+              Sign in with GitHub to use Drop
+            </button>
+          )}
+
           {/* Attachment Preview Chip */}
           {attachedUrl && (
             <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-xs">
@@ -545,9 +559,9 @@ export const DropModal: React.FC<DropModalProps> = ({
               <button
                 type="button"
                 onClick={handleSend}
-                disabled={isSubmitting || (!inputText.trim() && !attachedUrl)}
+                disabled={!isAuthenticated || isSubmitting || (!inputText.trim() && !attachedUrl)}
                 className="px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white font-medium text-xs rounded-lg transition-all flex items-center gap-1.5 shadow-2xs shrink-0"
-                title="Send drop note"
+                title={isAuthenticated ? 'Send drop note' : 'Sign in before sending'}
               >
                 <span>Send</span>
                 <Send className="w-3 h-3" />
