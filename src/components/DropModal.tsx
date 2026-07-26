@@ -13,11 +13,11 @@ import {
   Search,
   Database,
   FileText,
+  Upload,
   Sparkles,
 } from 'lucide-react';
+import { User } from '@supabase/supabase-js';
 import { DropItem } from '../types';
-
-const MAX_ATTACHMENT_SIZE = 2 * 1024 * 1024;
 
 interface DropModalProps {
   isOpen: boolean;
@@ -26,7 +26,6 @@ interface DropModalProps {
   hasMore: boolean;
   isLoading: boolean;
   isLoadingMore: boolean;
-  error: string | null;
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onLoadMore: () => void;
@@ -34,8 +33,8 @@ interface DropModalProps {
   onDeleteDropItem: (id: string) => Promise<void>;
   onClearAllDropItems: () => Promise<void>;
   onRefreshDropItems: () => Promise<void>;
-  onDismissError: () => void;
   onConvertToTask: (content: string, imageUrl?: string) => void;
+  user: User | null;
 }
 
 export const DropModal: React.FC<DropModalProps> = ({
@@ -45,7 +44,6 @@ export const DropModal: React.FC<DropModalProps> = ({
   hasMore,
   isLoading,
   isLoadingMore,
-  error,
   searchQuery,
   onSearchChange,
   onLoadMore,
@@ -53,8 +51,8 @@ export const DropModal: React.FC<DropModalProps> = ({
   onDeleteDropItem,
   onClearAllDropItems,
   onRefreshDropItems,
-  onDismissError,
   onConvertToTask,
+  user,
 }) => {
   const [inputText, setInputText] = useState('');
   const [attachedUrl, setAttachedUrl] = useState('');
@@ -62,9 +60,6 @@ export const DropModal: React.FC<DropModalProps> = ({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [convertedId, setConvertedId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [isClearing, setIsClearing] = useState(false);
-  const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -103,24 +98,6 @@ export const DropModal: React.FC<DropModalProps> = ({
     }
   };
 
-  const attachFile = (file: File) => {
-    setAttachmentError(null);
-    if (file.size > MAX_ATTACHMENT_SIZE) {
-      setAttachmentError('Attachments must be 2 MB or smaller.');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (typeof event.target?.result === 'string') {
-        setAttachedUrl(event.target.result);
-        setFileName(file.name || 'Pasted Image');
-      }
-    };
-    reader.onerror = () => setAttachmentError('Could not read this attachment.');
-    reader.readAsDataURL(file);
-  };
-
   const handlePaste = (e: React.ClipboardEvent) => {
     const items = e.clipboardData?.items;
     if (!items) return;
@@ -130,9 +107,14 @@ export const DropModal: React.FC<DropModalProps> = ({
       if (item.type.indexOf('image') !== -1) {
         const file = item.getAsFile();
         if (file) {
-          e.preventDefault();
-          attachFile(file);
-          break;
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            if (event.target?.result) {
+              setAttachedUrl(event.target.result as string);
+              setFileName(file.name || 'Pasted Image');
+            }
+          };
+          reader.readAsDataURL(file);
         }
       }
     }
@@ -142,18 +124,20 @@ export const DropModal: React.FC<DropModalProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    attachFile(file);
-    e.target.value = '';
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        setAttachedUrl(event.target.result as string);
+        setFileName(file.name);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
-  const handleCopy = async (id: string, text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedId(id);
-      setTimeout(() => setCopiedId(null), 2000);
-    } catch {
-      setAttachmentError('Clipboard access was denied. Please copy the text manually.');
-    }
+  const handleCopy = (id: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
   };
 
   const handleConvert = (item: DropItem) => {
@@ -162,27 +146,9 @@ export const DropModal: React.FC<DropModalProps> = ({
     setTimeout(() => setConvertedId(null), 2000);
   };
 
-  const handleDelete = async (id: string) => {
-    setDeletingId(id);
-    try {
-      await onDeleteDropItem(id);
-    } catch {
-      // The parent displays the database error without removing the item.
-    } finally {
-      setDeletingId(null);
-    }
-  };
-
-  const handleClearConfirm = async () => {
+  const handleClearConfirm = () => {
     if (window.confirm('Are you sure you want to clear all drop items?')) {
-      setIsClearing(true);
-      try {
-        await onClearAllDropItems();
-      } catch {
-        // The parent displays the database error without clearing the list.
-      } finally {
-        setIsClearing(false);
-      }
+      onClearAllDropItems();
     }
   };
 
@@ -255,26 +221,6 @@ export const DropModal: React.FC<DropModalProps> = ({
           </div>
         </div>
 
-        {(error || attachmentError) && (
-          <div
-            role="alert"
-            className="mx-3 mt-2 px-3 py-2 rounded-lg border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/40 text-[11px] text-rose-700 dark:text-rose-300 flex items-start justify-between gap-2"
-          >
-            <span>{error || attachmentError}</span>
-            <button
-              type="button"
-              onClick={() => {
-                onDismissError();
-                setAttachmentError(null);
-              }}
-              className="shrink-0 p-0.5 rounded hover:bg-rose-100 dark:hover:bg-rose-900"
-              aria-label="Dismiss error"
-            >
-              <X className="w-3 h-3" />
-            </button>
-          </div>
-        )}
-
         {/* Search Bar & Actions Bar */}
         <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800/80 bg-white dark:bg-slate-900 flex items-center justify-between gap-2 text-xs">
           <div className="relative flex-1">
@@ -301,7 +247,6 @@ export const DropModal: React.FC<DropModalProps> = ({
             <button
               type="button"
               onClick={handleClearConfirm}
-              disabled={isClearing}
               className="text-[11px] text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 px-2 py-1 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors flex items-center gap-1 shrink-0"
               title="Clear all records"
             >
@@ -395,8 +340,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                       {/* Delete Item Button */}
                       <button
                         type="button"
-                        onClick={() => handleDelete(item.id)}
-                        disabled={deletingId === item.id}
+                        onClick={() => onDeleteDropItem(item.id)}
                         className="p-1 rounded text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
                         title="Delete drop item"
                       >
@@ -497,7 +441,6 @@ export const DropModal: React.FC<DropModalProps> = ({
                 onClick={() => {
                   setAttachedUrl('');
                   setFileName('');
-                  setAttachmentError(null);
                 }}
                 className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               >

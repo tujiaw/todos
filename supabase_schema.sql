@@ -84,61 +84,32 @@ create policy "Users can delete own tasks" on public.todo_tasks
 -- Create indexes for performance
 create index if not exists todo_tasks_user_date_idx on public.todo_tasks(user_id, date);
 
-
--- 3. Create Edge Drop table
+-- 3. Create drop_items table & policies
 create table if not exists public.drop_items (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users(id) on delete cascade not null default auth.uid(),
-  kind text not null default 'text' check (kind in ('text', 'image', 'file')),
+  user_id uuid references auth.users(id) on delete cascade,
+  kind text default 'text',
   content text,
   file_name text,
   file_path text,
-  file_size bigint,
+  file_size int8,
   mime_type text,
-  created_at timestamp with time zone default now() not null,
-  expires_at timestamp with time zone default (now() + interval '90 days') not null
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  expires_at timestamp with time zone
 );
-
--- Bring an existing drop_items table up to date without deleting its data.
-alter table public.drop_items add column if not exists file_size bigint;
-alter table public.drop_items add column if not exists mime_type text;
-alter table public.drop_items add column if not exists expires_at timestamp with time zone;
-alter table public.drop_items alter column user_id set default auth.uid();
-alter table public.drop_items alter column expires_at set default (now() + interval '90 days');
 
 alter table public.drop_items enable row level security;
 
-drop policy if exists "drop_items_select_own" on public.drop_items;
-drop policy if exists "drop_items_insert_own" on public.drop_items;
-drop policy if exists "drop_items_delete_own" on public.drop_items;
+drop policy if exists "Allow drop_items select" on public.drop_items;
+drop policy if exists "Allow drop_items insert" on public.drop_items;
+drop policy if exists "Allow drop_items delete" on public.drop_items;
 
-create policy "drop_items_select_own" on public.drop_items
-  for select using (auth.uid() = user_id);
+create policy "Allow drop_items select" on public.drop_items
+  for select using (auth.uid() = user_id or user_id is null);
 
-create policy "drop_items_insert_own" on public.drop_items
-  for insert with check (
-    auth.uid() = user_id
-    and expires_at > now()
-    and expires_at <= now() + interval '90 days 5 minutes'
-  );
+create policy "Allow drop_items insert" on public.drop_items
+  for insert with check (auth.uid() = user_id or user_id is null or auth.role() = 'anon' or auth.role() = 'authenticated');
 
-create policy "drop_items_delete_own" on public.drop_items
-  for delete using (auth.uid() = user_id);
+create policy "Allow drop_items delete" on public.drop_items
+  for delete using (auth.uid() = user_id or user_id is null);
 
-create index if not exists drop_items_user_created_idx
-  on public.drop_items(user_id, created_at desc);
-
--- Realtime must include this table for cross-device updates.
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_publication_tables
-    where pubname = 'supabase_realtime'
-      and schemaname = 'public'
-      and tablename = 'drop_items'
-  ) then
-    alter publication supabase_realtime add table public.drop_items;
-  end if;
-end
-$$;

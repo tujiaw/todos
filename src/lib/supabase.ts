@@ -14,32 +14,6 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   },
 });
 
-let authenticationInFlight: Promise<User> | null = null;
-
-// All RLS-protected operations must use the user carried by the current
-// Supabase session. Do not trust a React state snapshot here: it can briefly
-// point at the previous user while OAuth/anonymous auth is changing sessions.
-export const ensureAuthenticatedUser = async (): Promise<User> => {
-  if (authenticationInFlight) return authenticationInFlight;
-
-  authenticationInFlight = (async () => {
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError) throw sessionError;
-    if (sessionData.session?.user) return sessionData.session.user;
-
-    const { data, error } = await supabase.auth.signInAnonymously();
-    if (error) throw error;
-    if (!data.user) throw new Error('Authentication succeeded without a user.');
-    return data.user;
-  })();
-
-  try {
-    return await authenticationInFlight;
-  } finally {
-    authenticationInFlight = null;
-  }
-};
-
 // Check if running in popup window after OAuth redirect
 if (
   typeof window !== 'undefined' &&
@@ -241,6 +215,9 @@ export const upsertCategoryToSupabase = async (category: Category, user: User) =
   }
 };
 
+// ==========================================
+// Edge Drop Items Supabase Integration
+// ==========================================
 // Edge Drop Items Supabase Integration
 // ==========================================
 
@@ -256,87 +233,59 @@ export interface FetchDropItemsResult {
   hasMore: boolean;
 }
 
-const inferDropItemType = (kind?: string, path?: string): DropItem['type'] => {
-  if (kind === 'image' || path?.startsWith('data:image/')) return 'image';
-  if (kind === 'file' || path) return 'file';
-  return 'text';
-};
-
-const getDataUrlMetadata = (dataUrl?: string) => {
-  if (!dataUrl?.startsWith('data:')) {
-    return { mimeType: undefined, fileSize: undefined };
-  }
-
-  const commaIndex = dataUrl.indexOf(',');
-  if (commaIndex === -1) {
-    return { mimeType: undefined, fileSize: undefined };
-  }
-
-  const header = dataUrl.slice(5, commaIndex);
-  const mimeType = header.split(';')[0] || undefined;
-  const encoded = dataUrl.slice(commaIndex + 1);
-  const fileSize = header.includes(';base64')
-    ? Math.max(0, Math.floor((encoded.length * 3) / 4) - (encoded.endsWith('==') ? 2 : encoded.endsWith('=') ? 1 : 0))
-    : new Blob([decodeURIComponent(encoded)]).size;
-
-  return { mimeType, fileSize };
-};
-
-const mapDbRowToDropItem = (row: any): DropItem => {
-  const path = row.file_path || row.url || row.file_url || row.image_url || undefined;
-  return {
-    id: String(row.id),
-    content: row.content || row.text || row.message || row.title || '',
-    url: path,
-    file_name: row.file_name || row.filename || undefined,
-    file_size: row.file_size == null ? undefined : Number(row.file_size),
-    mime_type: row.mime_type || undefined,
-    type: inferDropItemType(row.kind, path),
-    created_at: row.created_at || new Date().toISOString(),
-    expires_at: row.expires_at || undefined,
-    user_id: row.user_id || undefined,
-  };
-};
-
 export const fetchDropItemsFromSupabase = async (
   options: FetchDropItemsOptions = {}
-): Promise<FetchDropItemsResult> => {
+): Promise<FetchDropItemsResult | null> => {
   const limit = options.limit ?? 50;
   const offset = options.offset ?? 0;
-  const activeUser = await ensureAuthenticatedUser();
 
-  let query = supabase
-    .from('drop_items')
-    .select('*', { count: 'exact' })
-    .eq('user_id', activeUser.id)
-    .order('created_at', { ascending: false });
+  try {
+    let query = supabase
+      .from('drop_items')
+      .select('*', { count: 'exact' })
+      .order('created_at', { ascending: false });
 
-  if (options.searchQuery?.trim()) {
-    query = query.ilike('content', `%${options.searchQuery.trim()}%`);
+    if (options.searchQuery && options.searchQuery.trim() !== '') {
+      const q = options.searchQuery.trim();
+      query = query.ilike('content', `%${q}%`);
+    }
+
+    query = query.range(offset, offset + limit - 1);
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      console.warn('Warning fetching drop_items from Supabase:', error.message || error);
+      return null;
+    }
+
+    const items: DropItem[] = (data || []).map((row: any) => ({
+      id: String(row.id),
+      content: row.content || row.text || row.message || row.title || '',
+      url: row.file_path || row.url || row.file_url || row.image_url || undefined,
+      file_name: row.file_name || row.filename || undefined,
+      type: (row.kind === 'image' || row.file_path || row.url) ? 'image' : 'text',
+      created_at: row.created_at || new Date().toISOString(),
+      user_id: row.user_id || undefined,
+    }));
+
+    const totalCount = count ?? 0;
+    const hasMore = offset + items.length < totalCount;
+
+    return { items, hasMore };
+  } catch (err) {
+    console.warn('Failed to fetch drop items from Supabase:', err);
+    return null;
   }
-
-  const { data, error, count } = await query.range(offset, offset + limit - 1);
-  if (error) throw error;
-
-  const items = (data || []).map(mapDbRowToDropItem);
-  return {
-    items,
-    hasMore: offset + items.length < (count ?? 0),
-  };
 };
 
 // Subscribe to real-time changes on drop_items table for instant cross-device updates
-export const subscribeToDropItems = (userId: string, onUpdate: () => void) => {
+export const subscribeToDropItems = (onUpdate: () => void) => {
   const channel = supabase
-    .channel(`drop_items_changes_${userId}`)
+    .channel('public_drop_items_changes')
     .on(
       'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'drop_items',
-        filter: `user_id=eq.${userId}`,
-      },
+      { event: '*', schema: 'public', table: 'drop_items' },
       () => {
         onUpdate();
       }
@@ -349,59 +298,91 @@ export const subscribeToDropItems = (userId: string, onUpdate: () => void) => {
 };
 
 // Add / Insert a new Drop item to Supabase drop_items table
-export const addDropItemToSupabase = async (item: Partial<DropItem>): Promise<DropItem> => {
-  const activeUser = await ensureAuthenticatedUser();
-  const dataUrlMetadata = getDataUrlMetadata(item.url);
-  const kind = item.url
-    ? (item.url.startsWith('data:image/') ? 'image' : 'file')
-    : 'text';
+export const addDropItemToSupabase = async (item: Partial<DropItem>, user?: User | null): Promise<DropItem> => {
+  let activeUserId = user?.id;
 
-  const payload = {
-    user_id: activeUser.id,
+  if (!activeUserId) {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      activeUserId = userData?.user?.id;
+
+      if (!activeUserId) {
+        const { data: anonData } = await supabase.auth.signInAnonymously();
+        activeUserId = anonData?.user?.id;
+      }
+    } catch (e) {
+      console.warn('Could not retrieve or create auth session for drop_items:', e);
+    }
+  }
+
+  const kind = item.url ? 'image' : 'text';
+
+  const payload: Record<string, any> = {
     kind,
     content: item.content || '',
-    file_path: item.url || null,
-    file_name: item.file_name || null,
-    file_size: item.file_size ?? dataUrlMetadata.fileSize ?? null,
-    mime_type: item.mime_type ?? dataUrlMetadata.mimeType ?? null,
-    // Use 89 days rather than exactly 90 so modest client/server clock skew
-    // cannot push the row beyond the policy's 90-day upper bound.
-    expires_at: new Date(Date.now() + 89 * 24 * 60 * 60 * 1000).toISOString(),
   };
 
-  const { data, error } = await supabase
-    .from('drop_items')
-    .insert(payload)
-    .select()
-    .single();
+  if (activeUserId) {
+    payload.user_id = activeUserId;
+  }
+
+  if (item.url) {
+    payload.file_path = item.url;
+  }
+
+  if (item.file_name) {
+    payload.file_name = item.file_name;
+  }
+
+  const { data, error } = await supabase.from('drop_items').insert(payload).select();
 
   if (error) {
     console.error('Insert to drop_items failed:', error.message || error);
-    throw error;
+    throw new Error(error.message || 'Failed to save drop item to Supabase database');
   }
 
-  return mapDbRowToDropItem(data);
+  if (data && data.length > 0) {
+    const row = data[0];
+    return {
+      id: String(row.id),
+      content: row.content || item.content || '',
+      url: row.file_path || row.url || item.url,
+      file_name: row.file_name || item.file_name,
+      type: (row.kind === 'image' || row.file_path || item.url) ? 'image' : 'text',
+      created_at: row.created_at || new Date().toISOString(),
+      user_id: row.user_id || activeUserId,
+    };
+  }
+
+  throw new Error('Database insert succeeded but returned no row data.');
 };
 
 // Delete a Drop item from Supabase drop_items table
 export const deleteDropItemFromSupabase = async (id: string) => {
-  const activeUser = await ensureAuthenticatedUser();
-  const { data, error } = await supabase
-    .from('drop_items')
-    .delete()
-    .eq('id', id)
-    .eq('user_id', activeUser.id)
-    .select('id');
-  if (error) throw error;
-  if (!data?.length) throw new Error('Drop item was not found or you no longer have permission to delete it.');
+  try {
+    const { error } = await supabase.from('drop_items').delete().eq('id', id);
+    if (error) {
+      console.warn('Could not delete drop_item from Supabase:', error.message || error);
+    }
+  } catch (err) {
+    console.warn('Exception deleting drop_item from Supabase:', err);
+  }
 };
 
 // Clear all Drop items from Supabase
-export const clearAllDropItemsFromSupabase = async () => {
-  const activeUser = await ensureAuthenticatedUser();
-  const { error } = await supabase
-    .from('drop_items')
-    .delete()
-    .eq('user_id', activeUser.id);
-  if (error) throw error;
+export const clearAllDropItemsFromSupabase = async (userId?: string) => {
+  try {
+    let query = supabase.from('drop_items').delete();
+    if (userId) {
+      query = query.eq('user_id', userId);
+    } else {
+      query = query.neq('id', '0');
+    }
+    const { error } = await query;
+    if (error) {
+      console.warn('Could not clear drop_items from Supabase:', error.message || error);
+    }
+  } catch (err) {
+    console.warn('Exception clearing drop_items from Supabase:', err);
+  }
 };

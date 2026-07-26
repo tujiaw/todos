@@ -25,7 +25,6 @@ import { DropModal } from './components/DropModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import {
   supabase,
-  ensureAuthenticatedUser,
   loginWithGitHub,
   logoutSupabase,
   fetchTasksFromSupabase,
@@ -68,7 +67,6 @@ export default function App() {
   const [isLoadingDropItems, setIsLoadingDropItems] = useState<boolean>(false);
   const [isLoadingMoreDropItems, setIsLoadingMoreDropItems] = useState<boolean>(false);
   const [dropSearchQuery, setDropSearchQuery] = useState<string>('');
-  const [dropError, setDropError] = useState<string | null>(null);
 
   const loadDropItems = useCallback(
     async (query: string = '', offset: number = 0, isLoadMore: boolean = false) => {
@@ -79,26 +77,26 @@ export default function App() {
       }
 
       try {
-        setDropError(null);
         const res = await fetchDropItemsFromSupabase({
           limit: 50,
           offset,
           searchQuery: query,
         });
 
-        setHasMoreDropItems(res.hasMore);
-        if (isLoadMore) {
-          setDropItems((prev) => {
-            const existingIds = new Set(prev.map((i) => i.id));
-            const newItems = res.items.filter((i) => !existingIds.has(i.id));
-            return [...prev, ...newItems];
-          });
-        } else {
-          setDropItems(res.items);
+        if (res !== null) {
+          setHasMoreDropItems(res.hasMore);
+          if (isLoadMore) {
+            setDropItems((prev) => {
+              const existingIds = new Set(prev.map((i) => i.id));
+              const newItems = res.items.filter((i) => !existingIds.has(i.id));
+              return [...prev, ...newItems];
+            });
+          } else {
+            setDropItems(res.items);
+          }
         }
       } catch (err) {
         console.warn('Could not fetch drop_items from Supabase:', err);
-        setDropError(err instanceof Error ? err.message : 'Failed to load Drop items.');
       } finally {
         setIsLoadingDropItems(false);
         setIsLoadingMoreDropItems(false);
@@ -109,15 +107,13 @@ export default function App() {
 
   // Realtime subscription to Supabase drop_items changes across devices/tabs
   useEffect(() => {
-    if (!user) return;
-
-    const unsubscribe = subscribeToDropItems(user.id, () => {
+    const unsubscribe = subscribeToDropItems(() => {
       loadDropItems(dropSearchQuery, 0, false);
     });
     return () => {
       unsubscribe();
     };
-  }, [loadDropItems, dropSearchQuery, user]);
+  }, [loadDropItems, dropSearchQuery]);
 
   // Initial load and debounced search
   useEffect(() => {
@@ -135,38 +131,33 @@ export default function App() {
 
   const handleAddDropItem = async (content: string, url?: string, fileName?: string) => {
     try {
-      setDropError(null);
-      const saved = await addDropItemToSupabase({ content, url, file_name: fileName });
+      const saved = await addDropItemToSupabase(
+        { content, url, file_name: fileName },
+        user
+      );
       setDropItems((prev) => [saved, ...prev.filter((i) => i.id !== saved.id)]);
     } catch (err: any) {
       console.error('Failed to add drop item to Supabase:', err);
-      setDropError(err?.message || 'Failed to save note to database.');
+      alert(`Failed to save note to database: ${err?.message || 'Database error'}`);
       throw err;
     }
   };
 
   const handleDeleteDropItem = async (id: string) => {
+    setDropItems((prev) => prev.filter((i) => i.id !== id));
     try {
-      setDropError(null);
       await deleteDropItemFromSupabase(id);
-      setDropItems((prev) => prev.filter((i) => i.id !== id));
     } catch (err) {
       console.error('Failed to delete drop item from Supabase:', err);
-      setDropError(err instanceof Error ? err.message : 'Failed to delete Drop item.');
-      throw err;
     }
   };
 
   const handleClearAllDropItems = async () => {
+    setDropItems([]);
     try {
-      setDropError(null);
-      await clearAllDropItemsFromSupabase();
-      setDropItems([]);
-      setHasMoreDropItems(false);
+      await clearAllDropItemsFromSupabase(user?.id);
     } catch (err) {
       console.error('Failed to clear drop items from Supabase:', err);
-      setDropError(err instanceof Error ? err.message : 'Failed to clear Drop items.');
-      throw err;
     }
   };
 
@@ -265,12 +256,21 @@ export default function App() {
 
   // Initialize Supabase Auth Session
   useEffect(() => {
-    ensureAuthenticatedUser().then((u) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const u = session?.user || null;
       setUser(u);
-      handleSyncWithSupabase(u);
-    }).catch((err) => {
-      console.warn('Supabase authentication failed:', err);
-      setDropError(err instanceof Error ? err.message : 'Could not authenticate with Supabase.');
+      if (u) {
+        handleSyncWithSupabase(u);
+      } else {
+        // Sign in anonymously to satisfy Supabase RLS auth.uid() policies
+        supabase.auth.signInAnonymously().then(({ data }) => {
+          if (data?.user) {
+            setUser(data.user);
+          }
+        }).catch((err) => {
+          console.warn('Anonymous sign-in failed:', err);
+        });
+      }
     });
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
@@ -625,7 +625,6 @@ export default function App() {
         hasMore={hasMoreDropItems}
         isLoading={isLoadingDropItems}
         isLoadingMore={isLoadingMoreDropItems}
-        error={dropError}
         searchQuery={dropSearchQuery}
         onSearchChange={setDropSearchQuery}
         onLoadMore={handleLoadMoreDropItems}
@@ -633,8 +632,8 @@ export default function App() {
         onDeleteDropItem={handleDeleteDropItem}
         onClearAllDropItems={handleClearAllDropItems}
         onRefreshDropItems={() => loadDropItems(dropSearchQuery, 0, false)}
-        onDismissError={() => setDropError(null)}
         onConvertToTask={handleConvertToTask}
+        user={user}
       />
 
       {/* Mobile Smartphone Bottom Navigation Toolbar */}
