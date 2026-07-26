@@ -45,21 +45,26 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     switch (p) {
       case 'high':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/50 text-[11px] font-semibold">
-            <Flag className="w-3 h-3 text-rose-500 fill-rose-500" />
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/50 text-[10px] font-semibold">
+            <Flag className="w-2.5 h-2.5 text-rose-500 fill-rose-500" />
             High
           </span>
         );
       case 'medium':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50 text-[11px] font-medium">
-            <Flag className="w-3 h-3 text-amber-500" />
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50 text-[10px] font-medium">
+            <Flag className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />
             Medium
           </span>
         );
       case 'low':
       default:
-        return null;
+        return (
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 text-[10px] font-medium">
+            <Flag className="w-2.5 h-2.5 text-slate-400" />
+            Low
+          </span>
+        );
     }
   };
 
@@ -99,10 +104,10 @@ export const TaskItem: React.FC<TaskItemProps> = ({
             )}
           </button>
 
-          {/* Task Main Details */}
-          <div className="flex-1 min-w-0">
+          {/* Task Main Details (2-Line Layout) */}
+          <div className="flex-1 min-w-0 space-y-1">
+            {/* Line 1: Title & Pin Badge */}
             <div className="flex items-center gap-2 flex-wrap">
-              {/* Title */}
               <h4
                 className={`text-sm font-semibold leading-snug transition-all ${
                   task.completed ? 'text-slate-400 dark:text-slate-500 line-through' : 'text-slate-800 dark:text-slate-100'
@@ -118,13 +123,16 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                   Pinned
                 </span>
               )}
+            </div>
 
+            {/* Line 2: Category, Priority, and Time Badges */}
+            <div className="flex items-center gap-2 flex-wrap text-[10px]">
               {/* Category Badge */}
               {category && (
                 <span
-                  className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded border text-[10px] font-semibold ${category.bgClass} ${category.textClass} ${category.borderClass}`}
+                  className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded border font-semibold ${category.bgClass} ${category.textClass} ${category.borderClass}`}
                 >
-                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: category.color }} />
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: category.color }} />
                   {category.name}
                 </span>
               )}
@@ -132,18 +140,13 @@ export const TaskItem: React.FC<TaskItemProps> = ({
               {/* Priority Badge */}
               {getPriorityBadge(task.priority)}
 
-              {/* Due Time Indicator */}
-              {task.dueTime && (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-[10px] font-medium">
-                  <Clock className="w-3 h-3 text-slate-400 dark:text-slate-500" />
-                  {task.dueTime}
-                </span>
-              )}
-
-              {/* Estimated Duration */}
-              {task.estimatedMinutes && (
-                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-normal">
-                  ~{task.estimatedMinutes} mins
+              {/* Time Indicator (Due Time / Estimated Duration) */}
+              {(task.dueTime || task.estimatedMinutes) && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 font-medium">
+                  <Clock className="w-2.5 h-2.5 text-slate-400 dark:text-slate-500 shrink-0" />
+                  {task.dueTime && <span>{task.dueTime}</span>}
+                  {task.dueTime && task.estimatedMinutes && <span>•</span>}
+                  {task.estimatedMinutes && <span>{task.estimatedMinutes} mins</span>}
                 </span>
               )}
             </div>

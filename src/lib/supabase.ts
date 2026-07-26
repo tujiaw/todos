@@ -1,5 +1,5 @@
 import { createClient, User, Session } from '@supabase/supabase-js';
-import { Category, Task } from '../types';
+import { Category, Task, DropItem } from '../types';
 
 const metaEnv = (import.meta as any).env || {};
 const SUPABASE_URL = metaEnv.VITE_SUPABASE_URL || 'https://cywbnbvverbdjbbpvsid.supabase.co';
@@ -212,5 +212,177 @@ export const upsertCategoryToSupabase = async (category: Category, user: User) =
   if (error) {
     console.error('Error saving category to Supabase:', error);
     throw error;
+  }
+};
+
+// ==========================================
+// Edge Drop Items Supabase Integration
+// ==========================================
+// Edge Drop Items Supabase Integration
+// ==========================================
+
+// Fetch Drop items with pagination (50 items max) and server-side search
+export interface FetchDropItemsOptions {
+  limit?: number;
+  offset?: number;
+  searchQuery?: string;
+}
+
+export interface FetchDropItemsResult {
+  items: DropItem[];
+  hasMore: boolean;
+}
+
+export const fetchDropItemsFromSupabase = async (
+  options: FetchDropItemsOptions = {}
+): Promise<FetchDropItemsResult | null> => {
+  const limit = options.limit ?? 50;
+  const offset = options.offset ?? 0;
+
+  try {
+    let query = supabase
+      .from('drop_items')
+      .select('*', { count: 'exact' })
+      .order('created_at', { ascending: false });
+
+    if (options.searchQuery && options.searchQuery.trim() !== '') {
+      const q = options.searchQuery.trim();
+      query = query.ilike('content', `%${q}%`);
+    }
+
+    query = query.range(offset, offset + limit - 1);
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      console.warn('Warning fetching drop_items from Supabase:', error.message || error);
+      return null;
+    }
+
+    const items: DropItem[] = (data || []).map((row: any) => ({
+      id: String(row.id),
+      content: row.content || row.text || row.message || row.title || '',
+      url: row.file_path || row.url || row.file_url || row.image_url || undefined,
+      file_name: row.file_name || row.filename || undefined,
+      type: (row.kind === 'image' || row.file_path || row.url) ? 'image' : 'text',
+      created_at: row.created_at || new Date().toISOString(),
+      user_id: row.user_id || undefined,
+    }));
+
+    const totalCount = count ?? 0;
+    const hasMore = offset + items.length < totalCount;
+
+    return { items, hasMore };
+  } catch (err) {
+    console.warn('Failed to fetch drop items from Supabase:', err);
+    return null;
+  }
+};
+
+// Subscribe to real-time changes on drop_items table for instant cross-device updates
+export const subscribeToDropItems = (onUpdate: () => void) => {
+  const channel = supabase
+    .channel('public_drop_items_changes')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'drop_items' },
+      () => {
+        onUpdate();
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+};
+
+// Add / Insert a new Drop item to Supabase drop_items table
+export const addDropItemToSupabase = async (item: Partial<DropItem>, user?: User | null): Promise<DropItem> => {
+  let activeUserId = user?.id;
+
+  if (!activeUserId) {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      activeUserId = userData?.user?.id;
+
+      if (!activeUserId) {
+        const { data: anonData } = await supabase.auth.signInAnonymously();
+        activeUserId = anonData?.user?.id;
+      }
+    } catch (e) {
+      console.warn('Could not retrieve or create auth session for drop_items:', e);
+    }
+  }
+
+  const kind = item.url ? 'image' : 'text';
+
+  const payload: Record<string, any> = {
+    kind,
+    content: item.content || '',
+  };
+
+  if (activeUserId) {
+    payload.user_id = activeUserId;
+  }
+
+  if (item.url) {
+    payload.file_path = item.url;
+  }
+
+  if (item.file_name) {
+    payload.file_name = item.file_name;
+  }
+
+  const { data, error } = await supabase.from('drop_items').insert(payload).select();
+
+  if (error) {
+    console.error('Insert to drop_items failed:', error.message || error);
+    throw new Error(error.message || 'Failed to save drop item to Supabase database');
+  }
+
+  if (data && data.length > 0) {
+    const row = data[0];
+    return {
+      id: String(row.id),
+      content: row.content || item.content || '',
+      url: row.file_path || row.url || item.url,
+      file_name: row.file_name || item.file_name,
+      type: (row.kind === 'image' || row.file_path || item.url) ? 'image' : 'text',
+      created_at: row.created_at || new Date().toISOString(),
+      user_id: row.user_id || activeUserId,
+    };
+  }
+
+  throw new Error('Database insert succeeded but returned no row data.');
+};
+
+// Delete a Drop item from Supabase drop_items table
+export const deleteDropItemFromSupabase = async (id: string) => {
+  try {
+    const { error } = await supabase.from('drop_items').delete().eq('id', id);
+    if (error) {
+      console.warn('Could not delete drop_item from Supabase:', error.message || error);
+    }
+  } catch (err) {
+    console.warn('Exception deleting drop_item from Supabase:', err);
+  }
+};
+
+// Clear all Drop items from Supabase
+export const clearAllDropItemsFromSupabase = async (userId?: string) => {
+  try {
+    let query = supabase.from('drop_items').delete();
+    if (userId) {
+      query = query.eq('user_id', userId);
+    } else {
+      query = query.neq('id', '0');
+    }
+    const { error } = await query;
+    if (error) {
+      console.warn('Could not clear drop_items from Supabase:', error.message || error);
+    }
+  } catch (err) {
+    console.warn('Exception clearing drop_items from Supabase:', err);
   }
 };

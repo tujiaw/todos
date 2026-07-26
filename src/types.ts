@@ -44,3 +44,13 @@ export interface DailyStats {
   completed: number;
   completionRate: number;
 }
+
+export interface DropItem {
+  id: string;
+  content: string;
+  url?: string;
+  file_name?: string;
+  type?: 'text' | 'link' | 'image' | 'file';
+  created_at: string | number;
+  user_id?: string;
+}

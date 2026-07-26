@@ -19,6 +19,7 @@ import {
   Download,
   Smartphone,
   WifiOff,
+  Send,
 } from 'lucide-react';
 import { User } from '@supabase/supabase-js';
 import { getTodayDateString } from '../data/initialData';
@@ -30,6 +31,7 @@ interface HeaderProps {
   completedStreak: number;
   onOpenSyncModal: () => void;
   onOpenCategoryModal: () => void;
+  onOpenDropModal: () => void;
   themeMode: ThemeMode;
   onToggleTheme: () => void;
   user: User | null;
@@ -47,6 +49,7 @@ export const Header: React.FC<HeaderProps> = ({
   completedStreak,
   onOpenSyncModal,
   onOpenCategoryModal,
+  onOpenDropModal,
   themeMode,
   onToggleTheme,
   user,
@@ -239,6 +242,16 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             )}
 
+            {/* Edge Drop Quick Access Button */}
+            <button
+              id="btn-drop-toggle"
+              onClick={onOpenDropModal}
+              className="p-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors min-h-[34px] min-w-[34px] flex items-center justify-center relative"
+              title="Edge Drop (Notes & Files)"
+            >
+              <Send className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            </button>
+
             {/* Dark/Light Mode Toggle Button */}
             <button
               id="btn-theme-toggle"
@@ -269,12 +282,12 @@ export const Header: React.FC<HeaderProps> = ({
                   <button
                     onClick={() => {
                       setShowMoreMenu(false);
-                      openNativeOrCustomPicker();
+                      onOpenDropModal();
                     }}
                     className="w-full text-left px-3 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
                   >
-                    <CalendarDays className="w-3.5 h-3.5 text-blue-500" />
-                    <span>Select Date</span>
+                    <Send className="w-3.5 h-3.5 text-blue-500" />
+                    <span>Drop (Notes & Files)</span>
                   </button>
 
                   <button

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { User } from '@supabase/supabase-js';
-import { Category, Task, ThemeMode } from './types';
+import { Category, Task, ThemeMode, DropItem } from './types';
 import {
   loadTasks,
   getRawStoredTasks,
@@ -21,6 +21,7 @@ import { TaskList } from './components/TaskList';
 import { TaskEditModal } from './components/TaskEditModal';
 import { SyncModal } from './components/SyncModal';
 import { CategorySettingsModal } from './components/CategorySettingsModal';
+import { DropModal } from './components/DropModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import {
   supabase,
@@ -32,6 +33,11 @@ import {
   deleteTaskFromSupabase,
   upsertCategoryToSupabase,
   syncAllTasksToSupabase,
+  fetchDropItemsFromSupabase,
+  subscribeToDropItems,
+  addDropItemToSupabase,
+  deleteDropItemFromSupabase,
+  clearAllDropItemsFromSupabase,
 } from './lib/supabase';
 
 export default function App() {
@@ -53,6 +59,121 @@ export default function App() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState<boolean>(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState<boolean>(false);
+  const [isDropModalOpen, setIsDropModalOpen] = useState<boolean>(false);
+
+  // Drop Items State
+  const [dropItems, setDropItems] = useState<DropItem[]>([]);
+  const [hasMoreDropItems, setHasMoreDropItems] = useState<boolean>(false);
+  const [isLoadingDropItems, setIsLoadingDropItems] = useState<boolean>(false);
+  const [isLoadingMoreDropItems, setIsLoadingMoreDropItems] = useState<boolean>(false);
+  const [dropSearchQuery, setDropSearchQuery] = useState<string>('');
+
+  const loadDropItems = useCallback(
+    async (query: string = '', offset: number = 0, isLoadMore: boolean = false) => {
+      if (isLoadMore) {
+        setIsLoadingMoreDropItems(true);
+      } else {
+        setIsLoadingDropItems(true);
+      }
+
+      try {
+        const res = await fetchDropItemsFromSupabase({
+          limit: 50,
+          offset,
+          searchQuery: query,
+        });
+
+        if (res !== null) {
+          setHasMoreDropItems(res.hasMore);
+          if (isLoadMore) {
+            setDropItems((prev) => {
+              const existingIds = new Set(prev.map((i) => i.id));
+              const newItems = res.items.filter((i) => !existingIds.has(i.id));
+              return [...prev, ...newItems];
+            });
+          } else {
+            setDropItems(res.items);
+          }
+        }
+      } catch (err) {
+        console.warn('Could not fetch drop_items from Supabase:', err);
+      } finally {
+        setIsLoadingDropItems(false);
+        setIsLoadingMoreDropItems(false);
+      }
+    },
+    []
+  );
+
+  // Realtime subscription to Supabase drop_items changes across devices/tabs
+  useEffect(() => {
+    const unsubscribe = subscribeToDropItems(() => {
+      loadDropItems(dropSearchQuery, 0, false);
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, [loadDropItems, dropSearchQuery]);
+
+  // Initial load and debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadDropItems(dropSearchQuery, 0, false);
+    }, dropSearchQuery ? 300 : 0);
+    return () => clearTimeout(timer);
+  }, [dropSearchQuery, loadDropItems]);
+
+  const handleLoadMoreDropItems = () => {
+    if (hasMoreDropItems && !isLoadingMoreDropItems && !isLoadingDropItems) {
+      loadDropItems(dropSearchQuery, dropItems.length, true);
+    }
+  };
+
+  const handleAddDropItem = async (content: string, url?: string, fileName?: string) => {
+    try {
+      const saved = await addDropItemToSupabase(
+        { content, url, file_name: fileName },
+        user
+      );
+      setDropItems((prev) => [saved, ...prev.filter((i) => i.id !== saved.id)]);
+    } catch (err: any) {
+      console.error('Failed to add drop item to Supabase:', err);
+      alert(`Failed to save note to database: ${err?.message || 'Database error'}`);
+      throw err;
+    }
+  };
+
+  const handleDeleteDropItem = async (id: string) => {
+    setDropItems((prev) => prev.filter((i) => i.id !== id));
+    try {
+      await deleteDropItemFromSupabase(id);
+    } catch (err) {
+      console.error('Failed to delete drop item from Supabase:', err);
+    }
+  };
+
+  const handleClearAllDropItems = async () => {
+    setDropItems([]);
+    try {
+      await clearAllDropItemsFromSupabase(user?.id);
+    } catch (err) {
+      console.error('Failed to clear drop items from Supabase:', err);
+    }
+  };
+
+  const handleConvertToTask = (content: string, imageUrl?: string) => {
+    const defaultCatId = categories.find((c) => c.isDefault)?.id || categories[0]?.id || 'cat-personal';
+    handleAddTask({
+      title: content || 'Dropped Note Task',
+      date: selectedDate,
+      completed: false,
+      categoryId: defaultCatId,
+      priority: 'medium',
+      imageUrl: imageUrl,
+      subtasks: [],
+      pinned: false,
+    });
+  };
 
   // Apply dark mode class to html element
   useEffect(() => {
@@ -140,6 +261,15 @@ export default function App() {
       setUser(u);
       if (u) {
         handleSyncWithSupabase(u);
+      } else {
+        // Sign in anonymously to satisfy Supabase RLS auth.uid() policies
+        supabase.auth.signInAnonymously().then(({ data }) => {
+          if (data?.user) {
+            setUser(data.user);
+          }
+        }).catch((err) => {
+          console.warn('Anonymous sign-in failed:', err);
+        });
       }
     });
 
@@ -401,6 +531,7 @@ export default function App() {
         onToggleTheme={handleToggleTheme}
         onOpenSyncModal={() => setIsSyncModalOpen(true)}
         onOpenCategoryModal={() => setIsCategoryModalOpen(true)}
+        onOpenDropModal={() => setIsDropModalOpen(true)}
         user={user}
         onGitHubLogin={handleGitHubLoginClick}
         onLogout={handleLogoutClick}
@@ -484,6 +615,25 @@ export default function App() {
         onClose={() => setIsCategoryModalOpen(false)}
         categories={categories}
         onAddCategory={handleAddCategory}
+      />
+
+      {/* Edge Drop Notepad & File Transfer Modal */}
+      <DropModal
+        isOpen={isDropModalOpen}
+        onClose={() => setIsDropModalOpen(false)}
+        dropItems={dropItems}
+        hasMore={hasMoreDropItems}
+        isLoading={isLoadingDropItems}
+        isLoadingMore={isLoadingMoreDropItems}
+        searchQuery={dropSearchQuery}
+        onSearchChange={setDropSearchQuery}
+        onLoadMore={handleLoadMoreDropItems}
+        onAddDropItem={handleAddDropItem}
+        onDeleteDropItem={handleDeleteDropItem}
+        onClearAllDropItems={handleClearAllDropItems}
+        onRefreshDropItems={() => loadDropItems(dropSearchQuery, 0, false)}
+        onConvertToTask={handleConvertToTask}
+        user={user}
       />
 
       {/* Mobile Smartphone Bottom Navigation Toolbar */}
