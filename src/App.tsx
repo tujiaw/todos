@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { User } from '@supabase/supabase-js';
 import { Category, Task, ThemeMode, DropItem } from './types';
 import {
   loadTasks,
-  getRawStoredTasks,
   saveTasks,
   loadCategories,
   saveCategories,
@@ -14,7 +13,7 @@ import {
 import { getTodayDateString } from './data/initialData';
 import { Header } from './components/Header';
 import { usePWA } from './hooks/usePWA';
-import { Download, X } from 'lucide-react';
+import { Download, Github, LoaderCircle, LockKeyhole, X } from 'lucide-react';
 import { ProgressBar } from './components/ProgressBar';
 import { TaskInput } from './components/TaskInput';
 import { TaskList } from './components/TaskList';
@@ -25,7 +24,6 @@ import { DropModal } from './components/DropModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import {
   supabase,
-  ensureAuthenticatedUser,
   loginWithGitHub,
   logoutSupabase,
   fetchTasksFromSupabase,
@@ -33,7 +31,6 @@ import {
   upsertTaskToSupabase,
   deleteTaskFromSupabase,
   upsertCategoryToSupabase,
-  syncAllTasksToSupabase,
   fetchDropItemsFromSupabase,
   subscribeToDropItems,
   addDropItemToSupabase,
@@ -54,6 +51,9 @@ export default function App() {
 
   // Supabase User & Sync state
   const [user, setUser] = useState<User | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const syncedUserIdRef = useRef<string | null>(null);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
   // Modals state
@@ -187,7 +187,13 @@ export default function App() {
   };
 
   const handleConvertToTask = (content: string, imageUrl?: string) => {
-    const defaultCatId = categories.find((c) => c.isDefault)?.id || categories[0]?.id || 'cat-personal';
+    const defaultCatId = categories.find((c) => c.isDefault)?.id || categories[0]?.id;
+    if (!defaultCatId) {
+      setDropError('Create a task category before converting a Drop item.');
+      setIsCategoryModalOpen(true);
+      return;
+    }
+
     handleAddTask({
       title: content || 'Dropped Note Task',
       date: selectedDate,
@@ -225,53 +231,19 @@ export default function App() {
   }, []);
 
   // Fetch / Sync with Supabase
-  const handleSyncWithSupabase = useCallback(async (currentUser: User) => {
+  const handleSyncWithSupabase = useCallback(async () => {
     setIsSyncing(true);
     try {
       // Fetch remote tasks & categories from Supabase database
       const [remoteTasks, remoteCats] = await Promise.all([
-        fetchTasksFromSupabase().catch((err) => {
-          console.error('Fetch remote tasks error:', err);
-          return [];
-        }),
-        fetchCategoriesFromSupabase().catch((err) => {
-          console.error('Fetch remote categories error:', err);
-          return [];
-        }),
+        fetchTasksFromSupabase(),
+        fetchCategoriesFromSupabase(),
       ]);
 
-      const localRawTasks = getRawStoredTasks();
-      const localCats = loadCategories();
-
-      if (remoteTasks.length > 0) {
-        // If remote DB already has data for this user, use real database data
-        setTasks(remoteTasks);
-        saveTasks(remoteTasks);
-      } else {
-        // Remote DB is empty. Check if user created real non-sample tasks offline
-        const userCreatedLocalTasks = localRawTasks.filter((t) => !t.id.startsWith('sample-'));
-        if (userCreatedLocalTasks.length > 0) {
-          setTasks(userCreatedLocalTasks);
-          saveTasks(userCreatedLocalTasks);
-          await syncAllTasksToSupabase(userCreatedLocalTasks, currentUser).catch((e) =>
-            console.warn('Task upload error:', e)
-          );
-        } else {
-          // Clean Supabase account: show real 0 tasks list from Supabase DB
-          setTasks([]);
-          saveTasks([]);
-        }
-      }
-
-      // Merge categories
-      if (remoteCats.length > 0) {
-        const catMap = new Map<string, Category>();
-        localCats.forEach((c) => catMap.set(c.id, c));
-        remoteCats.forEach((c) => catMap.set(c.id, c));
-        const mergedCats = Array.from(catMap.values());
-        setCategories(mergedCats);
-        saveCategories(mergedCats);
-      }
+      setTasks(remoteTasks);
+      saveTasks(remoteTasks);
+      setCategories(remoteCats);
+      saveCategories(remoteCats);
     } catch (err) {
       console.error('Supabase sync error:', err);
     } finally {
@@ -281,20 +253,40 @@ export default function App() {
 
   // Initialize Supabase Auth Session
   useEffect(() => {
-    ensureAuthenticatedUser().then((u) => {
-      setUser(u);
-      handleSyncWithSupabase(u);
-    }).catch((err) => {
-      console.warn('Supabase authentication failed:', err);
-      setDropError(err instanceof Error ? err.message : 'Could not authenticate with Supabase.');
+    let isMounted = true;
+
+    const applyUser = (nextUser: User | null) => {
+      if (!isMounted) return;
+
+      const authenticatedUser = nextUser?.is_anonymous ? null : nextUser;
+      setUser(authenticatedUser);
+      setIsAuthLoading(false);
+      if (!authenticatedUser) {
+        syncedUserIdRef.current = null;
+        setTasks([]);
+        setCategories([]);
+        return;
+      }
+
+      setAuthError(null);
+      if (syncedUserIdRef.current !== authenticatedUser.id) {
+        syncedUserIdRef.current = authenticatedUser.id;
+        handleSyncWithSupabase();
+      }
+    };
+
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (error) {
+        if (!isMounted) return;
+        setAuthError(error.message);
+        setIsAuthLoading(false);
+        return;
+      }
+      applyUser(data.session?.user || null);
     });
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const u = session?.user || null;
-      setUser(u);
-      if (u) {
-        handleSyncWithSupabase(u);
-      }
+      applyUser(session?.user || null);
     });
 
     // Listen for OAuth postMessage from popup window
@@ -302,14 +294,10 @@ export default function App() {
       if (e.data?.type === 'SUPABASE_OAUTH_SUCCESS') {
         const session = e.data.session;
         if (session?.user) {
-          setUser(session.user);
-          handleSyncWithSupabase(session.user);
+          applyUser(session.user);
         } else {
           supabase.auth.getSession().then(({ data: { session: s } }) => {
-            if (s?.user) {
-              setUser(s.user);
-              handleSyncWithSupabase(s.user);
-            }
+            applyUser(s?.user || null);
           });
         }
       }
@@ -317,13 +305,14 @@ export default function App() {
     window.addEventListener('message', handleMessage);
 
     return () => {
+      isMounted = false;
       authListener.subscription.unsubscribe();
       window.removeEventListener('message', handleMessage);
     };
   }, [handleSyncWithSupabase]);
 
   useEffect(() => {
-    refreshFromStorage();
+    if (!user) return;
 
     // Subscribe to multi-tab / storage sync events
     const unsubscribe = subscribeToSyncEvents(() => {
@@ -333,7 +322,7 @@ export default function App() {
     return () => {
       unsubscribe();
     };
-  }, [refreshFromStorage]);
+  }, [refreshFromStorage, user]);
 
   // Filter tasks for the selected date
   const selectedDateTasks = tasks.filter((t) => t.date === selectedDate);
@@ -511,9 +500,10 @@ export default function App() {
 
   const handleGitHubLoginClick = async () => {
     try {
+      setAuthError(null);
       await loginWithGitHub();
     } catch (err) {
-      alert('GitHub 登录启动失败，请检查浏览器弹窗拦截设置');
+      setAuthError(err instanceof Error ? err.message : 'GitHub 登录启动失败，请检查浏览器弹窗拦截设置');
     }
   };
 
@@ -535,6 +525,48 @@ export default function App() {
       }, 300);
     }
   };
+
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-200 flex items-center justify-center">
+        <div className="flex items-center gap-2 text-sm">
+          <LoaderCircle className="w-5 h-5 animate-spin text-blue-600" />
+          <span>正在检查登录状态...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex items-center justify-center p-4">
+        <div className="w-full max-w-sm rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 shadow-xl text-center space-y-6">
+          <div className="mx-auto w-14 h-14 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-600/20">
+            <LockKeyhole className="w-7 h-7" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-xl font-bold">登录 Daily TODOs</h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              登录后才能查看和管理你的待办事项。
+            </p>
+          </div>
+          {authError && (
+            <div role="alert" className="rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/40 px-3 py-2 text-xs text-rose-700 dark:text-rose-300">
+              {authError}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={handleGitHubLoginClick}
+            className="w-full min-h-11 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-semibold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+          >
+            <Github className="w-4 h-4" />
+            使用 GitHub 登录
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans flex flex-col selection:bg-blue-100 dark:selection:bg-blue-900 selection:text-blue-900 dark:selection:text-blue-100 transition-colors">
@@ -621,7 +653,7 @@ export default function App() {
         user={user}
         onGitHubLogin={handleGitHubLoginClick}
         onLogout={handleLogoutClick}
-        onSyncWithSupabase={() => user && handleSyncWithSupabase(user)}
+        onSyncWithSupabase={() => user && handleSyncWithSupabase()}
         isSyncing={isSyncing}
       />
 

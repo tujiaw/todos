@@ -18,35 +18,16 @@ const DROP_STORAGE_BUCKET = 'drop-files';
 const MAX_DROP_FILE_SIZE = 20 * 1024 * 1024;
 const DROP_SIGNED_URL_TTL_SECONDS = 60 * 60;
 
-let authenticationInFlight: Promise<User> | null = null;
-
 // All RLS-protected operations must use the user carried by the current
 // Supabase session. Do not trust a React state snapshot here: it can briefly
-// point at the previous user while OAuth/anonymous auth is changing sessions.
+// point at the previous user while OAuth is changing sessions.
 export const ensureAuthenticatedUser = async (): Promise<User> => {
-  if (authenticationInFlight) return authenticationInFlight;
-
-  authenticationInFlight = (async () => {
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError) throw sessionError;
-    if (sessionData.session?.user) return sessionData.session.user;
-
-    const { data, error } = await supabase.auth.signInAnonymously();
-    if (error) {
-      if (error.code === 'anonymous_provider_disabled') {
-        throw new Error('Please sign in with GitHub before using Drop. Anonymous access is disabled.');
-      }
-      throw error;
-    }
-    if (!data.user) throw new Error('Authentication succeeded without a user.');
-    return data.user;
-  })();
-
-  try {
-    return await authenticationInFlight;
-  } finally {
-    authenticationInFlight = null;
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  if (!data.session?.user || data.session.user.is_anonymous) {
+    throw new Error('Please sign in with GitHub to continue.');
   }
+  return data.session.user;
 };
 
 // Check if running in popup window after OAuth redirect

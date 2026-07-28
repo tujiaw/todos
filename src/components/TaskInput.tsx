@@ -15,7 +15,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({
 }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [categoryId, setCategoryId] = useState<string>(categories[0]?.id || 'work');
+  const [categoryId, setCategoryId] = useState<string>(categories[0]?.id || '');
   const [priority, setPriority] = useState<Priority>('medium');
   const [dueTime, setDueTime] = useState<string>('18:00');
   const [estimatedMinutes, setEstimatedMinutes] = useState<number | ''>('');
@@ -43,6 +43,12 @@ export const TaskInput: React.FC<TaskInputProps> = ({
     };
   }, [showTimePickerPopover]);
 
+  useEffect(() => {
+    if (!categories.some((category) => category.id === categoryId)) {
+      setCategoryId(categories[0]?.id || '');
+    }
+  }, [categories, categoryId]);
+
   const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -61,14 +67,14 @@ export const TaskInput: React.FC<TaskInputProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim() || !categoryId) return;
 
     onAddTask({
       title: title.trim(),
       description: description.trim() || undefined,
       date: selectedDate,
       completed: false,
-      categoryId: categoryId || categories[0]?.id || 'work',
+      categoryId,
       priority,
       dueTime: dueTime || '18:00',
       estimatedMinutes: typeof estimatedMinutes === 'number' ? estimatedMinutes : undefined,
@@ -137,7 +143,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({
           <button
             type="submit"
             id="btn-add-task-submit"
-            disabled={!title.trim()}
+            disabled={!title.trim() || !categoryId}
             className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 text-white text-xs font-medium rounded-lg shadow-2xs transition-all flex items-center gap-1 shrink-0 min-h-[32px] active:scale-95"
           >
             <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -154,8 +160,10 @@ export const TaskInput: React.FC<TaskInputProps> = ({
               id="select-task-category"
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
+              disabled={categories.length === 0}
               className="bg-transparent text-slate-700 dark:text-slate-200 font-medium focus:outline-none cursor-pointer text-[11px]"
             >
+              {categories.length === 0 && <option value="">Create a category first</option>}
               {categories.map((c) => (
                 <option key={c.id} value={c.id} className="dark:bg-slate-900 dark:text-slate-100">
                   {c.name}

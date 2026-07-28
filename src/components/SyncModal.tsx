@@ -16,8 +16,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { User } from '@supabase/supabase-js';
-import { exportDataAsJSON, importDataFromJSON, saveTasks, saveCategories } from '../utils/storage';
-import { DEFAULT_CATEGORIES, getSampleTasks, getTodayDateString } from '../data/initialData';
+import { exportDataAsJSON, importDataFromJSON } from '../utils/storage';
 
 interface SyncModalProps {
   isOpen: boolean;
@@ -217,17 +216,6 @@ export const SyncModal: React.FC<SyncModalProps> = ({
     navigator.clipboard.writeText(SQL_SCHEMA_SNIPPET);
     setCopiedSql(true);
     setTimeout(() => setCopiedSql(false), 2000);
-  };
-
-  const handleResetSampleData = () => {
-    if (window.confirm('Are you sure you want to restore initial sample data? Existing unsynced data will be overwritten.')) {
-      const today = getTodayDateString();
-      const sampleTasks = getSampleTasks(today);
-      saveTasks(sampleTasks);
-      saveCategories(DEFAULT_CATEGORIES);
-      onRefreshData();
-      setFeedback({ success: true, message: 'Sample data restored successfully!' });
-    }
   };
 
   return (
@@ -438,18 +426,6 @@ export const SyncModal: React.FC<SyncModalProps> = ({
             </form>
           </div>
 
-          {/* Reset Demo Data */}
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-            <span className="text-slate-500 dark:text-slate-400 text-[11px]">Reset to sample environment data?</span>
-            <button
-              type="button"
-              onClick={handleResetSampleData}
-              className="px-2.5 py-1 text-[11px] text-slate-600 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors flex items-center gap-1"
-            >
-              <RefreshCw className="w-3 h-3" />
-              Restore Sample Data
-            </button>
-          </div>
         </div>
       </div>
     </div>

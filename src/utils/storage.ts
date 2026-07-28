@@ -1,5 +1,5 @@
 import { Category, Task, ThemeMode } from '../types';
-import { DEFAULT_CATEGORIES, getSampleTasks, getTodayDateString } from '../data/initialData';
+import { getTodayDateString } from '../data/initialData';
 
 const TASKS_STORAGE_KEY = 'daily_todos_tasks_v1';
 const CATEGORIES_STORAGE_KEY = 'daily_todos_categories_v1';
@@ -26,32 +26,12 @@ export const saveThemeMode = (mode: ThemeMode): void => {
   }
 };
 
-// Load raw tasks without forcing sample tasks creation
-export const getRawStoredTasks = (): Task[] => {
-  try {
-    const raw = localStorage.getItem(TASKS_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        return parsed;
-      }
-    }
-  } catch (err) {
-    console.error('Failed to parse raw tasks from storage', err);
-  }
-  return [];
-};
-
-// Load tasks from localStorage or return sample tasks
+// Load tasks from localStorage without injecting sample data.
 export const loadTasks = (): Task[] => {
   try {
     const raw = localStorage.getItem(TASKS_STORAGE_KEY);
-    if (!raw) {
-      const today = getTodayDateString();
-      const initialTasks = getSampleTasks(today);
-      saveTasks(initialTasks);
-      return initialTasks;
-    }
+    if (!raw) return [];
+
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) {
       return parsed;
@@ -76,18 +56,16 @@ export const saveTasks = (tasks: Task[]): void => {
 export const loadCategories = (): Category[] => {
   try {
     const raw = localStorage.getItem(CATEGORIES_STORAGE_KEY);
-    if (!raw) {
-      saveCategories(DEFAULT_CATEGORIES);
-      return DEFAULT_CATEGORIES;
-    }
+    if (!raw) return [];
+
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) {
+    if (Array.isArray(parsed)) {
       return parsed;
     }
   } catch (err) {
     console.error('Failed to parse categories from storage', err);
   }
-  return DEFAULT_CATEGORIES;
+  return [];
 };
 
 // Save categories to localStorage
