@@ -1,6 +1,5 @@
-const CACHE_NAME = 'daily-todo-pwa-v1';
+const CACHE_NAME = 'daily-todo-pwa-v2';
 const ASSETS_TO_CACHE = [
-  '/',
   '/index.html',
   '/manifest.json',
   '/icon.svg'
@@ -41,6 +40,25 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Always fetch navigations from the network first so OAuth callbacks and
+  // new deployments cannot be trapped behind a stale cached app shell.
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put('/index.html', responseToCache);
+            });
+          }
+          return networkResponse;
+        })
+        .catch(() => caches.match('/index.html'))
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       const fetchPromise = fetch(event.request)
@@ -53,12 +71,7 @@ self.addEventListener('fetch', (event) => {
           }
           return networkResponse;
         })
-        .catch(() => {
-          // Offline fallback
-          if (event.request.mode === 'navigate') {
-            return caches.match('/index.html');
-          }
-        });
+        .catch(() => undefined);
 
       return cachedResponse || fetchPromise;
     })

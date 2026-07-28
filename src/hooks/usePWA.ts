@@ -21,17 +21,28 @@ export function usePWA() {
     }
 
     // Register Service Worker
+    let isRefreshingForServiceWorker = false;
+    const handleServiceWorkerUpdate = () => {
+      if (isRefreshingForServiceWorker) return;
+      isRefreshingForServiceWorker = true;
+      window.location.reload();
+    };
+
+    const registerServiceWorker = () => {
+      navigator.serviceWorker
+        .register('/sw.js')
+        .then((registration) => {
+          console.log('PWA Service Worker registered with scope:', registration.scope);
+          registration.update();
+        })
+        .catch((error) => {
+          console.warn('PWA Service Worker registration failed:', error);
+        });
+    };
+
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker
-          .register('/sw.js')
-          .then((registration) => {
-            console.log('PWA Service Worker registered with scope:', registration.scope);
-          })
-          .catch((error) => {
-            console.warn('PWA Service Worker registration failed:', error);
-          });
-      });
+      window.addEventListener('load', registerServiceWorker);
+      navigator.serviceWorker.addEventListener('controllerchange', handleServiceWorkerUpdate);
     }
 
     // Handle install prompt event
@@ -58,6 +69,10 @@ export function usePWA() {
     window.addEventListener('offline', handleOffline);
 
     return () => {
+      window.removeEventListener('load', registerServiceWorker);
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('controllerchange', handleServiceWorkerUpdate);
+      }
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
       window.removeEventListener('online', handleOnline);
