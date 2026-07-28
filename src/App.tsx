@@ -39,6 +39,17 @@ import {
   clearAllDropItemsFromSupabase,
 } from './lib/supabase';
 
+function createDefaultWorkCategory(userId: string): Category {
+  return {
+    id: `cat-work-${userId}`,
+    name: 'Work',
+    color: '#3b82f6',
+    bgClass: 'bg-blue-50 dark:bg-blue-950/40',
+    textClass: 'text-blue-700 dark:text-blue-300',
+    borderClass: 'border-blue-200 dark:border-blue-800/50',
+  };
+}
+
 export default function App() {
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString());
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -238,6 +249,8 @@ export default function App() {
 
   // Fetch / Sync with Supabase
   const handleSyncWithSupabase = useCallback(async () => {
+    if (!user) return;
+
     setIsSyncing(true);
     try {
       // Fetch remote tasks & categories from Supabase database
@@ -246,16 +259,23 @@ export default function App() {
         fetchCategoriesFromSupabase(),
       ]);
 
+      const syncedCategories =
+        remoteCats.length > 0 ? remoteCats : [createDefaultWorkCategory(user.id)];
+
+      if (remoteCats.length === 0) {
+        await upsertCategoryToSupabase(syncedCategories[0], user);
+      }
+
       setTasks(remoteTasks);
       saveTasks(remoteTasks);
-      setCategories(remoteCats);
-      saveCategories(remoteCats);
+      setCategories(syncedCategories);
+      saveCategories(syncedCategories);
     } catch (err) {
       console.error('Supabase sync error:', err);
     } finally {
       setIsSyncing(false);
     }
-  }, []);
+  }, [user]);
 
   // Initialize Supabase Auth Session
   useEffect(() => {
