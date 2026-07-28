@@ -1,61 +1,12 @@
 import { createClient, User, Session } from '@supabase/supabase-js';
 import { Category, Task, DropItem } from '../types';
 
-const metaEnv = (import.meta as any).env || {};
-const firstEnvLine = (value: unknown, fallback: string) => {
-  const firstValue = String(value || fallback)
-    .split(/\r?\n/)
-    .map((line) => line.trim().replace(/^(['"])(.*)\1$/, '$2'))
-    .find(Boolean);
-  return firstValue || fallback;
-};
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-const SUPABASE_URL = firstEnvLine(
-  metaEnv.VITE_SUPABASE_URL,
-  'https://cywbnbvverbdjbbpvsid.supabase.co'
-);
-const SUPABASE_ANON_KEY = firstEnvLine(
-  metaEnv.VITE_SUPABASE_ANON_KEY,
-  'sb_publishable_VhadPbA-uUCplS280kingw_BUmYmQAQ'
-);
-
-const sanitizeHeaderValue = (value: unknown) =>
-  String(value).replace(/[\u0000-\u001F\u007F]/g, '').trim();
-
-const normalizeHeaders = (source?: HeadersInit): Headers => {
-  const headers = new Headers();
-  if (!source) return headers;
-
-  if (source instanceof Headers) {
-    source.forEach((value, key) => headers.set(key, sanitizeHeaderValue(value)));
-    return headers;
-  }
-
-  const entries = Array.isArray(source) ? source : Object.entries(source);
-  entries.forEach(([key, value]) => {
-    headers.set(sanitizeHeaderValue(key), sanitizeHeaderValue(value));
-  });
-  return headers;
-};
-
-const safeBrowserFetch: typeof fetch = async (input, init) => {
-  const rawUrl =
-    typeof input === 'string' || input instanceof URL ? String(input) : input.url;
-  let endpoint = 'unknown';
-  try {
-    endpoint = new URL(rawUrl, window.location.origin).pathname;
-    const headers = normalizeHeaders(init?.headers);
-    return await window.fetch(input, { ...init, headers });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown browser fetch error';
-    console.error('Supabase request failed', {
-      endpoint,
-      method: init?.method || 'GET',
-      error: message,
-    });
-    throw new Error(`Supabase request failed (${endpoint}): ${message}`, { cause: error });
-  }
-};
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  throw new Error('Missing Supabase environment variables.');
+}
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
@@ -63,9 +14,6 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     autoRefreshToken: true,
     detectSessionInUrl: false,
     flowType: 'pkce',
-  },
-  global: {
-    fetch: safeBrowserFetch,
   },
 });
 
