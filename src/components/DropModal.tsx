@@ -67,6 +67,7 @@ export const DropModal: React.FC<DropModalProps> = ({
   const [convertedId, setConvertedId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [isClearing, setIsClearing] = useState(false);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -225,6 +226,34 @@ export const DropModal: React.FC<DropModalProps> = ({
     onConvertToTask(item.content, item.url);
     setConvertedId(item.id);
     setTimeout(() => setConvertedId(null), 2000);
+  };
+
+  const handleDownload = async (item: DropItem) => {
+    if (!item.url) return;
+
+    setDownloadingId(item.id);
+    setAttachmentError(null);
+    try {
+      const response = await fetch(item.url);
+      if (!response.ok) {
+        throw new Error(`Download failed with status ${response.status}.`);
+      }
+
+      const objectUrl = URL.createObjectURL(await response.blob());
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = item.file_name || 'drop-attachment';
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    } catch (error) {
+      console.error('Failed to download Drop attachment:', error);
+      setAttachmentError('Could not download the attachment. Please try again.');
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -541,11 +570,12 @@ export const DropModal: React.FC<DropModalProps> = ({
                           />
                         </div>
                       ) : (
-                        <a
-                          href={item.url}
-                          download={item.file_name || 'drop-attachment'}
+                        <button
+                          type="button"
+                          onClick={() => handleDownload(item)}
+                          disabled={downloadingId === item.id}
                           title={`Download ${item.file_name || 'attachment'}`}
-                          className="p-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2 text-xs hover:bg-slate-100 transition-colors"
+                          className="w-full p-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2 text-xs hover:bg-slate-100 transition-colors disabled:cursor-wait disabled:opacity-60"
                         >
                           <div className="flex items-center gap-2 truncate">
                             <Paperclip className="w-4 h-4 text-blue-500 shrink-0" />
@@ -553,8 +583,12 @@ export const DropModal: React.FC<DropModalProps> = ({
                               {item.file_name || 'Attached File'}
                             </span>
                           </div>
-                          <Download className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        </a>
+                          {downloadingId === item.id ? (
+                            <RefreshCw className="w-3.5 h-3.5 text-blue-500 shrink-0 animate-spin" />
+                          ) : (
+                            <Download className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          )}
+                        </button>
                       )}
                     </div>
                   )}

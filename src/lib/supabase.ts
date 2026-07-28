@@ -259,11 +259,7 @@ const mapDbRowToDropItem = async (row: any): Promise<DropItem> => {
   if (isDropStoragePath(path)) {
     const { data, error } = await supabase.storage
       .from(DROP_STORAGE_BUCKET)
-      .createSignedUrl(
-        path,
-        DROP_SIGNED_URL_TTL_SECONDS,
-        type === 'file' ? { download: fileName || true } : undefined
-      );
+      .createSignedUrl(path, DROP_SIGNED_URL_TTL_SECONDS);
 
     if (error) {
       console.warn('Could not create signed URL for Drop attachment:', error.message || error);
