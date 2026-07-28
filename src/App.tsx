@@ -119,18 +119,26 @@ export default function App() {
     };
   }, [loadDropItems, dropSearchQuery, user]);
 
-  // Initial load and debounced search
+  // Refresh once whenever Drop opens, then debounce subsequent searches.
   useEffect(() => {
+    if (!isDropModalOpen) return;
+
     const timer = setTimeout(() => {
       loadDropItems(dropSearchQuery, 0, false);
     }, dropSearchQuery ? 300 : 0);
     return () => clearTimeout(timer);
-  }, [dropSearchQuery, loadDropItems]);
+  }, [dropSearchQuery, isDropModalOpen, loadDropItems]);
 
   const handleLoadMoreDropItems = () => {
     if (hasMoreDropItems && !isLoadingMoreDropItems && !isLoadingDropItems) {
       loadDropItems(dropSearchQuery, dropItems.length, true);
     }
+  };
+
+  const handleOpenDropModal = () => {
+    // Disable the composer on the first rendered frame while the opening sync starts.
+    setIsLoadingDropItems(true);
+    setIsDropModalOpen(true);
   };
 
   const handleAddDropItem = async (content: string, attachment?: File) => {
@@ -539,7 +547,7 @@ export default function App() {
         onToggleTheme={handleToggleTheme}
         onOpenSyncModal={() => setIsSyncModalOpen(true)}
         onOpenCategoryModal={() => setIsCategoryModalOpen(true)}
-        onOpenDropModal={() => setIsDropModalOpen(true)}
+        onOpenDropModal={handleOpenDropModal}
         user={user}
         onGitHubLogin={handleGitHubLoginClick}
         onLogout={handleLogoutClick}

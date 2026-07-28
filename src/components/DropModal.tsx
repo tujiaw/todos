@@ -107,7 +107,7 @@ export const DropModal: React.FC<DropModalProps> = ({
   if (!isOpen) return null;
 
   const handleSend = async () => {
-    if (!inputText.trim() && !attachedFile) return;
+    if (isLoading || (!inputText.trim() && !attachedFile)) return;
 
     setIsSubmitting(true);
     try {
@@ -557,9 +557,14 @@ export const DropModal: React.FC<DropModalProps> = ({
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
-              placeholder="Type a note or paste an image (Enter to send)..."
+              placeholder={
+                isLoading
+                  ? 'Syncing Drop records...'
+                  : 'Type a note or paste an image (Enter to send)...'
+              }
+              disabled={isLoading}
               rows={2}
-              className="w-full text-xs px-2 pt-1 pb-1 bg-transparent text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none resize-none min-h-[44px]"
+              className="w-full text-xs px-2 pt-1 pb-1 bg-transparent text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none resize-none min-h-[44px] disabled:cursor-not-allowed disabled:opacity-60"
             />
 
             <div className="flex items-center justify-between px-1 pt-1 border-t border-slate-200/60 dark:border-slate-700/60 text-[11px] text-slate-400">
@@ -569,12 +574,14 @@ export const DropModal: React.FC<DropModalProps> = ({
                   ref={fileInputRef}
                   onChange={handleFileUpload}
                   accept="image/*,.pdf,.doc,.docx,.txt"
+                  disabled={isLoading}
                   className="hidden"
                 />
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-slate-200/60 dark:hover:bg-slate-700/60 transition-colors"
+                  disabled={isLoading}
+                  className="text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-slate-200/60 dark:hover:bg-slate-700/60 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                   title="Attach file or image"
                 >
                   <Paperclip className="w-3.5 h-3.5" />
@@ -589,7 +596,12 @@ export const DropModal: React.FC<DropModalProps> = ({
               <button
                 type="button"
                 onClick={handleSend}
-                disabled={!isAuthenticated || isSubmitting || (!inputText.trim() && !attachedFile)}
+                disabled={
+                  !isAuthenticated ||
+                  isLoading ||
+                  isSubmitting ||
+                  (!inputText.trim() && !attachedFile)
+                }
                 className="px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white font-medium text-xs rounded-lg transition-all flex items-center gap-1.5 shadow-2xs shrink-0"
                 title={isAuthenticated ? 'Send drop note' : 'Sign in before sending'}
               >
