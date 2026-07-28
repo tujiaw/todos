@@ -2,9 +2,22 @@ import { createClient, User, Session } from '@supabase/supabase-js';
 import { Category, Task, DropItem } from '../types';
 
 const metaEnv = (import.meta as any).env || {};
-const SUPABASE_URL = metaEnv.VITE_SUPABASE_URL || 'https://cywbnbvverbdjbbpvsid.supabase.co';
-const SUPABASE_ANON_KEY =
-  metaEnv.VITE_SUPABASE_ANON_KEY || 'sb_publishable_VhadPbA-uUCplS280kingw_BUmYmQAQ';
+const firstEnvLine = (value: unknown, fallback: string) => {
+  const firstValue = String(value || fallback)
+    .split(/\r?\n/)
+    .map((line) => line.trim().replace(/^(['"])(.*)\1$/, '$2'))
+    .find(Boolean);
+  return firstValue || fallback;
+};
+
+const SUPABASE_URL = firstEnvLine(
+  metaEnv.VITE_SUPABASE_URL,
+  'https://cywbnbvverbdjbbpvsid.supabase.co'
+);
+const SUPABASE_ANON_KEY = firstEnvLine(
+  metaEnv.VITE_SUPABASE_ANON_KEY,
+  'sb_publishable_VhadPbA-uUCplS280kingw_BUmYmQAQ'
+);
 
 const sanitizeHeaderValue = (value: unknown) =>
   String(value).replace(/[\u0000-\u001F\u007F]/g, '').trim();
