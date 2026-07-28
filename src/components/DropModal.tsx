@@ -31,7 +31,7 @@ interface DropModalProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onLoadMore: () => void;
-  onAddDropItem: (content: string, attachment?: File) => Promise<void>;
+  onAddDropItem: (content: string, attachments: File[]) => Promise<void>;
   onDeleteDropItem: (id: string) => Promise<void>;
   onClearAllDropItems: () => Promise<void>;
   onRefreshDropItems: () => Promise<void>;
@@ -62,7 +62,7 @@ export const DropModal: React.FC<DropModalProps> = ({
   onSignIn,
 }) => {
   const [inputText, setInputText] = useState('');
-  const [attachedFile, setAttachedFile] = useState<File | null>(null);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [convertedId, setConvertedId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -70,9 +70,11 @@ export const DropModal: React.FC<DropModalProps> = ({
   const [isClearing, setIsClearing] = useState(false);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const dragDepthRef = useRef(0);
   const wasOpenRef = useRef(false);
   const lastNewestItemIdRef = useRef<string | null>(null);
   const newestItemId = dropItems.length > 0 ? dropItems[dropItems.length - 1].id : null;
@@ -107,13 +109,13 @@ export const DropModal: React.FC<DropModalProps> = ({
   if (!isOpen) return null;
 
   const handleSend = async () => {
-    if (isLoading || (!inputText.trim() && !attachedFile)) return;
+    if (isLoading || isSubmitting || (!inputText.trim() && attachedFiles.length === 0)) return;
 
     setIsSubmitting(true);
     try {
-      await onAddDropItem(inputText.trim(), attachedFile || undefined);
+      await onAddDropItem(inputText.trim(), attachedFiles);
       setInputText('');
-      setAttachedFile(null);
+      setAttachedFiles([]);
     } catch (err) {
       console.error('Failed to add drop item:', err);
     } finally {
@@ -136,13 +138,19 @@ export const DropModal: React.FC<DropModalProps> = ({
     }
   };
 
-  const attachFile = (file: File) => {
+  const attachFiles = (files: File[]) => {
     setAttachmentError(null);
-    if (file.size > MAX_ATTACHMENT_SIZE) {
-      setAttachmentError('Attachments must be 20 MB or smaller.');
-      return;
+    const validFiles = files.filter((file) => file.size <= MAX_ATTACHMENT_SIZE);
+    const oversizedFiles = files.filter((file) => file.size > MAX_ATTACHMENT_SIZE);
+
+    if (validFiles.length > 0) {
+      setAttachedFiles((currentFiles) => [...currentFiles, ...validFiles]);
     }
-    setAttachedFile(file);
+    if (oversizedFiles.length > 0) {
+      setAttachmentError(
+        `${oversizedFiles.length} file${oversizedFiles.length > 1 ? 's were' : ' was'} skipped. Each attachment must be 20 MB or smaller.`
+      );
+    }
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
@@ -155,7 +163,7 @@ export const DropModal: React.FC<DropModalProps> = ({
         const file = item.getAsFile();
         if (file) {
           e.preventDefault();
-          attachFile(file);
+          attachFiles([file]);
           break;
         }
       }
@@ -163,11 +171,44 @@ export const DropModal: React.FC<DropModalProps> = ({
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []) as File[];
+    if (files.length === 0) return;
 
-    attachFile(file);
+    attachFiles(files);
     e.target.value = '';
+  };
+
+  const handleDragEnter = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    dragDepthRef.current += 1;
+    if (!isLoading && !isSubmitting && event.dataTransfer.types.includes('Files')) {
+      setIsDraggingFiles(true);
+    }
+  };
+
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+  };
+
+  const handleDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) {
+      setIsDraggingFiles(false);
+    }
+  };
+
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    dragDepthRef.current = 0;
+    setIsDraggingFiles(false);
+    if (isLoading || isSubmitting) return;
+
+    const files = Array.from(event.dataTransfer.files) as File[];
+    if (files.length > 0) {
+      attachFiles(files);
+    }
   };
 
   const handleCopy = async (id: string, text: string) => {
@@ -238,7 +279,19 @@ export const DropModal: React.FC<DropModalProps> = ({
       />
 
       {/* Right Floating Drawer Panel */}
-      <div className="absolute right-0 top-0 bottom-0 w-full sm:w-[420px] md:w-[460px] bg-white dark:bg-slate-900 shadow-2xl border-l border-slate-200 dark:border-slate-800 flex flex-col h-full z-10 transition-transform animate-in slide-in-from-right duration-300 ease-out">
+      <div
+        onDragEnter={handleDragEnter}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        className="absolute right-0 top-0 bottom-0 w-full sm:w-[420px] md:w-[460px] bg-white dark:bg-slate-900 shadow-2xl border-l border-slate-200 dark:border-slate-800 flex flex-col h-full z-10 transition-transform animate-in slide-in-from-right duration-300 ease-out"
+      >
+        {isDraggingFiles && (
+          <div className="absolute inset-3 z-50 pointer-events-none rounded-2xl border-2 border-dashed border-blue-500 bg-blue-50/95 dark:bg-blue-950/95 flex items-center justify-center text-sm font-semibold text-blue-700 dark:text-blue-300">
+            Drop files here
+          </div>
+        )}
+
         {/* Header Bar */}
         <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/80 dark:bg-slate-800/50">
           <div className="flex items-center gap-2.5">
@@ -525,28 +578,38 @@ export const DropModal: React.FC<DropModalProps> = ({
           )}
 
           {/* Attachment Preview Chip */}
-          {attachedFile && (
-            <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-xs">
-              <div className="flex items-center gap-2 truncate">
-                {attachedFile.type.startsWith('image/') ? (
-                  <ImageIcon className="w-4 h-4 text-blue-600 shrink-0" />
-                ) : (
-                  <Paperclip className="w-4 h-4 text-blue-600 shrink-0" />
-                )}
-                <span className="font-medium text-blue-900 dark:text-blue-200 truncate">
-                  {attachedFile.name || 'Attachment'}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setAttachedFile(null);
-                  setAttachmentError(null);
-                }}
-                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
+          {attachedFiles.length > 0 && (
+            <div className="max-h-28 overflow-y-auto space-y-1">
+              {attachedFiles.map((file, index) => (
+                <div
+                  key={`${file.name}-${file.size}-${file.lastModified}-${index}`}
+                  className="flex items-center justify-between gap-2 p-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-xs"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    {file.type.startsWith('image/') ? (
+                      <ImageIcon className="w-4 h-4 text-blue-600 shrink-0" />
+                    ) : (
+                      <Paperclip className="w-4 h-4 text-blue-600 shrink-0" />
+                    )}
+                    <span className="font-medium text-blue-900 dark:text-blue-200 truncate">
+                      {file.name || 'Attachment'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAttachedFiles((currentFiles) =>
+                        currentFiles.filter((_, fileIndex) => fileIndex !== index)
+                      );
+                      setAttachmentError(null);
+                    }}
+                    className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                    aria-label={`Remove ${file.name || 'attachment'}`}
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
             </div>
           )}
 
@@ -573,14 +636,14 @@ export const DropModal: React.FC<DropModalProps> = ({
                   type="file"
                   ref={fileInputRef}
                   onChange={handleFileUpload}
-                  accept="image/*,.pdf,.doc,.docx,.txt"
-                  disabled={isLoading}
+                  multiple
+                  disabled={isLoading || isSubmitting}
                   className="hidden"
                 />
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={isLoading}
+                  disabled={isLoading || isSubmitting}
                   className="text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-slate-200/60 dark:hover:bg-slate-700/60 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                   title="Attach file or image"
                 >
@@ -589,7 +652,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                 </button>
 
                 <span className="text-[10px] text-slate-400 hidden sm:inline">
-                  Supports pasting images
+                  Drag files here or paste images
                 </span>
               </div>
 
@@ -600,7 +663,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                   !isAuthenticated ||
                   isLoading ||
                   isSubmitting ||
-                  (!inputText.trim() && !attachedFile)
+                  (!inputText.trim() && attachedFiles.length === 0)
                 }
                 className="px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white font-medium text-xs rounded-lg transition-all flex items-center gap-1.5 shadow-2xs shrink-0"
                 title={isAuthenticated ? 'Send drop note' : 'Sign in before sending'}

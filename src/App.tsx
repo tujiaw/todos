@@ -142,19 +142,24 @@ export default function App() {
     setIsDropModalOpen(true);
   };
 
-  const handleAddDropItem = async (content: string, attachment?: File) => {
+  const handleAddDropItem = async (content: string, attachments: File[]) => {
     try {
       setDropError(null);
-      const saved = await addDropItemToSupabase(
-        {
-          content,
-          file_name: attachment?.name,
-          file_size: attachment?.size,
-          mime_type: attachment?.type,
-        },
-        attachment
-      );
-      setDropItems((prev) => [...prev.filter((i) => i.id !== saved.id), saved]);
+      const filesToSave: Array<File | undefined> =
+        attachments.length > 0 ? attachments : [undefined];
+
+      for (const [index, attachment] of filesToSave.entries()) {
+        const saved = await addDropItemToSupabase(
+          {
+            content: index === 0 ? content : '',
+            file_name: attachment?.name,
+            file_size: attachment?.size,
+            mime_type: attachment?.type,
+          },
+          attachment
+        );
+        setDropItems((prev) => [...prev.filter((item) => item.id !== saved.id), saved]);
+      }
     } catch (err: any) {
       console.error('Failed to add drop item to Supabase:', err);
       setDropError(err?.message || 'Failed to save note to database.');

@@ -341,14 +341,6 @@ export const subscribeToDropItems = (userId: string, onUpdate: () => void) => {
 };
 
 // Add / Insert a new Drop item to Supabase drop_items table
-const sanitizeStorageFileName = (fileName: string) => {
-  const sanitized = fileName
-    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_')
-    .trim()
-    .slice(0, 120);
-  return sanitized || 'attachment';
-};
-
 const removeStoredAttachments = async (paths: Array<string | undefined>) => {
   const storedPaths = paths.filter((path): path is string => isDropStoragePath(path));
   if (storedPaths.length === 0) return;
@@ -378,7 +370,7 @@ export const addDropItemToSupabase = async (
       typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
         ? crypto.randomUUID()
         : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    uploadedPath = `${activeUser.id}/${objectId}-${sanitizeStorageFileName(attachment.name)}`;
+    uploadedPath = `${activeUser.id}/${objectId}`;
 
     const { error } = await supabase.storage
       .from(DROP_STORAGE_BUCKET)
