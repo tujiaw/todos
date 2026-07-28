@@ -6,12 +6,53 @@ const SUPABASE_URL = metaEnv.VITE_SUPABASE_URL || 'https://cywbnbvverbdjbbpvsid.
 const SUPABASE_ANON_KEY =
   metaEnv.VITE_SUPABASE_ANON_KEY || 'sb_publishable_VhadPbA-uUCplS280kingw_BUmYmQAQ';
 
+const sanitizeHeaderValue = (value: unknown) =>
+  String(value).replace(/[\u0000-\u001F\u007F]/g, '').trim();
+
+const normalizeHeaders = (source?: HeadersInit): Headers => {
+  const headers = new Headers();
+  if (!source) return headers;
+
+  if (source instanceof Headers) {
+    source.forEach((value, key) => headers.set(key, sanitizeHeaderValue(value)));
+    return headers;
+  }
+
+  const entries = Array.isArray(source) ? source : Object.entries(source);
+  entries.forEach(([key, value]) => {
+    headers.set(sanitizeHeaderValue(key), sanitizeHeaderValue(value));
+  });
+  return headers;
+};
+
+const safeBrowserFetch: typeof fetch = async (input, init) => {
+  const rawUrl =
+    typeof input === 'string' || input instanceof URL ? String(input) : input.url;
+  let endpoint = 'unknown';
+  try {
+    endpoint = new URL(rawUrl, window.location.origin).pathname;
+    const headers = normalizeHeaders(init?.headers);
+    return await window.fetch(input, { ...init, headers });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown browser fetch error';
+    console.error('Supabase request failed', {
+      endpoint,
+      method: init?.method || 'GET',
+      error: message,
+    });
+    throw new Error(`Supabase request failed (${endpoint}): ${message}`, { cause: error });
+  }
+};
+
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: false,
     flowType: 'pkce',
+  },
+  global: {
+    fetch: safeBrowserFetch,
   },
 });
 
