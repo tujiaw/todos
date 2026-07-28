@@ -24,6 +24,7 @@ import { DropModal } from './components/DropModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import {
   supabase,
+  initializeAuthSession,
   loginWithGitHub,
   logoutSupabase,
   fetchTasksFromSupabase,
@@ -271,15 +272,15 @@ export default function App() {
       setAuthError(null);
     };
 
-    supabase.auth.getSession().then(({ data, error }) => {
-      if (error) {
+    initializeAuthSession()
+      .then((session) => {
+        applyUser(session?.user || null);
+      })
+      .catch((error) => {
         if (!isMounted) return;
-        setAuthError(error.message);
+        setAuthError(error instanceof Error ? error.message : '无法恢复登录会话');
         setIsAuthLoading(false);
-        return;
-      }
-      applyUser(data.session?.user || null);
-    });
+      });
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       applyUser(session?.user || null);

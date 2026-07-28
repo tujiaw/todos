@@ -10,13 +10,52 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: true,
+    detectSessionInUrl: false,
+    flowType: 'implicit',
   },
 });
 
 const DROP_STORAGE_BUCKET = 'drop-files';
 const MAX_DROP_FILE_SIZE = 20 * 1024 * 1024;
 const DROP_SIGNED_URL_TTL_SECONDS = 60 * 60;
+
+// Explicitly restore implicit OAuth callbacks instead of relying on automatic
+// URL detection, which can race with app startup and Service Worker updates.
+export const initializeAuthSession = async (): Promise<Session | null> => {
+  const hashParams = new URLSearchParams(window.location.hash.slice(1));
+  const accessToken = hashParams.get('access_token');
+  const refreshToken = hashParams.get('refresh_token');
+  const oauthError = hashParams.get('error_description') || hashParams.get('error');
+
+  if (accessToken || refreshToken || oauthError) {
+    window.history.replaceState(
+      window.history.state,
+      document.title,
+      `${window.location.pathname}${window.location.search}`
+    );
+  }
+
+  if (oauthError) {
+    throw new Error(oauthError);
+  }
+
+  if (accessToken || refreshToken) {
+    if (!accessToken || !refreshToken) {
+      throw new Error('OAuth callback did not include a complete session.');
+    }
+
+    const { data, error } = await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+    if (error) throw error;
+    return data.session;
+  }
+
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  return data.session;
+};
 
 // All RLS-protected operations must use the user carried by the current
 // Supabase session. Do not trust a React state snapshot here: it can briefly
