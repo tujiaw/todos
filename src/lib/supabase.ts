@@ -30,68 +30,18 @@ export const ensureAuthenticatedUser = async (): Promise<User> => {
   return data.session.user;
 };
 
-// Check if running in popup window after OAuth redirect
-if (
-  typeof window !== 'undefined' &&
-  window.opener &&
-  (window.location.hash.includes('access_token') || window.location.search.includes('code='))
-) {
-  const handlePopupAuth = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        window.opener.postMessage({ type: 'SUPABASE_OAUTH_SUCCESS', session }, '*');
-        window.close();
-        return;
-      }
-    } catch (err) {
-      console.warn('Error getting session in popup:', err);
-    }
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        try {
-          window.opener.postMessage({ type: 'SUPABASE_OAUTH_SUCCESS', session }, '*');
-        } catch (e) {
-          console.warn('Failed to communicate with opener window', e);
-        }
-        authListener.subscription.unsubscribe();
-        window.close();
-      }
-    });
-
-    setTimeout(() => {
-      window.close();
-    }, 4000);
-  };
-
-  handlePopupAuth();
-}
-
 // GitHub OAuth Login
 export const loginWithGitHub = async () => {
-  const redirectUrl = window.location.origin;
-
-  // Try popup mode first for iframe compatibility
-  const { data, error } = await supabase.auth.signInWithOAuth({
+  const { error } = await supabase.auth.signInWithOAuth({
     provider: 'github',
     options: {
-      redirectTo: redirectUrl,
-      skipBrowserRedirect: true,
+      redirectTo: `${window.location.origin}/`,
     },
   });
 
   if (error) {
     console.error('GitHub auth error:', error);
     throw error;
-  }
-
-  if (data?.url) {
-    const popup = window.open(data.url, 'github_oauth_popup', 'width=600,height=720');
-    if (!popup) {
-      // Fallback to top-level redirect if popup is blocked
-      window.location.href = data.url;
-    }
   }
 };
 

@@ -269,10 +269,6 @@ export default function App() {
       }
 
       setAuthError(null);
-      if (syncedUserIdRef.current !== authenticatedUser.id) {
-        syncedUserIdRef.current = authenticatedUser.id;
-        handleSyncWithSupabase();
-      }
     };
 
     supabase.auth.getSession().then(({ data, error }) => {
@@ -285,31 +281,23 @@ export default function App() {
       applyUser(data.session?.user || null);
     });
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       applyUser(session?.user || null);
     });
-
-    // Listen for OAuth postMessage from popup window
-    const handleMessage = (e: MessageEvent) => {
-      if (e.data?.type === 'SUPABASE_OAUTH_SUCCESS') {
-        const session = e.data.session;
-        if (session?.user) {
-          applyUser(session.user);
-        } else {
-          supabase.auth.getSession().then(({ data: { session: s } }) => {
-            applyUser(s?.user || null);
-          });
-        }
-      }
-    };
-    window.addEventListener('message', handleMessage);
 
     return () => {
       isMounted = false;
       authListener.subscription.unsubscribe();
-      window.removeEventListener('message', handleMessage);
     };
-  }, [handleSyncWithSupabase]);
+  }, []);
+
+  // Start database requests only after the auth callback has completed.
+  useEffect(() => {
+    if (!user || syncedUserIdRef.current === user.id) return;
+
+    syncedUserIdRef.current = user.id;
+    handleSyncWithSupabase();
+  }, [handleSyncWithSupabase, user]);
 
   useEffect(() => {
     if (!user) return;
