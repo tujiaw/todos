@@ -11,7 +11,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: false,
-    flowType: 'implicit',
+    flowType: 'pkce',
   },
 });
 
@@ -19,19 +19,24 @@ const DROP_STORAGE_BUCKET = 'drop-files';
 const MAX_DROP_FILE_SIZE = 20 * 1024 * 1024;
 const DROP_SIGNED_URL_TTL_SECONDS = 60 * 60;
 
-// Explicitly restore implicit OAuth callbacks instead of relying on automatic
-// URL detection, which can race with app startup and Service Worker updates.
+// Explicitly exchange PKCE OAuth callbacks before rendering the application.
 export const initializeAuthSession = async (): Promise<Session | null> => {
+  const queryParams = new URLSearchParams(window.location.search);
   const hashParams = new URLSearchParams(window.location.hash.slice(1));
-  const accessToken = hashParams.get('access_token');
-  const refreshToken = hashParams.get('refresh_token');
-  const oauthError = hashParams.get('error_description') || hashParams.get('error');
+  const authCode = queryParams.get('code');
+  const hasLegacyTokens =
+    hashParams.has('access_token') || hashParams.has('refresh_token');
+  const oauthError =
+    queryParams.get('error_description') ||
+    queryParams.get('error') ||
+    hashParams.get('error_description') ||
+    hashParams.get('error');
 
-  if (accessToken || refreshToken || oauthError) {
+  if (authCode || hasLegacyTokens || oauthError) {
     window.history.replaceState(
       window.history.state,
       document.title,
-      `${window.location.pathname}${window.location.search}`
+      window.location.pathname
     );
   }
 
@@ -39,17 +44,14 @@ export const initializeAuthSession = async (): Promise<Session | null> => {
     throw new Error(oauthError);
   }
 
-  if (accessToken || refreshToken) {
-    if (!accessToken || !refreshToken) {
-      throw new Error('OAuth callback did not include a complete session.');
-    }
-
-    const { data, error } = await supabase.auth.setSession({
-      access_token: accessToken,
-      refresh_token: refreshToken,
-    });
+  if (authCode) {
+    const { data, error } = await supabase.auth.exchangeCodeForSession(authCode);
     if (error) throw error;
     return data.session;
+  }
+
+  if (hasLegacyTokens) {
+    throw new Error('登录流程已升级，请重新使用 GitHub 登录。');
   }
 
   const { data, error } = await supabase.auth.getSession();
