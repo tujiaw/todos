@@ -5,7 +5,6 @@ import {
   Copy,
   Check,
   Trash2,
-  Image as ImageIcon,
   Paperclip,
   ExternalLink,
   Download,
@@ -13,12 +12,132 @@ import {
   RefreshCw,
   Search,
   Database,
+  File as FileIcon,
+  FileArchive,
+  FileAudio,
+  FileCode2,
+  FileImage,
+  FileSpreadsheet,
   FileText,
+  FileVideoCamera,
+  Presentation,
   Sparkles,
+  type LucideIcon,
 } from 'lucide-react';
 import { DropItem } from '../types';
 
 const MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024;
+
+interface FileVisual {
+  Icon: LucideIcon;
+  colorClass: string;
+}
+
+function getFileVisual(fileName?: string, mimeType?: string): FileVisual {
+  const extension = fileName?.split('.').pop()?.toLowerCase() || '';
+  const mime = mimeType?.toLowerCase() || '';
+
+  if (mime.startsWith('image/')) {
+    return { Icon: FileImage, colorClass: 'text-violet-500' };
+  }
+  if (mime.startsWith('audio/')) {
+    return { Icon: FileAudio, colorClass: 'text-rose-500' };
+  }
+  if (mime.startsWith('video/')) {
+    return { Icon: FileVideoCamera, colorClass: 'text-cyan-500' };
+  }
+  if (
+    mime.includes('spreadsheet') ||
+    mime.includes('excel') ||
+    mime.includes('csv') ||
+    ['xls', 'xlsx', 'xlsm', 'csv', 'ods'].includes(extension)
+  ) {
+    return { Icon: FileSpreadsheet, colorClass: 'text-emerald-600' };
+  }
+  if (
+    mime.includes('presentation') ||
+    mime.includes('powerpoint') ||
+    ['ppt', 'pptx', 'pps', 'ppsx', 'odp'].includes(extension)
+  ) {
+    return { Icon: Presentation, colorClass: 'text-orange-500' };
+  }
+  if (mime === 'application/pdf' || extension === 'pdf') {
+    return { Icon: FileText, colorClass: 'text-rose-600' };
+  }
+  if (
+    mime.includes('word') ||
+    mime.includes('document') ||
+    ['doc', 'docx', 'odt', 'rtf', 'pages', 'txt', 'md'].includes(extension)
+  ) {
+    return { Icon: FileText, colorClass: 'text-blue-600' };
+  }
+  if (
+    mime.includes('zip') ||
+    mime.includes('compressed') ||
+    ['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz'].includes(extension)
+  ) {
+    return { Icon: FileArchive, colorClass: 'text-amber-600' };
+  }
+  if (
+    mime.includes('json') ||
+    mime.includes('javascript') ||
+    mime.includes('xml') ||
+    [
+      'js',
+      'jsx',
+      'ts',
+      'tsx',
+      'html',
+      'css',
+      'json',
+      'xml',
+      'yaml',
+      'yml',
+      'py',
+      'java',
+      'c',
+      'cpp',
+      'h',
+      'go',
+      'rs',
+      'sh',
+      'sql',
+    ].includes(extension)
+  ) {
+    return { Icon: FileCode2, colorClass: 'text-purple-600' };
+  }
+
+  return { Icon: FileIcon, colorClass: 'text-slate-500' };
+}
+
+function formatFileSize(bytes?: number): string {
+  if (bytes === undefined || !Number.isFinite(bytes) || bytes < 0) return '';
+  if (bytes < 1024) return `${bytes} B`;
+
+  const units = ['KB', 'MB', 'GB'];
+  let value = bytes / 1024;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+
+  const precision = value >= 10 ? 0 : 1;
+  return `${value.toFixed(precision)} ${units[unitIndex]}`;
+}
+
+function FileTypeIcon({
+  fileName,
+  mimeType,
+  className = 'w-4 h-4',
+}: {
+  fileName?: string;
+  mimeType?: string;
+  className?: string;
+}) {
+  const { Icon, colorClass } = getFileVisual(fileName, mimeType);
+  return <Icon className={`${className} ${colorClass} shrink-0`} />;
+}
 
 interface DropModalProps {
   isOpen: boolean;
@@ -555,19 +674,34 @@ export const DropModal: React.FC<DropModalProps> = ({
                   {item.url && (
                     <div className="pt-1">
                       {item.type === 'image' ? (
-                        <div className="relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-900/5 dark:bg-slate-900/40 max-h-56 group/img">
-                          <img
-                            src={item.url}
-                            alt={item.file_name || 'Drop attachment'}
-                            className="w-full h-full object-contain max-h-56 rounded-xl cursor-pointer hover:opacity-95 transition-opacity"
-                            onClick={() => setPreviewImage(item.url || null)}
-                            onLoad={() => {
-                              if (item.id === newestItemId) {
-                                const container = scrollContainerRef.current;
-                                container?.scrollTo({ top: container.scrollHeight });
-                              }
-                            }}
-                          />
+                        <div className="space-y-1.5">
+                          <div className="relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-900/5 dark:bg-slate-900/40 max-h-56 group/img">
+                            <img
+                              src={item.url}
+                              alt={item.file_name || 'Drop attachment'}
+                              className="w-full h-full object-contain max-h-56 rounded-xl cursor-pointer hover:opacity-95 transition-opacity"
+                              onClick={() => setPreviewImage(item.url || null)}
+                              onLoad={() => {
+                                if (item.id === newestItemId) {
+                                  const container = scrollContainerRef.current;
+                                  container?.scrollTo({ top: container.scrollHeight });
+                                }
+                              }}
+                            />
+                          </div>
+                          {(item.file_name || item.file_size !== undefined) && (
+                            <div className="flex items-center gap-1.5 px-1 min-w-0 text-[10px] text-slate-500 dark:text-slate-400">
+                              <FileTypeIcon
+                                fileName={item.file_name}
+                                mimeType={item.mime_type}
+                                className="w-3.5 h-3.5"
+                              />
+                              <span className="truncate">{item.file_name || 'Image'}</span>
+                              {item.file_size !== undefined && (
+                                <span className="shrink-0">· {formatFileSize(item.file_size)}</span>
+                              )}
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <button
@@ -577,11 +711,21 @@ export const DropModal: React.FC<DropModalProps> = ({
                           title={`Download ${item.file_name || 'attachment'}`}
                           className="w-full p-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2 text-xs hover:bg-slate-100 transition-colors disabled:cursor-wait disabled:opacity-60"
                         >
-                          <div className="flex items-center gap-2 truncate">
-                            <Paperclip className="w-4 h-4 text-blue-500 shrink-0" />
-                            <span className="font-semibold text-slate-700 dark:text-slate-200 truncate">
-                              {item.file_name || 'Attached File'}
-                            </span>
+                          <div className="flex items-center gap-2 min-w-0 text-left">
+                            <FileTypeIcon
+                              fileName={item.file_name}
+                              mimeType={item.mime_type}
+                            />
+                            <div className="min-w-0">
+                              <span className="block font-semibold text-slate-700 dark:text-slate-200 truncate">
+                                {item.file_name || 'Attached File'}
+                              </span>
+                              {item.file_size !== undefined && (
+                                <span className="block text-[10px] text-slate-400 dark:text-slate-500">
+                                  {formatFileSize(item.file_size)}
+                                </span>
+                              )}
+                            </div>
                           </div>
                           {downloadingId === item.id ? (
                             <RefreshCw className="w-3.5 h-3.5 text-blue-500 shrink-0 animate-spin" />
@@ -620,14 +764,15 @@ export const DropModal: React.FC<DropModalProps> = ({
                   className="flex items-center justify-between gap-2 p-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-xs"
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    {file.type.startsWith('image/') ? (
-                      <ImageIcon className="w-4 h-4 text-blue-600 shrink-0" />
-                    ) : (
-                      <Paperclip className="w-4 h-4 text-blue-600 shrink-0" />
-                    )}
-                    <span className="font-medium text-blue-900 dark:text-blue-200 truncate">
-                      {file.name || 'Attachment'}
-                    </span>
+                    <FileTypeIcon fileName={file.name} mimeType={file.type} />
+                    <div className="min-w-0">
+                      <span className="block font-medium text-blue-900 dark:text-blue-200 truncate">
+                        {file.name || 'Attachment'}
+                      </span>
+                      <span className="block text-[10px] text-blue-600/70 dark:text-blue-300/70">
+                        {formatFileSize(file.size)}
+                      </span>
+                    </div>
                   </div>
                   <button
                     type="button"
