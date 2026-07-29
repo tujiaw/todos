@@ -25,6 +25,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { DropItem } from '../types';
+import { useConfirm } from './ConfirmDialog';
 
 const MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024;
 
@@ -180,6 +181,7 @@ export const DropModal: React.FC<DropModalProps> = ({
   isAuthenticated,
   onSignIn,
 }) => {
+  const confirmAction = useConfirm();
   const [inputText, setInputText] = useState('');
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -398,9 +400,12 @@ export const DropModal: React.FC<DropModalProps> = ({
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Delete this Drop item? This action cannot be undone.')) {
-      return;
-    }
+    const confirmed = await confirmAction({
+      title: 'Delete this Drop item?',
+      description: 'The note and its attachment will be permanently deleted.',
+      confirmLabel: 'Delete item',
+    });
+    if (!confirmed) return;
 
     setDeletingId(id);
     try {
@@ -413,16 +418,35 @@ export const DropModal: React.FC<DropModalProps> = ({
   };
 
   const handleClearConfirm = async () => {
-    if (window.confirm('Delete all Drop items? This action cannot be undone.')) {
-      setIsClearing(true);
-      try {
-        await onClearAllDropItems();
-      } catch {
-        // The parent displays the database error without clearing the list.
-      } finally {
-        setIsClearing(false);
-      }
+    const confirmed = await confirmAction({
+      title: 'Clear your Drop space?',
+      description: 'Every note and attachment in Edge Drop will be permanently deleted.',
+      confirmLabel: 'Delete all',
+    });
+    if (!confirmed) return;
+
+    setIsClearing(true);
+    try {
+      await onClearAllDropItems();
+    } catch {
+      // The parent displays the database error without clearing the list.
+    } finally {
+      setIsClearing(false);
     }
+  };
+
+  const handleRemoveAttachedFile = async (index: number, fileName?: string) => {
+    const confirmed = await confirmAction({
+      title: 'Remove this attachment?',
+      description: `${fileName || 'This file'} will be removed from the pending Drop.`,
+      confirmLabel: 'Remove',
+    });
+    if (!confirmed) return;
+
+    setAttachedFiles((currentFiles) =>
+      currentFiles.filter((_, fileIndex) => fileIndex !== index)
+    );
+    setAttachmentError(null);
   };
 
   const isUrl = (str: string) => {
@@ -801,15 +825,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                   </div>
                   <button
                     type="button"
-                    onClick={() => {
-                      if (!window.confirm(`Remove “${file.name || 'Attachment'}” from this Drop?`)) {
-                        return;
-                      }
-                      setAttachedFiles((currentFiles) =>
-                        currentFiles.filter((_, fileIndex) => fileIndex !== index)
-                      );
-                      setAttachmentError(null);
-                    }}
+                    onClick={() => handleRemoveAttachedFile(index, file.name)}
                     className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                     aria-label={`Remove ${file.name || 'attachment'}`}
                   >

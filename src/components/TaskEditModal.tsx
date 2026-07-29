@@ -1,6 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { X, Calendar, Clock, Flag, Tag, Plus, Trash2, Save, Image as ImageIcon, Upload, Link } from 'lucide-react';
 import { Category, Priority, Task } from '../types';
+import { useConfirm } from './ConfirmDialog';
 
 interface TaskEditModalProps {
   task: Task | null;
@@ -17,22 +18,39 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
   onClose,
   onSave,
 }) => {
-  if (!isOpen || !task) return null;
-
-  const [title, setTitle] = useState(task.title);
-  const [description, setDescription] = useState(task.description || '');
-  const [categoryId, setCategoryId] = useState(task.categoryId);
-  const [priority, setPriority] = useState<Priority>(task.priority);
-  const [date, setDate] = useState(task.date);
-  const [dueTime, setDueTime] = useState(task.dueTime || '');
+  const confirmAction = useConfirm();
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [categoryId, setCategoryId] = useState('');
+  const [priority, setPriority] = useState<Priority>('medium');
+  const [date, setDate] = useState('');
+  const [dueTime, setDueTime] = useState('');
   const [estimatedMinutes, setEstimatedMinutes] = useState<number | ''>(
-    task.estimatedMinutes || ''
+    ''
   );
-  const [subtasks, setSubtasks] = useState(task.subtasks || []);
+  const [subtasks, setSubtasks] = useState<Task['subtasks']>([]);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
-  const [imageUrl, setImageUrl] = useState(task.imageUrl || '');
-  const [showImageInput, setShowImageInput] = useState(!!task.imageUrl);
+  const [imageUrl, setImageUrl] = useState('');
+  const [showImageInput, setShowImageInput] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isOpen || !task) return;
+
+    setTitle(task.title);
+    setDescription(task.description || '');
+    setCategoryId(task.categoryId);
+    setPriority(task.priority);
+    setDate(task.date);
+    setDueTime(task.dueTime || '');
+    setEstimatedMinutes(task.estimatedMinutes || '');
+    setSubtasks(task.subtasks || []);
+    setNewSubtaskTitle('');
+    setImageUrl(task.imageUrl || '');
+    setShowImageInput(!!task.imageUrl);
+  }, [isOpen, task]);
+
+  if (!isOpen || !task) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,17 +106,23 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
     );
   };
 
-  const handleRemoveSubtask = (stId: string) => {
-    if (!window.confirm('Delete this subtask? This action cannot be undone after saving.')) {
-      return;
-    }
+  const handleRemoveSubtask = async (stId: string) => {
+    const confirmed = await confirmAction({
+      title: 'Delete this subtask?',
+      description: 'The subtask will be permanently removed when you save the task.',
+      confirmLabel: 'Delete subtask',
+    });
+    if (!confirmed) return;
     setSubtasks(subtasks.filter((st) => st.id !== stId));
   };
 
-  const handleRemoveImage = () => {
-    if (!window.confirm('Remove this image attachment? This action cannot be undone after saving.')) {
-      return;
-    }
+  const handleRemoveImage = async () => {
+    const confirmed = await confirmAction({
+      title: 'Remove this image?',
+      description: 'The image attachment will be removed when you save the task.',
+      confirmLabel: 'Remove',
+    });
+    if (!confirmed) return;
     setImageUrl('');
   };
 

@@ -22,6 +22,7 @@ import { SyncModal } from './components/SyncModal';
 import { CategorySettingsModal } from './components/CategorySettingsModal';
 import { DropModal } from './components/DropModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
+import { useConfirm } from './components/ConfirmDialog';
 import {
   supabase,
   initializeAuthSession,
@@ -51,6 +52,7 @@ function createDefaultWorkCategory(userId: string): Category {
 }
 
 export default function App() {
+  const confirmAction = useConfirm();
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString());
   const [tasks, setTasks] = useState<Task[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -444,12 +446,16 @@ export default function App() {
     }
   };
 
-  const handleDeleteTask = (taskId: string) => {
+  const handleDeleteTask = async (taskId: string) => {
     const taskToDelete = tasks.find((task) => task.id === taskId);
-    const taskLabel = taskToDelete?.title ? ` “${taskToDelete.title}”` : '';
-    if (!window.confirm(`Delete task${taskLabel}? This action cannot be undone.`)) {
-      return;
-    }
+    const confirmed = await confirmAction({
+      title: 'Delete this task?',
+      description: taskToDelete?.title
+        ? `“${taskToDelete.title}” will be permanently deleted.`
+        : 'This task will be permanently deleted.',
+      confirmLabel: 'Delete task',
+    });
+    if (!confirmed) return;
 
     const updatedTasks = tasks.filter((t) => t.id !== taskId);
     setTasks(updatedTasks);

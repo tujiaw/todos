@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Plus, Clock, Flag, Tag, ChevronDown, ListPlus, Image, X, Upload } from 'lucide-react';
 import { Category, Priority, Task } from '../types';
+import { useConfirm } from './ConfirmDialog';
 
 interface TaskInputProps {
   categories: Category[];
@@ -13,6 +14,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({
   selectedDate,
   onAddTask,
 }) => {
+  const confirmAction = useConfirm();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [categoryId, setCategoryId] = useState<string>(categories[0]?.id || '');
@@ -106,13 +108,23 @@ export const TaskInput: React.FC<TaskInputProps> = ({
     }
   };
 
-  const handleRemoveSubtask = (index: number) => {
-    if (!window.confirm('Remove this subtask?')) return;
+  const handleRemoveSubtask = async (index: number) => {
+    const confirmed = await confirmAction({
+      title: 'Remove this subtask?',
+      description: 'This subtask will be removed from the new task.',
+      confirmLabel: 'Remove',
+    });
+    if (!confirmed) return;
     setSubtasks(subtasks.filter((_, i) => i !== index));
   };
 
-  const handleRemoveImage = () => {
-    if (!window.confirm('Remove this image attachment?')) return;
+  const handleRemoveImage = async () => {
+    const confirmed = await confirmAction({
+      title: 'Remove this image?',
+      description: 'The image attachment will be removed from the new task.',
+      confirmLabel: 'Remove',
+    });
+    if (!confirmed) return;
     setImageUrl('');
   };
 
