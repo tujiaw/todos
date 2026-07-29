@@ -605,7 +605,7 @@ export default function App() {
       />
 
       {/* Main Container */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-9 space-y-5 sm:space-y-7 pb-36 sm:pb-14">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-4 sm:space-y-5 pb-36 sm:pb-14">
         <section className="dashboard-intro">
           <div>
             <p className="dashboard-kicker">YOUR DAILY SPACE</p>
