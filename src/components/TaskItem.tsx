@@ -45,14 +45,14 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     switch (p) {
       case 'high':
         return (
-          <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/50 text-[10px] font-semibold">
+          <span className="task-pill inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 text-[10px] font-semibold">
             <Flag className="w-2.5 h-2.5 text-rose-500 fill-rose-500" />
             High
           </span>
         );
       case 'medium':
         return (
-          <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50 text-[10px] font-medium">
+          <span className="task-pill inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 text-[10px] font-medium">
             <Flag className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />
             Medium
           </span>
@@ -60,7 +60,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
       case 'low':
       default:
         return (
-          <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 text-[10px] font-medium">
+          <span className="task-pill inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 text-[10px] font-medium">
             <Flag className="w-2.5 h-2.5 text-slate-400" />
             Low
           </span>
@@ -76,12 +76,12 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.98 }}
         transition={{ duration: 0.15 }}
-        className={`group relative px-3.5 py-3 transition-colors ${
+        className={`task-item group relative px-4 py-4 sm:px-5 transition-all ${
           task.completed
-            ? 'bg-slate-50/50 dark:bg-slate-900/40 opacity-75'
+            ? 'task-item-completed bg-slate-50/90 dark:bg-slate-900/55'
             : task.pinned
-            ? 'bg-blue-50/30 dark:bg-blue-950/20 border-l-4 border-l-blue-500 pl-2.5'
-            : 'hover:bg-slate-50/80 dark:hover:bg-slate-800/40'
+            ? 'bg-indigo-50/60 dark:bg-indigo-950/20 border-l-[3px] border-l-indigo-500'
+            : 'bg-white dark:bg-slate-900 hover:-translate-y-0.5'
         }`}
       >
         <div className="flex items-start gap-3">
@@ -110,7 +110,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
             <div className="flex items-center gap-2 flex-wrap">
               <h4
                 className={`text-sm font-semibold leading-snug transition-all ${
-                  task.completed ? 'text-slate-400 dark:text-slate-500 line-through' : 'text-slate-800 dark:text-slate-100'
+                  task.completed ? 'text-slate-600 dark:text-slate-400 font-medium' : 'text-slate-900 dark:text-slate-100'
                 }`}
               >
                 {task.title}
@@ -130,7 +130,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
               {/* Category Badge */}
               {category && (
                 <span
-                  className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded border font-semibold ${category.bgClass} ${category.textClass} ${category.borderClass}`}
+                  className={`task-pill inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-semibold ${category.bgClass} ${category.textClass}`}
                 >
                   <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: category.color }} />
                   {category.name}
@@ -142,7 +142,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
 
               {/* Time Indicator (Due Time / Estimated Duration) */}
               {(task.dueTime || task.estimatedMinutes) && (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 font-medium">
+                <span className="task-pill inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium">
                   <Clock className="w-2.5 h-2.5 text-slate-400 dark:text-slate-500 shrink-0" />
                   {task.dueTime && <span>{task.dueTime}</span>}
                   {task.dueTime && task.estimatedMinutes && <span>•</span>}

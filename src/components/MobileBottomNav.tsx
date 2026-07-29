@@ -28,7 +28,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 px-3 pt-1.5 pb-[calc(0.5rem+env(safe-area-inset-bottom))] sm:hidden transition-colors shadow-lg">
+    <nav className="fixed bottom-3 left-3 right-3 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-white dark:border-slate-800 px-3 pt-1.5 pb-[calc(0.5rem+env(safe-area-inset-bottom))] sm:hidden transition-colors shadow-2xl rounded-2xl">
       <div className="max-w-md mx-auto flex items-center justify-around relative">
         {/* Today Jump Button */}
         <button

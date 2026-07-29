@@ -88,9 +88,9 @@ export const TaskList: React.FC<TaskListProps> = ({
   const hasActiveFilters = filterStatus !== 'all' || activeCategoryId !== null || searchQuery.trim() !== '';
 
   return (
-    <div id="task-list-section" className="space-y-3">
+    <div id="task-list-section" className="task-board space-y-4">
       {/* Streamlined Search & Status Filter Bar */}
-      <div className="py-2 px-1 space-y-2 border-b border-slate-200/60 dark:border-slate-800/80 transition-colors">
+      <div className="task-toolbar p-3 sm:p-4 space-y-3 transition-colors">
         {/* Search, Status Tabs & Sort Selector */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
           {/* Search Box */}
@@ -102,7 +102,7 @@ export const TaskList: React.FC<TaskListProps> = ({
               placeholder="Search tasks..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full text-xs pl-7 pr-7 py-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-slate-50/70 dark:bg-slate-800/60 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 min-h-[32px]"
+              className="w-full text-xs pl-8 pr-8 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800/60 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 min-h-[38px]"
             />
             {searchQuery && (
               <button
@@ -249,7 +249,7 @@ export const TaskList: React.FC<TaskListProps> = ({
       {/* Task List Container */}
       <AnimatePresence mode="popLayout">
         {filteredTasks.length > 0 ? (
-          <div className="divide-y divide-slate-200/70 dark:divide-slate-800/80">
+          <div className="task-card-list space-y-2.5">
             {filteredTasks.map((task) => (
               <TaskItem
                 key={task.id}

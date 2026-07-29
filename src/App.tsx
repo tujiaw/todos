@@ -13,7 +13,7 @@ import {
 import { getTodayDateString } from './data/initialData';
 import { Header } from './components/Header';
 import { usePWA } from './hooks/usePWA';
-import { Download, Github, LoaderCircle, LockKeyhole, X } from 'lucide-react';
+import { CheckCircle2, Download, Github, LoaderCircle, LockKeyhole, X } from 'lucide-react';
 import { ProgressBar } from './components/ProgressBar';
 import { TaskInput } from './components/TaskInput';
 import { TaskList } from './components/TaskList';
@@ -344,6 +344,7 @@ export default function App() {
   // Calculate stats for current selected date
   const totalTasksCount = selectedDateTasks.length;
   const completedTasksCount = selectedDateTasks.filter((t) => t.completed).length;
+  const pendingTasksCount = totalTasksCount - completedTasksCount;
   const totalEstimatedMinutes = selectedDateTasks.reduce(
     (sum, t) => sum + (t.estimatedMinutes || 0),
     0
@@ -583,7 +584,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans flex flex-col selection:bg-blue-100 dark:selection:bg-blue-900 selection:text-blue-900 dark:selection:text-blue-100 transition-colors">
+    <div className="app-shell min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans flex flex-col selection:bg-indigo-100 dark:selection:bg-indigo-900 selection:text-indigo-950 dark:selection:text-indigo-100 transition-colors">
       {/* Sticky Top App Header */}
       <Header
         selectedDate={selectedDate}
@@ -604,21 +605,33 @@ export default function App() {
       />
 
       {/* Main Container */}
-      <main className="flex-1 max-w-4xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-5 pb-36 sm:pb-12">
-        {/* Daily Progress Statistics Bar */}
-        <ProgressBar
-          totalTasks={totalTasksCount}
-          completedTasks={completedTasksCount}
-          totalEstimatedMinutes={totalEstimatedMinutes}
-          dateStr={selectedDate}
-        />
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-9 space-y-5 sm:space-y-7 pb-36 sm:pb-14">
+        <section className="dashboard-intro">
+          <div>
+            <p className="dashboard-kicker">YOUR DAILY SPACE</p>
+            <h2>Make today feel lighter.</h2>
+            <p>Choose what matters, give it a place, and let the rest wait.</p>
+          </div>
+          <div className="dashboard-stat" aria-label={`${pendingTasksCount} tasks remaining`}>
+            <span>{pendingTasksCount}</span>
+            <small>left today</small>
+          </div>
+        </section>
 
-        {/* Task Quick Input Form */}
-        <TaskInput
-          categories={categories}
-          selectedDate={selectedDate}
-          onAddTask={handleAddTask}
-        />
+        <section className="grid grid-cols-1 lg:grid-cols-[0.78fr_1.22fr] gap-4 sm:gap-5 items-stretch">
+          <ProgressBar
+            totalTasks={totalTasksCount}
+            completedTasks={completedTasksCount}
+            totalEstimatedMinutes={totalEstimatedMinutes}
+            dateStr={selectedDate}
+          />
+
+          <TaskInput
+            categories={categories}
+            selectedDate={selectedDate}
+            onAddTask={handleAddTask}
+          />
+        </section>
 
         {/* Task List Section with Unified Filters */}
         <TaskList
@@ -636,15 +649,18 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="py-6 border-t border-slate-200/60 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 mt-8 mb-16 sm:mb-0 text-center text-xs text-slate-400 dark:text-slate-500">
-        <div className="max-w-4xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <p>© Daily TODOs · Powered by Supabase Cloud & GitHub Auth</p>
+      <footer className="app-footer mb-16 sm:mb-0">
+        <div className="max-w-5xl mx-auto px-4 sm:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="footer-mark"><CheckCircle2 className="w-3.5 h-3.5" /></span>
+            <p>Daily TODOs · Your calm space to get things done.</p>
+          </div>
           <div className="flex items-center gap-3">
             <button
               onClick={() => setIsSyncModalOpen(true)}
-              className="hover:text-slate-600 dark:hover:text-slate-300 underline decoration-slate-300 dark:decoration-slate-700 transition-colors"
+              className="footer-link"
             >
-              Supabase 后端与数据同步中心
+              Cloud sync
             </button>
           </div>
         </div>
