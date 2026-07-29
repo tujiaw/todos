@@ -137,27 +137,33 @@ export const TaskInput: React.FC<TaskInputProps> = ({
             />
           </div>
 
-          <button
-            type="button"
-            onClick={() => setShowDetails(!showDetails)}
-            className={`h-10 px-3 rounded-xl text-xs font-medium transition-colors flex items-center justify-center gap-1 shrink-0 active:scale-95 ${
-              showDetails ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-            }`}
-            title="Toggle detail options"
-          >
-            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${showDetails ? 'rotate-180' : ''}`} />
-            <span className="hidden sm:inline">More</span>
-          </button>
+          <div className="h-10 shrink-0 flex items-stretch overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg shadow-indigo-500/10">
+            <button
+              type="button"
+              onClick={() => setShowDetails(!showDetails)}
+              className={`w-10 flex items-center justify-center transition-colors active:scale-95 ${
+                showDetails
+                  ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300'
+                  : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'
+              }`}
+              title="More options"
+              aria-label={showDetails ? 'Hide task options' : 'Show more task options'}
+              aria-expanded={showDetails}
+            >
+              <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${showDetails ? 'rotate-180' : ''}`} />
+            </button>
 
-          <button
-            type="submit"
-            id="btn-add-task-submit"
-            disabled={!title.trim() || !categoryId}
-            className="h-10 px-4 bg-gradient-to-br from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-500/20 transition-all flex items-center justify-center gap-1.5 shrink-0 active:scale-95"
-          >
-            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-            <span>Add</span>
-          </button>
+            <button
+              type="submit"
+              id="btn-add-task-submit"
+              disabled={!title.trim() || !categoryId}
+              className="w-10 bg-gradient-to-br from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 disabled:opacity-40 text-white transition-all flex items-center justify-center border-l border-white/15 active:scale-95"
+              title="Add task"
+              aria-label="Add task"
+            >
+              <Plus className="w-4 h-4 stroke-[2.6]" />
+            </button>
+          </div>
         </div>
 
         {/* Quick Options Row - Clean & Compact */}
