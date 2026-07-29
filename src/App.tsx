@@ -445,6 +445,12 @@ export default function App() {
   };
 
   const handleDeleteTask = (taskId: string) => {
+    const taskToDelete = tasks.find((task) => task.id === taskId);
+    const taskLabel = taskToDelete?.title ? ` “${taskToDelete.title}”` : '';
+    if (!window.confirm(`Delete task${taskLabel}? This action cannot be undone.`)) {
+      return;
+    }
+
     const updatedTasks = tasks.filter((t) => t.id !== taskId);
     setTasks(updatedTasks);
     saveTasks(updatedTasks);

@@ -107,7 +107,13 @@ export const TaskInput: React.FC<TaskInputProps> = ({
   };
 
   const handleRemoveSubtask = (index: number) => {
+    if (!window.confirm('Remove this subtask?')) return;
     setSubtasks(subtasks.filter((_, i) => i !== index));
+  };
+
+  const handleRemoveImage = () => {
+    if (!window.confirm('Remove this image attachment?')) return;
+    setImageUrl('');
   };
 
   return (
@@ -336,7 +342,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({
                 {imageUrl && (
                   <button
                     type="button"
-                    onClick={() => setImageUrl('')}
+                    onClick={handleRemoveImage}
                     className="text-[11px] text-rose-600 hover:underline flex items-center gap-0.5"
                   >
                     <X className="w-3 h-3" />

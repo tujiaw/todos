@@ -398,6 +398,10 @@ export const DropModal: React.FC<DropModalProps> = ({
   };
 
   const handleDelete = async (id: string) => {
+    if (!window.confirm('Delete this Drop item? This action cannot be undone.')) {
+      return;
+    }
+
     setDeletingId(id);
     try {
       await onDeleteDropItem(id);
@@ -409,7 +413,7 @@ export const DropModal: React.FC<DropModalProps> = ({
   };
 
   const handleClearConfirm = async () => {
-    if (window.confirm('Are you sure you want to clear all drop items?')) {
+    if (window.confirm('Delete all Drop items? This action cannot be undone.')) {
       setIsClearing(true);
       try {
         await onClearAllDropItems();
@@ -798,6 +802,9 @@ export const DropModal: React.FC<DropModalProps> = ({
                   <button
                     type="button"
                     onClick={() => {
+                      if (!window.confirm(`Remove “${file.name || 'Attachment'}” from this Drop?`)) {
+                        return;
+                      }
                       setAttachedFiles((currentFiles) =>
                         currentFiles.filter((_, fileIndex) => fileIndex !== index)
                       );

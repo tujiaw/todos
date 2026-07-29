@@ -89,7 +89,17 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
   };
 
   const handleRemoveSubtask = (stId: string) => {
+    if (!window.confirm('Delete this subtask? This action cannot be undone after saving.')) {
+      return;
+    }
     setSubtasks(subtasks.filter((st) => st.id !== stId));
+  };
+
+  const handleRemoveImage = () => {
+    if (!window.confirm('Remove this image attachment? This action cannot be undone after saving.')) {
+      return;
+    }
+    setImageUrl('');
   };
 
   return (
@@ -267,7 +277,7 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
                   {imageUrl && (
                     <button
                       type="button"
-                      onClick={() => setImageUrl('')}
+                      onClick={handleRemoveImage}
                       className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg"
                       title="Remove image"
                     >
