@@ -461,31 +461,25 @@ export const DropModal: React.FC<DropModalProps> = ({
       >
         {isDraggingFiles && (
           <div className="drop-zone-active absolute inset-4 z-50 pointer-events-none rounded-[1.75rem] border-2 border-dashed border-indigo-500 bg-indigo-50/95 dark:bg-indigo-950/95 flex flex-col items-center justify-center text-sm font-semibold text-indigo-700 dark:text-indigo-300">
-            <span className="grid place-items-center w-14 h-14 rounded-2xl bg-white dark:bg-slate-900 shadow-lg mb-3">
-              <Paperclip className="w-6 h-6" />
+            <span className="grid place-items-center w-12 h-12 rounded-2xl bg-white dark:bg-slate-900 shadow-lg mb-2">
+              <Paperclip className="w-5 h-5" />
             </span>
-            Drop files into your space
-            <small className="mt-1 text-[10px] font-medium text-indigo-500/80">Up to 20 MB per file</small>
+            Drop files
           </div>
         )}
 
         {/* Header Bar */}
-        <div className="drop-header px-5 sm:px-6 pt-5 pb-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="drop-logo p-2.5 rounded-2xl bg-white/12 text-white border border-white/15">
-              <Send className="w-5 h-5" />
+        <div className="drop-header px-4 sm:px-5 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="drop-logo p-2 rounded-xl bg-white/12 text-white border border-white/15">
+              <Send className="w-4 h-4" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 id="edge-drop-title" className="text-base font-bold text-white tracking-tight">Edge Drop</h3>
-                <span className="drop-status-pill text-[10px] px-2 py-1 rounded-full text-indigo-50 font-semibold flex items-center gap-1">
-                  <Database className="w-2.5 h-2.5" />
-                  Cloud space
-                </span>
-              </div>
-              <p className="text-[11px] text-indigo-200 mt-0.5">
-                Notes and files, ready on every device
-              </p>
+            <div className="flex items-center gap-2">
+              <h3 id="edge-drop-title" className="text-sm font-bold text-white tracking-tight">Edge Drop</h3>
+              <span className="drop-status-pill text-[9px] px-2 py-0.5 rounded-full text-indigo-50 font-semibold flex items-center gap-1">
+                <Database className="w-2.5 h-2.5" />
+                Cloud
+              </span>
             </div>
           </div>
 
@@ -536,7 +530,7 @@ export const DropModal: React.FC<DropModalProps> = ({
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search notes..."
+              placeholder="Search"
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               className="w-full text-xs pl-8 pr-8 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 shadow-sm"
@@ -575,7 +569,7 @@ export const DropModal: React.FC<DropModalProps> = ({
           {isLoading && dropItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-slate-400 text-xs gap-2 py-12">
               <RefreshCw className="w-6 h-6 animate-spin text-blue-500" />
-              <span>Syncing Drop records...</span>
+              <span>Syncing...</span>
             </div>
           ) : dropItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-slate-400 text-xs gap-3 py-12 text-center">
@@ -584,10 +578,7 @@ export const DropModal: React.FC<DropModalProps> = ({
               </div>
               <div className="space-y-1 max-w-xs">
                 <p className="font-semibold text-slate-700 dark:text-slate-300">
-                  {searchQuery ? 'No matching notes found' : 'No notes dropped yet'}
-                </p>
-                <p className="text-[11px] text-slate-500">
-                  Type a note or paste an image below to sync across devices
+                  {searchQuery ? 'No matches' : 'Nothing here yet'}
                 </p>
               </div>
             </div>
@@ -605,10 +596,10 @@ export const DropModal: React.FC<DropModalProps> = ({
                     {isLoadingMore ? (
                       <>
                         <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>Loading older items...</span>
+                        <span>Loading...</span>
                       </>
                     ) : (
-                      <span>Load older items (50 items/page)</span>
+                      <span>Load more</span>
                     )}
                   </button>
                 </div>
@@ -781,7 +772,7 @@ export const DropModal: React.FC<DropModalProps> = ({
               onClick={onSignIn}
               className="w-full px-3 py-2 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 text-xs font-semibold text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors"
             >
-              Sign in with GitHub to use Drop
+              Sign in to Drop
             </button>
           )}
 
@@ -831,8 +822,8 @@ export const DropModal: React.FC<DropModalProps> = ({
               onPaste={handlePaste}
               placeholder={
                 isLoading
-                  ? 'Syncing Drop records...'
-                  : 'Type a note or paste an image (Enter to send)...'
+                  ? 'Syncing...'
+                  : 'Drop a note or paste an image...'
               }
               disabled={isLoading}
               rows={2}
@@ -860,9 +851,6 @@ export const DropModal: React.FC<DropModalProps> = ({
                   <span>Attach</span>
                 </button>
 
-                <span className="text-[10px] text-slate-400 hidden sm:inline">
-                  Drag files here or paste images
-                </span>
               </div>
 
               <button
