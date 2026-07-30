@@ -25,8 +25,10 @@ test('AI requests use a same-origin Vercel Function with server auth', () => {
   assert.match(vercelConfig, /api\/generate-task-draft\.ts/);
   assert.match(vercelFunction, /await authenticate/);
   assert.match(vercelFunction, /deepseek\/deepseek-v4-flash/);
-  assert.doesNotMatch(vercelFunction, /DEEPSEEK_API_KEY/);
+  assert.match(vercelFunction, /DEEPSEEK_API_KEY/);
   assert.match(aiProvider, /generateText/);
+  assert.match(aiProvider, /byok/);
+  assert.match(aiProvider, /only: \['deepseek'\]/);
   assert.match(aiProvider, /feature:task-draft/);
   assert.doesNotMatch(aiProvider, /api\.deepseek\.com/);
   assert.match(aiClient, /fetch\('\/api\/generate-task-draft'/);

@@ -8,6 +8,7 @@ export interface TaskDraftProvider {
 }
 
 interface VercelAiGatewayProviderOptions {
+  apiKey: string;
   model: string;
   userId: string;
   timeoutMs?: number;
@@ -32,10 +33,12 @@ function mapGatewayError(status: number): string {
 export class VercelAiGatewayTaskDraftProvider implements TaskDraftProvider {
   readonly name = 'vercel-ai-gateway';
   readonly model: string;
+  private readonly apiKey: string;
   private readonly userId: string;
   private readonly timeoutMs: number;
 
   constructor(options: VercelAiGatewayProviderOptions) {
+    this.apiKey = options.apiKey;
     this.model = options.model;
     this.userId = options.userId;
     this.timeoutMs = options.timeoutMs || 25_000;
@@ -67,6 +70,10 @@ export class VercelAiGatewayTaskDraftProvider implements TaskDraftProvider {
         abortSignal: controller.signal,
         providerOptions: {
           gateway: {
+            byok: {
+              deepseek: [{ apiKey: this.apiKey }],
+            },
+            only: ['deepseek'],
             user: this.userId,
             tags: ['feature:task-draft'],
           },

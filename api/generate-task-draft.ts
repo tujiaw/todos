@@ -37,10 +37,14 @@ function getServerConfig() {
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const supabaseAnonKey =
     process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+  const deepSeekApiKey = process.env.DEEPSEEK_API_KEY;
   if (!supabaseUrl || !supabaseAnonKey) {
     throw new Error('Supabase Auth is not configured on the server.');
   }
-  return { supabaseUrl, supabaseAnonKey };
+  if (!deepSeekApiKey) {
+    throw new Error('DeepSeek BYOK is not configured on the server.');
+  }
+  return { supabaseUrl, supabaseAnonKey, deepSeekApiKey };
 }
 
 async function authenticate(
@@ -60,8 +64,9 @@ async function authenticate(
   return { id: user.id };
 }
 
-function createProvider(userId: string): TaskDraftProvider {
+function createProvider(userId: string, apiKey: string): TaskDraftProvider {
   return new VercelAiGatewayTaskDraftProvider({
+    apiKey,
     userId,
     model: process.env.AI_MODEL || 'deepseek/deepseek-v4-flash',
   });
@@ -138,7 +143,7 @@ export default async function handler(request: ApiRequest, response: ApiResponse
       config.supabaseUrl,
       config.supabaseAnonKey
     );
-    const provider = createProvider(user.id);
+    const provider = createProvider(user.id, config.deepSeekApiKey);
     const dailyUsage = dailyLimiter.consume(user.id, getShanghaiDate());
     if (dailyUsage < 0) throw new Error(DAILY_LIMIT_MESSAGE);
 
