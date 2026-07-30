@@ -110,6 +110,8 @@ body {
 }
 
 .task-composer:focus-within {
+  position: relative;
+  z-index: 20;
   border-color: rgb(99 102 241 / 0.42);
   box-shadow: 0 0 0 4px rgb(99 102 241 / 0.08), 0 22px 55px rgb(79 70 229 / 0.12);
   transform: translateY(-2px);
