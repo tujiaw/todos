@@ -178,3 +178,43 @@ create policy "Drop users can delete own files" on storage.objects
     bucket_id = 'drop-files'
     and (storage.foldername(name))[1] = (select auth.uid()::text)
   );
+
+
+-- 5. Daily AI usage quota (50 calls per user, Asia/Shanghai calendar day)
+create table if not exists public.ai_daily_usage (
+  user_id uuid references auth.users(id) on delete cascade not null,
+  usage_date date not null,
+  call_count integer default 0 not null check (call_count between 0 and 50),
+  primary key (user_id, usage_date)
+);
+
+alter table public.ai_daily_usage enable row level security;
+revoke all on table public.ai_daily_usage from anon, authenticated;
+
+create or replace function public.consume_ai_daily_quota()
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  next_count integer;
+  current_usage_date date := (now() at time zone 'Asia/Shanghai')::date;
+begin
+  if auth.uid() is null then
+    raise exception 'Authentication is required.';
+  end if;
+
+  insert into public.ai_daily_usage as usage (user_id, usage_date, call_count)
+  values (auth.uid(), current_usage_date, 1)
+  on conflict (user_id, usage_date) do update
+    set call_count = usage.call_count + 1
+    where usage.call_count < 50
+  returning call_count into next_count;
+
+  return coalesce(next_count, -1);
+end;
+$$;
+
+revoke all on function public.consume_ai_daily_quota() from public;
+grant execute on function public.consume_ai_daily_quota() to authenticated;

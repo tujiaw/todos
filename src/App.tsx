@@ -23,6 +23,7 @@ import { CategorySettingsModal } from './components/CategorySettingsModal';
 import { DropModal } from './components/DropModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { useConfirm } from './components/ConfirmDialog';
+import { generateTaskDraft } from './lib/ai';
 import {
   supabase,
   initializeAuthSession,
@@ -72,6 +73,9 @@ export default function App() {
 
   // Modals state
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [draftTask, setDraftTask] = useState<Task | null>(null);
+  const [taskInputResetKey, setTaskInputResetKey] = useState(0);
+  const draftSourceRef = useRef<'input' | 'drop' | null>(null);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState<boolean>(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState<boolean>(false);
   const [isDropModalOpen, setIsDropModalOpen] = useState<boolean>(false);
@@ -398,6 +402,63 @@ export default function App() {
     }
   };
 
+  const handleGenerateTaskDraft = async (text: string, source: 'input' | 'drop') => {
+    const draft = await generateTaskDraft({
+      text,
+      currentDate: getTodayDateString(),
+      selectedDate,
+      timezone: 'Asia/Shanghai',
+      categories: categories.map(({ id, name, isDefault }) => ({
+        id,
+        name,
+        isDefault,
+      })),
+    });
+    const now = Date.now();
+    setDraftTask({
+      id: `draft-${now}`,
+      title: draft.title,
+      description: draft.description,
+      date: draft.date,
+      completed: false,
+      categoryId: draft.categoryId,
+      priority: draft.priority,
+      dueTime: draft.dueTime,
+      estimatedMinutes: draft.estimatedMinutes,
+      subtasks: draft.subtasks.map((title, index) => ({
+        id: `draft-subtask-${now}-${index}`,
+        title,
+        completed: false,
+      })),
+      pinned: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+    draftSourceRef.current = source;
+  };
+
+  const handleCreateDraftTask = (task: Task) => {
+    const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...taskData } = task;
+    handleAddTask({
+      ...taskData,
+      completed: false,
+      subtasks: taskData.subtasks.map((subtask) => ({
+        ...subtask,
+        completed: false,
+      })),
+    });
+    if (draftSourceRef.current === 'input') {
+      setTaskInputResetKey((key) => key + 1);
+    }
+    draftSourceRef.current = null;
+    setDraftTask(null);
+  };
+
+  const handleCloseDraftTask = () => {
+    draftSourceRef.current = null;
+    setDraftTask(null);
+  };
+
   const handleToggleComplete = (taskId: string) => {
     let updatedTask: Task | undefined;
     const updatedTasks = tasks.map((t) => {
@@ -642,6 +703,8 @@ export default function App() {
             categories={categories}
             selectedDate={selectedDate}
             onAddTask={handleAddTask}
+            onGenerateTaskDraft={(text) => handleGenerateTaskDraft(text, 'input')}
+            resetKey={taskInputResetKey}
           />
         </section>
 
@@ -725,8 +788,22 @@ export default function App() {
         onRefreshDropItems={() => loadDropItems(dropSearchQuery, 0, false)}
         onDismissError={() => setDropError(null)}
         onConvertToTask={handleConvertToTask}
+        onGenerateTaskDraft={async (text) => {
+          await handleGenerateTaskDraft(text, 'drop');
+          setIsDropModalOpen(false);
+        }}
         isAuthenticated={Boolean(user)}
         onSignIn={handleGitHubLoginClick}
+      />
+
+      {/* AI-generated task review modal */}
+      <TaskEditModal
+        task={draftTask}
+        categories={categories}
+        isOpen={Boolean(draftTask)}
+        mode="create"
+        onClose={handleCloseDraftTask}
+        onSave={handleCreateDraftTask}
       />
 
       {/* Mobile Smartphone Bottom Navigation Toolbar */}

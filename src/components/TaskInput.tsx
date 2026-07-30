@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Clock, Flag, Tag, ChevronDown, ListPlus, Image, X, Upload } from 'lucide-react';
+import { Plus, Clock, Flag, Tag, ChevronDown, ListPlus, Image, X, Upload, Sparkles, LoaderCircle } from 'lucide-react';
 import { Category, Priority, Task } from '../types';
 import { useConfirm } from './ConfirmDialog';
 
@@ -7,12 +7,16 @@ interface TaskInputProps {
   categories: Category[];
   selectedDate: string;
   onAddTask: (newTask: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  onGenerateTaskDraft: (text: string) => Promise<void>;
+  resetKey?: number;
 }
 
 export const TaskInput: React.FC<TaskInputProps> = ({
   categories,
   selectedDate,
   onAddTask,
+  onGenerateTaskDraft,
+  resetKey = 0,
 }) => {
   const confirmAction = useConfirm();
   const [title, setTitle] = useState('');
@@ -27,6 +31,8 @@ export const TaskInput: React.FC<TaskInputProps> = ({
   const [subtasks, setSubtasks] = useState<string[]>([]);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [showTimePickerPopover, setShowTimePickerPopover] = useState(false);
+  const [isGeneratingDraft, setIsGeneratingDraft] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const timePopoverRef = useRef<HTMLDivElement>(null);
@@ -50,6 +56,20 @@ export const TaskInput: React.FC<TaskInputProps> = ({
       setCategoryId(categories[0]?.id || '');
     }
   }, [categories, categoryId]);
+
+  useEffect(() => {
+    if (resetKey === 0) return;
+    setTitle('');
+    setDescription('');
+    setDueTime('18:00');
+    setEstimatedMinutes('');
+    setImageUrl('');
+    setShowImageInput(false);
+    setSubtasks([]);
+    setNewSubtaskTitle('');
+    setShowDetails(false);
+    setAiError(null);
+  }, [resetKey]);
 
   const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -118,6 +138,20 @@ export const TaskInput: React.FC<TaskInputProps> = ({
     setSubtasks(subtasks.filter((_, i) => i !== index));
   };
 
+  const handleGenerateDraft = async () => {
+    if (!title.trim() || isGeneratingDraft) return;
+    setAiError(null);
+    setIsGeneratingDraft(true);
+    try {
+      const source = [title.trim(), description.trim()].filter(Boolean).join('\n\n');
+      await onGenerateTaskDraft(source);
+    } catch (error) {
+      setAiError(error instanceof Error ? error.message : 'AI task drafting failed.');
+    } finally {
+      setIsGeneratingDraft(false);
+    }
+  };
+
   const handleRemoveImage = async () => {
     const confirmed = await confirmAction({
       title: 'Remove this image?',
@@ -152,8 +186,22 @@ export const TaskInput: React.FC<TaskInputProps> = ({
           <div className="h-10 shrink-0 flex items-stretch overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg shadow-indigo-500/10">
             <button
               type="button"
+              onClick={handleGenerateDraft}
+              disabled={!title.trim() || isGeneratingDraft || categories.length === 0}
+              className="w-10 flex items-center justify-center text-indigo-600 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 disabled:opacity-40 transition-colors"
+              title="Use AI to turn this into a task draft"
+              aria-label="Generate AI task draft"
+            >
+              {isGeneratingDraft ? (
+                <LoaderCircle className="w-4 h-4 animate-spin" />
+              ) : (
+                <Sparkles className="w-4 h-4" />
+              )}
+            </button>
+            <button
+              type="button"
               onClick={() => setShowDetails(!showDetails)}
-              className={`w-10 flex items-center justify-center transition-colors active:scale-95 ${
+              className={`w-10 flex items-center justify-center border-l border-slate-200 dark:border-slate-700 transition-colors active:scale-95 ${
                 showDetails
                   ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300'
                   : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'
@@ -177,6 +225,23 @@ export const TaskInput: React.FC<TaskInputProps> = ({
             </button>
           </div>
         </div>
+
+        {aiError && (
+          <div
+            role="alert"
+            className="mt-2 rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/40 px-3 py-2 text-[11px] text-rose-700 dark:text-rose-300 flex items-start justify-between gap-2"
+          >
+            <span>{aiError}</span>
+            <button
+              type="button"
+              onClick={() => setAiError(null)}
+              className="shrink-0 rounded p-0.5 hover:bg-rose-100 dark:hover:bg-rose-900"
+              aria-label="Dismiss AI error"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        )}
 
         {/* Quick Options Row - Clean & Compact */}
         <div className="composer-options flex flex-wrap items-center gap-2 mt-2">

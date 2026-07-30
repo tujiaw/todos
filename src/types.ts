@@ -34,6 +34,17 @@ export interface Task {
   updatedAt: number; // timestamp
 }
 
+export interface TaskDraft {
+  title: string;
+  description?: string;
+  date: string;
+  dueTime?: string;
+  estimatedMinutes?: number;
+  categoryId: string;
+  priority: Priority;
+  subtasks: string[];
+}
+
 export type TaskFilterStatus = 'all' | 'pending' | 'completed' | 'high_priority';
 
 export type SortByOption = 'createdAt' | 'priority' | 'dueTime' | 'category';

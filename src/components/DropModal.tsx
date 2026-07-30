@@ -10,6 +10,7 @@ import {
   Download,
   PlusCircle,
   RefreshCw,
+  LoaderCircle,
   Search,
   Database,
   File as FileIcon,
@@ -157,6 +158,7 @@ interface DropModalProps {
   onRefreshDropItems: () => Promise<void>;
   onDismissError: () => void;
   onConvertToTask: (content: string, imageUrl?: string) => void;
+  onGenerateTaskDraft: (text: string) => Promise<void>;
   isAuthenticated: boolean;
   onSignIn: () => void;
 }
@@ -178,6 +180,7 @@ export const DropModal: React.FC<DropModalProps> = ({
   onRefreshDropItems,
   onDismissError,
   onConvertToTask,
+  onGenerateTaskDraft,
   isAuthenticated,
   onSignIn,
 }) => {
@@ -193,6 +196,7 @@ export const DropModal: React.FC<DropModalProps> = ({
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
+  const [generatingDraftId, setGeneratingDraftId] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -370,6 +374,21 @@ export const DropModal: React.FC<DropModalProps> = ({
     onConvertToTask(item.content, item.url);
     setConvertedId(item.id);
     setTimeout(() => setConvertedId(null), 2000);
+  };
+
+  const handleGenerateDraft = async (item: DropItem) => {
+    if (!item.content || generatingDraftId) return;
+    setAttachmentError(null);
+    setGeneratingDraftId(item.id);
+    try {
+      await onGenerateTaskDraft(item.content);
+    } catch (error) {
+      setAttachmentError(
+        error instanceof Error ? error.message : 'AI task drafting failed.'
+      );
+    } finally {
+      setGeneratingDraftId(null);
+    }
   };
 
   const handleDownload = async (item: DropItem) => {
@@ -669,6 +688,24 @@ export const DropModal: React.FC<DropModalProps> = ({
                               <span>Copy</span>
                             </>
                           )}
+                        </button>
+                      )}
+
+                      {/* Convert to Task Button */}
+                      {item.content && (
+                        <button
+                          type="button"
+                          onClick={() => handleGenerateDraft(item)}
+                          disabled={Boolean(generatingDraftId)}
+                          className="px-2 py-1 rounded-lg text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950/40 disabled:opacity-50 font-medium transition-colors flex items-center gap-1"
+                          title="Use AI to create an editable task draft"
+                        >
+                          {generatingDraftId === item.id ? (
+                            <LoaderCircle className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <Sparkles className="w-3 h-3" />
+                          )}
+                          <span>AI Task</span>
                         </button>
                       )}
 
