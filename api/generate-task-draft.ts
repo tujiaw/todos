@@ -42,7 +42,7 @@ function getServerConfig() {
     throw new Error('Supabase Auth is not configured on the server.');
   }
   if (!deepSeekApiKey) {
-    throw new Error('DeepSeek BYOK is not configured on the server.');
+    throw new Error('DeepSeek API is not configured on the server.');
   }
   return { supabaseUrl, supabaseAnonKey, deepSeekApiKey };
 }

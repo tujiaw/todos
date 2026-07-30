@@ -14,6 +14,7 @@ import {
   Check,
   LogOut,
   ExternalLink,
+  Sparkles,
 } from 'lucide-react';
 import { User } from '@supabase/supabase-js';
 import { exportDataAsJSON, importDataFromJSON } from '../utils/storage';
@@ -27,6 +28,8 @@ interface SyncModalProps {
   onLogout: () => void;
   onSyncWithSupabase: () => void;
   isSyncing: boolean;
+  aiEnabled: boolean;
+  onAiEnabledChange: (enabled: boolean) => void;
 }
 
 const SQL_SCHEMA_SNIPPET = `-- Copy and run the following SQL script in the Supabase Console SQL Editor:
@@ -174,6 +177,8 @@ export const SyncModal: React.FC<SyncModalProps> = ({
   onLogout,
   onSyncWithSupabase,
   isSyncing,
+  aiEnabled,
+  onAiEnabledChange,
 }) => {
   const [importJsonText, setImportJsonText] = useState('');
   const [feedback, setFeedback] = useState<{ success: boolean; message: string } | null>(null);
@@ -232,7 +237,7 @@ export const SyncModal: React.FC<SyncModalProps> = ({
             <div className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
               <Database className="w-4 h-4" />
             </div>
-            <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">Supabase Backend & Data Sync</h3>
+            <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">Settings & Data Sync</h3>
           </div>
           <button
             onClick={onClose}
@@ -244,6 +249,37 @@ export const SyncModal: React.FC<SyncModalProps> = ({
 
         {/* Content Body */}
         <div className="p-5 space-y-4 text-xs max-h-[80vh] overflow-y-auto">
+          <div className="p-3.5 rounded-xl border border-indigo-100 dark:border-indigo-900/60 bg-indigo-50/60 dark:bg-indigo-950/30 flex items-center justify-between gap-4">
+            <div className="flex items-start gap-2.5">
+              <span className="p-1.5 rounded-lg bg-white dark:bg-indigo-950 text-indigo-600 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900">
+                <Sparkles className="w-4 h-4" />
+              </span>
+              <div>
+                <h4 className="font-bold text-slate-800 dark:text-slate-100">AI Features</h4>
+                <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+                  Enable task drafting and one cached dashboard message per day.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={aiEnabled}
+              aria-label="Enable all AI features"
+              onClick={() => onAiEnabledChange(!aiEnabled)}
+              className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                aiEnabled ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
+              }`}
+              title={aiEnabled ? 'Disable all AI features' : 'Enable AI features'}
+            >
+              <span
+                className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                  aiEnabled ? 'translate-x-5' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+          </div>
+
           {/* Supabase Cloud Storage Status Card */}
           <div className="p-4 rounded-xl bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-md space-y-3">
             <div className="flex items-center justify-between">

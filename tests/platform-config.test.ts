@@ -11,7 +11,17 @@ const vercelFunction = readFileSync(
   new URL('../api/generate-task-draft.ts', import.meta.url),
   'utf8'
 );
+const dashboardCopyFunction = readFileSync(
+  new URL('../api/generate-dashboard-copy.ts', import.meta.url),
+  'utf8'
+);
 const aiClient = readFileSync(new URL('../src/lib/ai.ts', import.meta.url), 'utf8');
+const app = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
+const syncModal = readFileSync(
+  new URL('../src/components/SyncModal.tsx', import.meta.url),
+  'utf8'
+);
+const storage = readFileSync(new URL('../src/utils/storage.ts', import.meta.url), 'utf8');
 const packageJson = readFileSync(new URL('../package.json', import.meta.url), 'utf8');
 const taskInput = readFileSync(
   new URL('../src/components/TaskInput.tsx', import.meta.url),
@@ -28,6 +38,7 @@ test('PWA metadata includes the current mobile capability tag', () => {
 
 test('AI requests use a same-origin Vercel Function and direct DeepSeek provider', () => {
   assert.match(vercelConfig, /api\/generate-task-draft\.ts/);
+  assert.match(vercelConfig, /api\/generate-dashboard-copy\.ts/);
   assert.match(vercelFunction, /from '\.\.\/server\/providers\.js'/);
   assert.match(vercelFunction, /from '\.\.\/server\/rate-limit\.js'/);
   assert.match(vercelFunction, /from '\.\.\/server\/task-draft\.js'/);
@@ -40,9 +51,23 @@ test('AI requests use a same-origin Vercel Function and direct DeepSeek provider
   assert.doesNotMatch(aiProvider, /generateText|byok/);
   assert.doesNotMatch(packageJson, /"ai"\s*:/);
   assert.match(aiClient, /fetch\('\/api\/generate-task-draft'/);
+  assert.match(aiClient, /fetch\('\/api\/generate-dashboard-copy'/);
+  assert.match(dashboardCopyFunction, /await authenticate/);
+  assert.match(dashboardCopyFunction, /DeepSeekJsonProvider/);
   assert.match(aiClient, /await response\.text\(\)/);
   assert.match(aiClient, /FUNCTION\|EDGE_FUNCTION/);
   assert.doesNotMatch(aiClient, /supabase\.functions\.invoke/);
+});
+
+test('global AI preference disables AI UI and uses daily dashboard cache', () => {
+  assert.match(storage, /daily_todos_ai_enabled_v1/);
+  assert.match(syncModal, /role="switch"/);
+  assert.match(syncModal, /AI Features/);
+  assert.match(app, /aiEnabled=\{aiEnabled\}/);
+  assert.match(app, /setDashboardCopy\(DEFAULT_DASHBOARD_COPY\)/);
+  assert.match(aiClient, /daily_todos_dashboard_copy_v1/);
+  assert.match(aiClient, /cached\.date !== date/);
+  assert.match(taskInput, /\{aiEnabled && \(/);
 });
 
 test('Drop remains a text and file transfer surface without task AI actions', () => {

@@ -9,6 +9,8 @@ import {
   subscribeToSyncEvents,
   loadThemeMode,
   saveThemeMode,
+  loadAiEnabled,
+  saveAiEnabled,
 } from './utils/storage';
 import { getTodayDateString } from './data/initialData';
 import { Header } from './components/Header';
@@ -23,7 +25,13 @@ import { CategorySettingsModal } from './components/CategorySettingsModal';
 import { DropModal } from './components/DropModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { useConfirm } from './components/ConfirmDialog';
-import { generateTaskDraft } from './lib/ai';
+import {
+  generateDashboardCopy,
+  generateTaskDraft,
+  loadCachedDashboardCopy,
+  saveCachedDashboardCopy,
+  type DashboardCopy,
+} from './lib/ai';
 import {
   supabase,
   initializeAuthSession,
@@ -52,6 +60,11 @@ function createDefaultWorkCategory(userId: string): Category {
   };
 }
 
+const DEFAULT_DASHBOARD_COPY: DashboardCopy = {
+  title: 'Make today feel lighter.',
+  subtitle: 'Choose what matters, give it a place, and let the rest wait.',
+};
+
 export default function App() {
   const confirmAction = useConfirm();
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString());
@@ -59,6 +72,12 @@ export default function App() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => loadThemeMode());
+  const [aiEnabled, setAiEnabled] = useState<boolean>(() => loadAiEnabled());
+  const [dashboardCopy, setDashboardCopy] = useState<DashboardCopy>(() =>
+    loadAiEnabled()
+      ? loadCachedDashboardCopy(getTodayDateString()) || DEFAULT_DASHBOARD_COPY
+      : DEFAULT_DASHBOARD_COPY
+  );
 
   // PWA Support Hook
   const { isInstallable, isInstalled, isOffline, installPWA } = usePWA();
@@ -223,6 +242,15 @@ export default function App() {
     saveThemeMode(nextMode);
   };
 
+  const handleAiEnabledChange = (enabled: boolean) => {
+    setAiEnabled(enabled);
+    saveAiEnabled(enabled);
+    if (!enabled) {
+      setDashboardCopy(DEFAULT_DASHBOARD_COPY);
+      setDraftTask(null);
+    }
+  };
+
   // Load initial local data
   const refreshFromStorage = useCallback(() => {
     const loadedTasks = loadTasks();
@@ -230,6 +258,7 @@ export default function App() {
     setTasks(loadedTasks);
     setCategories(loadedCats);
     setThemeMode(loadThemeMode());
+    setAiEnabled(loadAiEnabled());
   }, []);
 
   // Fetch / Sync with Supabase
@@ -335,6 +364,42 @@ export default function App() {
     0
   );
 
+  useEffect(() => {
+    if (!aiEnabled) {
+      setDashboardCopy(DEFAULT_DASHBOARD_COPY);
+      return;
+    }
+
+    const currentDate = getTodayDateString();
+    const cachedCopy = loadCachedDashboardCopy(currentDate);
+    if (cachedCopy) {
+      setDashboardCopy(cachedCopy);
+      return;
+    }
+    if (!user || isAuthLoading) return;
+
+    const controller = new AbortController();
+    generateDashboardCopy(
+      {
+        currentDate,
+        pendingTasks: pendingTasksCount,
+        completedTasks: completedTasksCount,
+      },
+      controller.signal
+    )
+      .then((copy) => {
+        if (controller.signal.aborted) return;
+        saveCachedDashboardCopy(currentDate, copy);
+        setDashboardCopy(copy);
+      })
+      .catch((error) => {
+        if (error instanceof Error && error.name === 'AbortError') return;
+        console.warn('Could not generate daily dashboard copy:', error);
+      });
+
+    return () => controller.abort();
+  }, [aiEnabled, isAuthLoading, user]);
+
   // Calculate streak (consecutive completed days)
   const calculateStreak = useCallback(() => {
     const completedDates = new Set(
@@ -382,6 +447,7 @@ export default function App() {
   };
 
   const handleGenerateTaskDraft = async (text: string) => {
+    if (!aiEnabled) throw new Error('AI features are disabled in Settings.');
     const draft = await generateTaskDraft({
       text,
       currentDate: getTodayDateString(),
@@ -656,8 +722,8 @@ export default function App() {
         <section className="dashboard-intro">
           <div>
             <p className="dashboard-kicker">YOUR DAILY SPACE</p>
-            <h2>Make today feel lighter.</h2>
-            <p>Choose what matters, give it a place, and let the rest wait.</p>
+            <h2>{dashboardCopy.title}</h2>
+            <p>{dashboardCopy.subtitle}</p>
           </div>
           <div className="dashboard-stat" aria-label={`${pendingTasksCount} tasks remaining`}>
             <span>{pendingTasksCount}</span>
@@ -678,6 +744,7 @@ export default function App() {
             selectedDate={selectedDate}
             onAddTask={handleAddTask}
             onGenerateTaskDraft={handleGenerateTaskDraft}
+            aiEnabled={aiEnabled}
             resetKey={taskInputResetKey}
           />
         </section>
@@ -734,6 +801,8 @@ export default function App() {
         onLogout={handleLogoutClick}
         onSyncWithSupabase={() => user && handleSyncWithSupabase()}
         isSyncing={isSyncing}
+        aiEnabled={aiEnabled}
+        onAiEnabledChange={handleAiEnabledChange}
       />
 
       {/* Category Management Settings Modal */}

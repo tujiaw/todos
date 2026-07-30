@@ -3,6 +3,9 @@
   "functions": {
     "api/generate-task-draft.ts": {
       "maxDuration": 30
+    },
+    "api/generate-dashboard-copy.ts": {
+      "maxDuration": 30
     }
   }
 }

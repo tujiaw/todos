@@ -8,6 +8,7 @@ interface TaskInputProps {
   selectedDate: string;
   onAddTask: (newTask: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => void;
   onGenerateTaskDraft: (text: string) => Promise<void>;
+  aiEnabled: boolean;
   resetKey?: number;
 }
 
@@ -16,6 +17,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({
   selectedDate,
   onAddTask,
   onGenerateTaskDraft,
+  aiEnabled,
   resetKey = 0,
 }) => {
   const confirmAction = useConfirm();
@@ -70,6 +72,10 @@ export const TaskInput: React.FC<TaskInputProps> = ({
     setShowDetails(false);
     setAiError(null);
   }, [resetKey]);
+
+  useEffect(() => {
+    if (!aiEnabled) setAiError(null);
+  }, [aiEnabled]);
 
   const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -153,7 +159,11 @@ export const TaskInput: React.FC<TaskInputProps> = ({
 
   const handleFormSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    void handleGenerateDraft();
+    if (aiEnabled) {
+      void handleGenerateDraft();
+    } else {
+      handleAddTask();
+    }
   };
 
   const handleRemoveImage = async () => {
@@ -178,7 +188,11 @@ export const TaskInput: React.FC<TaskInputProps> = ({
             <input
               type="text"
               id="input-task-title"
-              placeholder="Write a task and press Enter for AI..."
+              placeholder={
+                aiEnabled
+                  ? 'Write a task and press Enter for AI...'
+                  : 'Write a task and press Enter...'
+              }
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="w-full h-10 text-sm font-semibold text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 bg-slate-50/80 dark:bg-slate-800/70 rounded-xl px-3.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
@@ -214,19 +228,21 @@ export const TaskInput: React.FC<TaskInputProps> = ({
             >
               <Plus className="w-4 h-4 stroke-[2.6]" />
             </button>
-            <button
-              type="submit"
-              disabled={!title.trim() || isGeneratingDraft || categories.length === 0}
-              className="w-10 flex items-center justify-center border-l border-slate-200 dark:border-slate-700 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 disabled:opacity-40 transition-colors"
-              title="Use AI to turn this into a task draft"
-              aria-label="Generate AI task draft"
-            >
-              {isGeneratingDraft ? (
-                <LoaderCircle className="w-4 h-4 animate-spin" />
-              ) : (
-                <Sparkles className="w-4 h-4" />
-              )}
-            </button>
+            {aiEnabled && (
+              <button
+                type="submit"
+                disabled={!title.trim() || isGeneratingDraft || categories.length === 0}
+                className="w-10 flex items-center justify-center border-l border-slate-200 dark:border-slate-700 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 disabled:opacity-40 transition-colors"
+                title="Use AI to turn this into a task draft"
+                aria-label="Generate AI task draft"
+              >
+                {isGeneratingDraft ? (
+                  <LoaderCircle className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Sparkles className="w-4 h-4" />
+                )}
+              </button>
+            )}
           </div>
         </div>
 

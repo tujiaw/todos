@@ -4,6 +4,7 @@ import { getTodayDateString } from '../data/initialData';
 const TASKS_STORAGE_KEY = 'daily_todos_tasks_v1';
 const CATEGORIES_STORAGE_KEY = 'daily_todos_categories_v1';
 const THEME_STORAGE_KEY = 'daily_todos_theme_v1';
+const AI_ENABLED_STORAGE_KEY = 'daily_todos_ai_enabled_v1';
 const SYNC_CHANNEL_NAME = 'daily_todos_channel';
 
 // Load theme mode
@@ -66,6 +67,23 @@ export const loadCategories = (): Category[] => {
     console.error('Failed to parse categories from storage', err);
   }
   return [];
+};
+
+export const loadAiEnabled = (): boolean => {
+  try {
+    return localStorage.getItem(AI_ENABLED_STORAGE_KEY) !== 'false';
+  } catch (err) {
+    console.error('Failed to load AI preference', err);
+    return true;
+  }
+};
+
+export const saveAiEnabled = (enabled: boolean): void => {
+  try {
+    localStorage.setItem(AI_ENABLED_STORAGE_KEY, String(enabled));
+  } catch (err) {
+    console.error('Failed to save AI preference', err);
+  }
 };
 
 // Save categories to localStorage

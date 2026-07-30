@@ -6,7 +6,7 @@ export interface TaskDraftProvider {
   generate(request: TaskDraftRequest, previousInvalidOutput?: string): Promise<unknown>;
 }
 
-interface DeepSeekProviderOptions {
+export interface DeepSeekProviderOptions {
   apiKey: string;
   model: string;
   baseUrl?: string;
@@ -32,7 +32,7 @@ function mapDeepSeekError(status: number): string {
   }
 }
 
-export class DeepSeekTaskDraftProvider implements TaskDraftProvider {
+export class DeepSeekJsonProvider {
   readonly name = 'deepseek';
   readonly model: string;
   private readonly apiKey: string;
@@ -47,18 +47,12 @@ export class DeepSeekTaskDraftProvider implements TaskDraftProvider {
   }
 
   async generate(
-    request: TaskDraftRequest,
-    previousInvalidOutput?: string
+    system: string,
+    prompt: string,
+    maxTokens = 1200
   ): Promise<unknown> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
-    const prompt = previousInvalidOutput
-      ? [
-          buildTaskDraftPrompt(request),
-          'The previous response was invalid. Return a corrected JSON object only.',
-          `<invalid_response>${previousInvalidOutput.slice(0, 4000)}</invalid_response>`,
-        ].join('\n')
-      : buildTaskDraftPrompt(request);
 
     try {
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
@@ -72,14 +66,13 @@ export class DeepSeekTaskDraftProvider implements TaskDraftProvider {
           messages: [
             {
               role: 'system',
-              content:
-                'You extract structured task data. Always return one valid JSON object and no markdown.',
+              content: system,
             },
             { role: 'user', content: prompt },
           ],
           response_format: { type: 'json_object' },
           thinking: { type: 'disabled' },
-          max_tokens: 1200,
+          max_tokens: maxTokens,
           stream: false,
         }),
         signal: controller.signal,
@@ -107,5 +100,34 @@ export class DeepSeekTaskDraftProvider implements TaskDraftProvider {
     } finally {
       clearTimeout(timeout);
     }
+  }
+}
+
+export class DeepSeekTaskDraftProvider implements TaskDraftProvider {
+  readonly name = 'deepseek';
+  readonly model: string;
+  private readonly client: DeepSeekJsonProvider;
+
+  constructor(options: DeepSeekProviderOptions) {
+    this.model = options.model;
+    this.client = new DeepSeekJsonProvider(options);
+  }
+
+  generate(
+    request: TaskDraftRequest,
+    previousInvalidOutput?: string
+  ): Promise<unknown> {
+    const prompt = previousInvalidOutput
+      ? [
+          buildTaskDraftPrompt(request),
+          'The previous response was invalid. Return a corrected JSON object only.',
+          `<invalid_response>${previousInvalidOutput.slice(0, 4000)}</invalid_response>`,
+        ].join('\n')
+      : buildTaskDraftPrompt(request);
+
+    return this.client.generate(
+      'You extract structured task data. Always return one valid JSON object and no markdown.',
+      prompt
+    );
   }
 }

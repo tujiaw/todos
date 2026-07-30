@@ -1,8 +1,12 @@
 # Vercel AI function
 
-`generate-task-draft.ts` is deployed with the Vite app as
-`/api/generate-task-draft`. The Vercel Function calls DeepSeek directly with a
-server-only API key.
+The Vite app deploys two authenticated Vercel Functions:
+
+- `/api/generate-task-draft` creates editable task drafts.
+- `/api/generate-dashboard-copy` creates one short dashboard message that the
+  browser caches for the current day.
+
+Both functions call DeepSeek directly with a server-only API key.
 
 - `DEEPSEEK_API_KEY` (required, server-only)
 - `AI_MODEL=deepseek-v4-flash` (optional; this is the default)
