@@ -1,18 +1,18 @@
 import {
   VercelAiGatewayTaskDraftProvider,
   type TaskDraftProvider,
-} from '../server/providers';
+} from '../server/providers.js';
 import {
   DAILY_AI_LIMIT,
   DAILY_LIMIT_MESSAGE,
   getShanghaiDate,
   InMemoryDailyRateLimiter,
-} from '../server/rate-limit';
+} from '../server/rate-limit.js';
 import {
   validateTaskDraft,
   validateTaskDraftRequest,
   type TaskDraftRequest,
-} from '../server/task-draft';
+} from '../server/task-draft.js';
 
 interface ApiRequest {
   method?: string;

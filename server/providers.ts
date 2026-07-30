@@ -1,5 +1,5 @@
 import { APICallError, generateText, Output } from 'ai';
-import { buildTaskDraftPrompt, TaskDraftRequest } from './task-draft';
+import { buildTaskDraftPrompt, TaskDraftRequest } from './task-draft.js';
 
 export interface TaskDraftProvider {
   readonly name: string;

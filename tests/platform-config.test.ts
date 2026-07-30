@@ -23,6 +23,9 @@ test('PWA metadata includes the current mobile capability tag', () => {
 
 test('AI requests use a same-origin Vercel Function with server auth', () => {
   assert.match(vercelConfig, /api\/generate-task-draft\.ts/);
+  assert.match(vercelFunction, /from '\.\.\/server\/providers\.js'/);
+  assert.match(vercelFunction, /from '\.\.\/server\/rate-limit\.js'/);
+  assert.match(vercelFunction, /from '\.\.\/server\/task-draft\.js'/);
   assert.match(vercelFunction, /await authenticate/);
   assert.match(vercelFunction, /deepseek\/deepseek-v4-flash/);
   assert.match(vercelFunction, /DEEPSEEK_API_KEY/);
@@ -32,5 +35,17 @@ test('AI requests use a same-origin Vercel Function with server auth', () => {
   assert.match(aiProvider, /feature:task-draft/);
   assert.doesNotMatch(aiProvider, /api\.deepseek\.com/);
   assert.match(aiClient, /fetch\('\/api\/generate-task-draft'/);
+  assert.match(aiClient, /await response\.text\(\)/);
+  assert.match(aiClient, /FUNCTION\|EDGE_FUNCTION/);
   assert.doesNotMatch(aiClient, /supabase\.functions\.invoke/);
+});
+
+test('Drop remains a text and file transfer surface without task AI actions', () => {
+  const dropModal = readFileSync(
+    new URL('../src/components/DropModal.tsx', import.meta.url),
+    'utf8'
+  );
+
+  assert.doesNotMatch(dropModal, /onGenerateTaskDraft|AI Task|handleGenerateDraft/);
+  assert.doesNotMatch(dropModal, /onConvertToTask|\+ Task|handleConvert/);
 });

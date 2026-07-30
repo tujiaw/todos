@@ -75,7 +75,6 @@ export default function App() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [draftTask, setDraftTask] = useState<Task | null>(null);
   const [taskInputResetKey, setTaskInputResetKey] = useState(0);
-  const draftSourceRef = useRef<'input' | 'drop' | null>(null);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState<boolean>(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState<boolean>(false);
   const [isDropModalOpen, setIsDropModalOpen] = useState<boolean>(false);
@@ -207,26 +206,6 @@ export default function App() {
       setDropError(err instanceof Error ? err.message : 'Failed to clear Drop items.');
       throw err;
     }
-  };
-
-  const handleConvertToTask = (content: string, imageUrl?: string) => {
-    const defaultCatId = categories.find((c) => c.isDefault)?.id || categories[0]?.id;
-    if (!defaultCatId) {
-      setDropError('Create a task category before converting a Drop item.');
-      setIsCategoryModalOpen(true);
-      return;
-    }
-
-    handleAddTask({
-      title: content || 'Dropped Note Task',
-      date: selectedDate,
-      completed: false,
-      categoryId: defaultCatId,
-      priority: 'medium',
-      imageUrl: imageUrl,
-      subtasks: [],
-      pinned: false,
-    });
   };
 
   // Apply dark mode class to html element
@@ -402,7 +381,7 @@ export default function App() {
     }
   };
 
-  const handleGenerateTaskDraft = async (text: string, source: 'input' | 'drop') => {
+  const handleGenerateTaskDraft = async (text: string) => {
     const draft = await generateTaskDraft({
       text,
       currentDate: getTodayDateString(),
@@ -434,7 +413,6 @@ export default function App() {
       createdAt: now,
       updatedAt: now,
     });
-    draftSourceRef.current = source;
   };
 
   const handleCreateDraftTask = (task: Task) => {
@@ -447,15 +425,11 @@ export default function App() {
         completed: false,
       })),
     });
-    if (draftSourceRef.current === 'input') {
-      setTaskInputResetKey((key) => key + 1);
-    }
-    draftSourceRef.current = null;
+    setTaskInputResetKey((key) => key + 1);
     setDraftTask(null);
   };
 
   const handleCloseDraftTask = () => {
-    draftSourceRef.current = null;
     setDraftTask(null);
   };
 
@@ -703,7 +677,7 @@ export default function App() {
             categories={categories}
             selectedDate={selectedDate}
             onAddTask={handleAddTask}
-            onGenerateTaskDraft={(text) => handleGenerateTaskDraft(text, 'input')}
+            onGenerateTaskDraft={handleGenerateTaskDraft}
             resetKey={taskInputResetKey}
           />
         </section>
@@ -787,11 +761,6 @@ export default function App() {
         onClearAllDropItems={handleClearAllDropItems}
         onRefreshDropItems={() => loadDropItems(dropSearchQuery, 0, false)}
         onDismissError={() => setDropError(null)}
-        onConvertToTask={handleConvertToTask}
-        onGenerateTaskDraft={async (text) => {
-          await handleGenerateTaskDraft(text, 'drop');
-          setIsDropModalOpen(false);
-        }}
         isAuthenticated={Boolean(user)}
         onSignIn={handleGitHubLoginClick}
       />

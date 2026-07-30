@@ -8,7 +8,6 @@ import {
   Paperclip,
   ExternalLink,
   Download,
-  PlusCircle,
   RefreshCw,
   LoaderCircle,
   Search,
@@ -22,7 +21,6 @@ import {
   FileText,
   FileVideoCamera,
   Presentation,
-  Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 import { DropItem } from '../types';
@@ -157,8 +155,6 @@ interface DropModalProps {
   onClearAllDropItems: () => Promise<void>;
   onRefreshDropItems: () => Promise<void>;
   onDismissError: () => void;
-  onConvertToTask: (content: string, imageUrl?: string) => void;
-  onGenerateTaskDraft: (text: string) => Promise<void>;
   isAuthenticated: boolean;
   onSignIn: () => void;
 }
@@ -179,8 +175,6 @@ export const DropModal: React.FC<DropModalProps> = ({
   onClearAllDropItems,
   onRefreshDropItems,
   onDismissError,
-  onConvertToTask,
-  onGenerateTaskDraft,
   isAuthenticated,
   onSignIn,
 }) => {
@@ -188,7 +182,6 @@ export const DropModal: React.FC<DropModalProps> = ({
   const [inputText, setInputText] = useState('');
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [convertedId, setConvertedId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
@@ -196,7 +189,6 @@ export const DropModal: React.FC<DropModalProps> = ({
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
-  const [generatingDraftId, setGeneratingDraftId] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -367,27 +359,6 @@ export const DropModal: React.FC<DropModalProps> = ({
       setTimeout(() => setCopiedId(null), 2000);
     } catch {
       setAttachmentError('Clipboard access was denied. Please copy the text manually.');
-    }
-  };
-
-  const handleConvert = (item: DropItem) => {
-    onConvertToTask(item.content, item.url);
-    setConvertedId(item.id);
-    setTimeout(() => setConvertedId(null), 2000);
-  };
-
-  const handleGenerateDraft = async (item: DropItem) => {
-    if (!item.content || generatingDraftId) return;
-    setAttachmentError(null);
-    setGeneratingDraftId(item.id);
-    try {
-      await onGenerateTaskDraft(item.content);
-    } catch (error) {
-      setAttachmentError(
-        error instanceof Error ? error.message : 'AI task drafting failed.'
-      );
-    } finally {
-      setGeneratingDraftId(null);
     }
   };
 
@@ -664,10 +635,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                 >
                   {/* Meta Row */}
                   <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500">
-                    <span className="flex items-center gap-1">
-                      <Sparkles className="w-3 h-3 text-blue-500" />
-                      {formatDate(item.created_at)}
-                    </span>
+                    <span>{formatDate(item.created_at)}</span>
                     <div className="drop-item-actions flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                       {/* Copy Text Button */}
                       {item.content && (
@@ -690,44 +658,6 @@ export const DropModal: React.FC<DropModalProps> = ({
                           )}
                         </button>
                       )}
-
-                      {/* Convert to Task Button */}
-                      {item.content && (
-                        <button
-                          type="button"
-                          onClick={() => handleGenerateDraft(item)}
-                          disabled={Boolean(generatingDraftId)}
-                          className="px-2 py-1 rounded-lg text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950/40 disabled:opacity-50 font-medium transition-colors flex items-center gap-1"
-                          title="Use AI to create an editable task draft"
-                        >
-                          {generatingDraftId === item.id ? (
-                            <LoaderCircle className="w-3 h-3 animate-spin" />
-                          ) : (
-                            <Sparkles className="w-3 h-3" />
-                          )}
-                          <span>AI Task</span>
-                        </button>
-                      )}
-
-                      {/* Convert to Task Button */}
-                      <button
-                        type="button"
-                        onClick={() => handleConvert(item)}
-                        className="px-2 py-1 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 font-medium transition-colors flex items-center gap-1"
-                        title="Convert this item into a Todo Task"
-                      >
-                        {convertedId === item.id ? (
-                          <>
-                            <Check className="w-3 h-3 text-emerald-500" />
-                            <span className="text-emerald-500 font-semibold">Added Task</span>
-                          </>
-                        ) : (
-                          <>
-                            <PlusCircle className="w-3 h-3" />
-                            <span>+ Task</span>
-                          </>
-                        )}
-                      </button>
 
                       {/* Delete Item Button */}
                       <button

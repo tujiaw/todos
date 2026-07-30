@@ -19,6 +19,10 @@ interface GenerateTaskDraftResponse {
   };
 }
 
+function getPlatformErrorCode(body: string): string | undefined {
+  return body.match(/\b(?:FUNCTION|EDGE_FUNCTION)_[A-Z0-9_]+\b/)?.[0];
+}
+
 export async function generateTaskDraft(
   input: GenerateTaskDraftInput
 ): Promise<TaskDraft> {
@@ -50,11 +54,21 @@ export async function generateTaskDraft(
       })),
     }),
   });
-  const data = (await response.json().catch(() => null)) as GenerateTaskDraftResponse & {
-    error?: string;
-  };
+  const responseBody = await response.text();
+  let data: (GenerateTaskDraftResponse & { error?: string }) | null = null;
+  try {
+    data = responseBody ? JSON.parse(responseBody) : null;
+  } catch {
+    // Vercel platform errors can be plain text instead of the API's JSON shape.
+  }
   if (!response.ok) {
-    throw new Error(data?.error || 'AI task drafting is unavailable.');
+    const platformCode = getPlatformErrorCode(responseBody);
+    throw new Error(
+      data?.error ||
+        `AI service request failed (HTTP ${response.status}${
+          platformCode ? `: ${platformCode}` : ''
+        }). Please try again shortly.`
+    );
   }
   if (!data?.draft) throw new Error('The AI service returned an empty task draft.');
   return data.draft;
