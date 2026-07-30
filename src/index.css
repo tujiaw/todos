@@ -101,8 +101,12 @@ body {
   right: -4rem;
   top: -5rem;
   border-radius: 999px;
-  background: rgb(255 255 255 / 0.08);
+  background: rgb(99 102 241 / 0.08);
   pointer-events: none;
+}
+
+.dark .progress-card::after {
+  background: rgb(255 255 255 / 0.08);
 }
 
 .task-composer:focus-within {

@@ -37,7 +37,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   return (
     <div
       id="progress-card"
-      className="progress-card h-full p-4 sm:p-5 bg-gradient-to-br from-slate-950 via-indigo-950 to-indigo-900 text-white rounded-3xl transition-colors overflow-hidden"
+      className="progress-card h-full p-4 sm:p-5 bg-gradient-to-br from-indigo-50 via-blue-50 to-violet-100 dark:from-slate-950 dark:via-indigo-950 dark:to-indigo-900 text-slate-800 dark:text-white rounded-3xl transition-colors overflow-hidden"
     >
       {/* Main Compact Progress Bar Row */}
       <div className="relative z-10 flex items-center justify-between gap-3">
@@ -48,16 +48,16 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
               <span className="p-1 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
                 <Sparkles className="w-3.5 h-3.5" />
               </span>
-              <h2 className="text-xs font-semibold text-white">Daily Progress</h2>
+              <h2 className="text-xs font-semibold text-slate-800 dark:text-white">Daily Progress</h2>
             </div>
             <div className="flex items-baseline gap-1 text-xs">
-              <span className="font-bold text-white">{percentage}%</span>
-              <span className="text-[11px] text-indigo-200 font-medium">({completedTasks}/{totalTasks})</span>
+              <span className="font-bold text-indigo-700 dark:text-white">{percentage}%</span>
+              <span className="text-[11px] text-indigo-500 dark:text-indigo-200 font-medium">({completedTasks}/{totalTasks})</span>
             </div>
           </div>
 
           {/* Progress Bar Container */}
-          <div className="w-full bg-white/12 rounded-full h-2.5 overflow-hidden p-0.5 border border-white/10">
+          <div className="w-full bg-white/75 dark:bg-white/12 rounded-full h-2.5 overflow-hidden p-0.5 border border-indigo-100 dark:border-white/10">
             <motion.div
               className={`h-full rounded-full transition-all duration-500 ${
                 percentage === 100
@@ -75,7 +75,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
         <button
           type="button"
           onClick={() => setIsExpanded(!isExpanded)}
-          className="p-1.5 rounded-xl text-xs font-medium text-indigo-200 hover:text-white hover:bg-white/10 transition-colors flex items-center gap-1 shrink-0 min-h-[32px]"
+          className="p-1.5 rounded-xl text-xs font-medium text-indigo-600 dark:text-indigo-200 hover:text-indigo-800 dark:hover:text-white hover:bg-white/70 dark:hover:bg-white/10 transition-colors flex items-center gap-1 shrink-0 min-h-[32px]"
           title={isExpanded ? 'Collapse Stats' : 'Expand Stats'}
         >
           <BarChart2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
