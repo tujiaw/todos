@@ -5,7 +5,7 @@ import {
   validateTaskDraft,
   validateTaskDraftRequest,
   type TaskDraftRequest,
-} from '../supabase/functions/generate-task-draft/task-draft.ts';
+} from '../server/task-draft.ts';
 
 const request: TaskDraftRequest = {
   text: '明天下午三点整理季度报告，先收集数据再检查图表',

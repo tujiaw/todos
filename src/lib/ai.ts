@@ -1,4 +1,3 @@
-import { FunctionsHttpError } from '@supabase/supabase-js';
 import { Category, TaskDraft } from '../types';
 import { supabase } from './supabase';
 
@@ -20,19 +19,6 @@ interface GenerateTaskDraftResponse {
   };
 }
 
-async function getFunctionErrorMessage(error: unknown): Promise<string> {
-  if (error instanceof FunctionsHttpError) {
-    try {
-      const payload = await error.context.json();
-      if (typeof payload?.error === 'string') return payload.error;
-    } catch {
-      // Fall through to the SDK error when the response body is not JSON.
-    }
-  }
-
-  return error instanceof Error ? error.message : 'AI task drafting is unavailable.';
-}
-
 export async function generateTaskDraft(
   input: GenerateTaskDraftInput
 ): Promise<TaskDraft> {
@@ -43,22 +29,33 @@ export async function generateTaskDraft(
     throw new Error('Create a task category before asking AI to draft a task.');
   }
 
-  const { data, error } = await supabase.functions.invoke<GenerateTaskDraftResponse>(
-    'generate-task-draft',
-    {
-      body: {
-        ...input,
-        text,
-        categories: input.categories.map(({ id, name, isDefault }) => ({
-          id,
-          name,
-          isDefault: Boolean(isDefault),
-        })),
-      },
-    }
-  );
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
+  const accessToken = sessionData.session?.access_token;
+  if (!accessToken) throw new Error('Please sign in before asking AI to draft a task.');
 
-  if (error) throw new Error(await getFunctionErrorMessage(error));
+  const response = await fetch('/api/generate-task-draft', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      ...input,
+      text,
+      categories: input.categories.map(({ id, name, isDefault }) => ({
+        id,
+        name,
+        isDefault: Boolean(isDefault),
+      })),
+    }),
+  });
+  const data = (await response.json().catch(() => null)) as GenerateTaskDraftResponse & {
+    error?: string;
+  };
+  if (!response.ok) {
+    throw new Error(data?.error || 'AI task drafting is unavailable.');
+  }
   if (!data?.draft) throw new Error('The AI service returned an empty task draft.');
   return data.draft;
 }
