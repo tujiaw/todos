@@ -87,8 +87,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({
     reader.readAsDataURL(file);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAddTask = () => {
     if (!title.trim() || !categoryId) return;
 
     onAddTask({
@@ -152,6 +151,11 @@ export const TaskInput: React.FC<TaskInputProps> = ({
     }
   };
 
+  const handleFormSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    void handleGenerateDraft();
+  };
+
   const handleRemoveImage = async () => {
     const confirmed = await confirmAction({
       title: 'Remove this image?',
@@ -164,7 +168,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({
 
   return (
     <div id="task-input-card" className="task-composer h-full p-3.5 sm:p-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/70 dark:border-slate-800 transition-all">
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleFormSubmit}>
         <div className="mb-2">
           <h3 className="text-sm font-bold text-slate-950 dark:text-white">What needs your attention?</h3>
         </div>
@@ -174,7 +178,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({
             <input
               type="text"
               id="input-task-title"
-              placeholder="Write a task and press Enter..."
+              placeholder="Write a task and press Enter for AI..."
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="w-full h-10 text-sm font-semibold text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 bg-slate-50/80 dark:bg-slate-800/70 rounded-xl px-3.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
@@ -186,22 +190,8 @@ export const TaskInput: React.FC<TaskInputProps> = ({
           <div className="h-10 shrink-0 flex items-stretch overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg shadow-indigo-500/10">
             <button
               type="button"
-              onClick={handleGenerateDraft}
-              disabled={!title.trim() || isGeneratingDraft || categories.length === 0}
-              className="w-10 flex items-center justify-center text-indigo-600 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 disabled:opacity-40 transition-colors"
-              title="Use AI to turn this into a task draft"
-              aria-label="Generate AI task draft"
-            >
-              {isGeneratingDraft ? (
-                <LoaderCircle className="w-4 h-4 animate-spin" />
-              ) : (
-                <Sparkles className="w-4 h-4" />
-              )}
-            </button>
-            <button
-              type="button"
               onClick={() => setShowDetails(!showDetails)}
-              className={`w-10 flex items-center justify-center border-l border-slate-200 dark:border-slate-700 transition-colors active:scale-95 ${
+              className={`w-10 flex items-center justify-center transition-colors active:scale-95 ${
                 showDetails
                   ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300'
                   : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'
@@ -214,14 +204,28 @@ export const TaskInput: React.FC<TaskInputProps> = ({
             </button>
 
             <button
-              type="submit"
+              type="button"
               id="btn-add-task-submit"
+              onClick={handleAddTask}
               disabled={!title.trim() || !categoryId}
               className="w-10 bg-gradient-to-br from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 disabled:opacity-40 text-white transition-all flex items-center justify-center border-l border-white/15 active:scale-95"
               title="Add task"
               aria-label="Add task"
             >
               <Plus className="w-4 h-4 stroke-[2.6]" />
+            </button>
+            <button
+              type="submit"
+              disabled={!title.trim() || isGeneratingDraft || categories.length === 0}
+              className="w-10 flex items-center justify-center border-l border-slate-200 dark:border-slate-700 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 disabled:opacity-40 transition-colors"
+              title="Use AI to turn this into a task draft"
+              aria-label="Generate AI task draft"
+            >
+              {isGeneratingDraft ? (
+                <LoaderCircle className="w-4 h-4 animate-spin" />
+              ) : (
+                <Sparkles className="w-4 h-4" />
+              )}
             </button>
           </div>
         </div>

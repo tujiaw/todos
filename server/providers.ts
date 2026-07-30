@@ -1,4 +1,3 @@
-import { APICallError, generateText, Output } from 'ai';
 import { buildTaskDraftPrompt, TaskDraftRequest } from './task-draft.js';
 
 export interface TaskDraftProvider {
@@ -7,40 +6,43 @@ export interface TaskDraftProvider {
   generate(request: TaskDraftRequest, previousInvalidOutput?: string): Promise<unknown>;
 }
 
-interface VercelAiGatewayProviderOptions {
+interface DeepSeekProviderOptions {
   apiKey: string;
   model: string;
-  userId: string;
+  baseUrl?: string;
   timeoutMs?: number;
 }
 
-function mapGatewayError(status: number): string {
+function mapDeepSeekError(status: number): string {
   switch (status) {
+    case 400:
+    case 422:
+      return 'DeepSeek rejected the request. Check the configured model.';
     case 401:
-      return 'Vercel AI Gateway authentication failed.';
+      return 'DeepSeek authentication failed. Check the server API key.';
     case 402:
-      return 'Vercel AI Gateway credits are insufficient.';
+      return 'DeepSeek account balance is insufficient.';
     case 429:
       return 'AI requests are temporarily rate limited. Please try again shortly.';
     case 500:
     case 503:
-      return 'Vercel AI Gateway is temporarily unavailable. Please try again shortly.';
+      return 'DeepSeek is temporarily unavailable. Please try again shortly.';
     default:
-      return 'Vercel AI Gateway could not generate a task draft.';
+      return `DeepSeek request failed (HTTP ${status}).`;
   }
 }
 
-export class VercelAiGatewayTaskDraftProvider implements TaskDraftProvider {
-  readonly name = 'vercel-ai-gateway';
+export class DeepSeekTaskDraftProvider implements TaskDraftProvider {
+  readonly name = 'deepseek';
   readonly model: string;
   private readonly apiKey: string;
-  private readonly userId: string;
+  private readonly baseUrl: string;
   private readonly timeoutMs: number;
 
-  constructor(options: VercelAiGatewayProviderOptions) {
+  constructor(options: DeepSeekProviderOptions) {
     this.apiKey = options.apiKey;
     this.model = options.model;
-    this.userId = options.userId;
+    this.baseUrl = (options.baseUrl || 'https://api.deepseek.com').replace(/\/$/, '');
     this.timeoutMs = options.timeoutMs || 25_000;
   }
 
@@ -59,43 +61,47 @@ export class VercelAiGatewayTaskDraftProvider implements TaskDraftProvider {
       : buildTaskDraftPrompt(request);
 
     try {
-      const result = await generateText({
-        model: this.model,
-        system:
-          'You extract structured task data. Always return one valid JSON object and no markdown.',
-        prompt,
-        output: Output.json(),
-        maxOutputTokens: 800,
-        maxRetries: 0,
-        abortSignal: controller.signal,
-        providerOptions: {
-          gateway: {
-            byok: {
-              deepseek: [{ apiKey: this.apiKey }],
-            },
-            only: ['deepseek'],
-            user: this.userId,
-            tags: ['feature:task-draft'],
-          },
+      const response = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          model: this.model,
+          messages: [
+            {
+              role: 'system',
+              content:
+                'You extract structured task data. Always return one valid JSON object and no markdown.',
+            },
+            { role: 'user', content: prompt },
+          ],
+          response_format: { type: 'json_object' },
+          thinking: { type: 'disabled' },
+          max_tokens: 1200,
+          stream: false,
+        }),
+        signal: controller.signal,
       });
 
-      if (result.finishReason === 'length') {
-        throw new Error('Vercel AI Gateway response was truncated.');
+      if (!response.ok) throw new Error(mapDeepSeekError(response.status));
+      const payload = await response.json();
+      const choice = payload?.choices?.[0];
+      const content = choice?.message?.content;
+      if (choice?.finish_reason === 'length') {
+        throw new Error('DeepSeek response was truncated.');
       }
-      if (!result.output || typeof result.output !== 'object') {
-        throw new Error('Vercel AI Gateway returned an empty response.');
+      if (typeof content !== 'string' || !content.trim()) {
+        throw new Error('DeepSeek returned an empty response.');
       }
-      return result.output;
+      return JSON.parse(content);
     } catch (error) {
-      if (APICallError.isInstance(error) && error.statusCode) {
-        throw new Error(mapGatewayError(error.statusCode));
-      }
       if (
         error instanceof Error &&
         (error.name === 'AbortError' || error.message.toLowerCase().includes('aborted'))
       ) {
-        throw new Error('Vercel AI Gateway request timed out. Please try again.');
+        throw new Error('DeepSeek request timed out. Please try again.');
       }
       throw error;
     } finally {

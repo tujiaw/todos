@@ -1,5 +1,5 @@
 import {
-  VercelAiGatewayTaskDraftProvider,
+  DeepSeekTaskDraftProvider,
   type TaskDraftProvider,
 } from '../server/providers.js';
 import {
@@ -64,11 +64,11 @@ async function authenticate(
   return { id: user.id };
 }
 
-function createProvider(userId: string, apiKey: string): TaskDraftProvider {
-  return new VercelAiGatewayTaskDraftProvider({
+function createProvider(apiKey: string): TaskDraftProvider {
+  return new DeepSeekTaskDraftProvider({
     apiKey,
-    userId,
-    model: process.env.AI_MODEL || 'deepseek/deepseek-v4-flash',
+    model: process.env.AI_MODEL || 'deepseek-v4-flash',
+    baseUrl: process.env.DEEPSEEK_BASE_URL,
   });
 }
 
@@ -91,6 +91,8 @@ async function generateValidatedDraft(
         error instanceof Error &&
         (error.message.includes('authentication') ||
           error.message.includes('balance') ||
+          error.message.includes('HTTP') ||
+          error.message.includes('rejected') ||
           error.message.includes('rate limited') ||
           error.message.includes('unavailable') ||
           error.message.includes('timed out'))
@@ -113,7 +115,7 @@ function getStatus(message: string): number {
     return 401;
   }
   if (message === DAILY_LIMIT_MESSAGE) return 429;
-  if (message.includes('credits')) return 402;
+  if (message.includes('credits') || message.includes('balance')) return 402;
   if (message.includes('rate limited')) return 429;
   if (message.includes('unavailable') || message.includes('timed out')) return 503;
   if (
@@ -143,7 +145,7 @@ export default async function handler(request: ApiRequest, response: ApiResponse
       config.supabaseUrl,
       config.supabaseAnonKey
     );
-    const provider = createProvider(user.id, config.deepSeekApiKey);
+    const provider = createProvider(config.deepSeekApiKey);
     const dailyUsage = dailyLimiter.consume(user.id, getShanghaiDate());
     if (dailyUsage < 0) throw new Error(DAILY_LIMIT_MESSAGE);
 

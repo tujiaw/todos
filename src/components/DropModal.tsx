@@ -477,7 +477,7 @@ export const DropModal: React.FC<DropModalProps> = ({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className="drop-panel absolute right-0 top-0 bottom-0 w-full sm:w-[480px] lg:w-[540px] bg-slate-50 dark:bg-slate-950 shadow-2xl border-l border-white/70 dark:border-slate-800 flex flex-col h-full z-10 transition-transform animate-in slide-in-from-right duration-300 ease-out"
+        className="drop-panel absolute right-0 top-0 bottom-0 w-full sm:w-[420px] lg:w-[440px] bg-slate-50 dark:bg-slate-950 shadow-2xl border-l border-white/70 dark:border-slate-800 flex flex-col h-full z-10 transition-transform animate-in slide-in-from-right duration-300 ease-out"
         role="dialog"
         aria-modal="true"
         aria-labelledby="edge-drop-title"
@@ -494,12 +494,12 @@ export const DropModal: React.FC<DropModalProps> = ({
         {/* Header Bar */}
         <div className="drop-header px-4 sm:px-5 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="drop-logo p-2 rounded-xl bg-white/12 text-white border border-white/15">
+            <div className="drop-logo p-2 rounded-xl bg-white/70 text-indigo-600 border border-white/80">
               <Send className="w-4 h-4" />
             </div>
             <div className="flex items-center gap-2">
-              <h3 id="edge-drop-title" className="text-sm font-bold text-white tracking-tight">Edge Drop</h3>
-              <span className="drop-status-pill text-[9px] px-2 py-0.5 rounded-full text-indigo-50 font-semibold flex items-center gap-1">
+              <h3 id="edge-drop-title" className="text-sm font-bold text-slate-800 dark:text-slate-100 tracking-tight">Edge Drop</h3>
+              <span className="drop-status-pill text-[9px] px-2 py-0.5 rounded-full text-indigo-700 dark:text-indigo-200 font-semibold flex items-center gap-1">
                 <Database className="w-2.5 h-2.5" />
                 Cloud
               </span>
@@ -511,7 +511,7 @@ export const DropModal: React.FC<DropModalProps> = ({
               type="button"
               onClick={onRefreshDropItems}
               disabled={isLoading}
-              className="drop-header-action p-2 text-indigo-100 hover:text-white hover:bg-white/10 rounded-xl transition-colors"
+              className="drop-header-action p-2 text-indigo-500 dark:text-indigo-200 hover:text-indigo-700 dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/10 rounded-xl transition-colors"
               title="Refresh drop items"
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-blue-500' : ''}`} />
@@ -519,7 +519,7 @@ export const DropModal: React.FC<DropModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="drop-header-action p-2 text-indigo-100 hover:text-white hover:bg-white/10 rounded-xl transition-colors"
+              className="drop-header-action p-2 text-indigo-500 dark:text-indigo-200 hover:text-indigo-700 dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/10 rounded-xl transition-colors"
               aria-label="Close Edge Drop"
             >
               <X className="w-4 h-4" />
@@ -808,8 +808,27 @@ export const DropModal: React.FC<DropModalProps> = ({
             </div>
           )}
 
-          {/* Input Box with Integrated Send Button */}
-          <div className="drop-composer relative bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 focus-within:ring-4 focus-within:ring-indigo-500/10 focus-within:border-indigo-400 transition-all p-2 shadow-sm">
+          {/* Single-row input composer */}
+          <div className="drop-composer relative flex items-center gap-1.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 focus-within:ring-4 focus-within:ring-indigo-500/10 focus-within:border-indigo-400 transition-all p-1.5 shadow-sm">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+              multiple
+              disabled={isLoading || isSubmitting}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isLoading || isSubmitting}
+              className="h-9 shrink-0 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 flex items-center gap-1 px-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+              title="Attach file or image"
+            >
+              <Paperclip className="w-3.5 h-3.5" />
+              <span className="text-[11px]">Attach</span>
+            </button>
+
             <textarea
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
@@ -821,49 +840,25 @@ export const DropModal: React.FC<DropModalProps> = ({
                   : 'Drop a note or paste an image...'
               }
               disabled={isLoading}
-              rows={2}
-              className="w-full text-[13px] px-2.5 pt-2 pb-2 bg-transparent text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none resize-none min-h-[58px] disabled:cursor-not-allowed disabled:opacity-60"
+              rows={1}
+              className="min-w-0 flex-1 h-9 text-[13px] leading-5 px-2 py-2 bg-slate-50/80 dark:bg-slate-800/70 rounded-lg text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none resize-none disabled:cursor-not-allowed disabled:opacity-60"
             />
 
-            <div className="flex items-center justify-between px-1 pt-1 border-t border-slate-200/60 dark:border-slate-700/60 text-[11px] text-slate-400">
-              <div className="flex items-center gap-2">
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileUpload}
-                  multiple
-                  disabled={isLoading || isSubmitting}
-                  className="hidden"
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isLoading || isSubmitting}
-                  className="text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-slate-200/60 dark:hover:bg-slate-700/60 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
-                  title="Attach file or image"
-                >
-                  <Paperclip className="w-3.5 h-3.5" />
-                  <span>Attach</span>
-                </button>
-
-              </div>
-
-              <button
-                type="button"
-                onClick={handleSend}
-                disabled={
-                  !isAuthenticated ||
-                  isLoading ||
-                  isSubmitting ||
-                  (!inputText.trim() && attachedFiles.length === 0)
-                }
-                className="px-4 py-2 bg-gradient-to-br from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 disabled:opacity-40 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 shadow-lg shadow-indigo-500/20 shrink-0"
-                title={isAuthenticated ? 'Send drop note' : 'Sign in before sending'}
-              >
-                <span>Send</span>
-                <Send className="w-3 h-3" />
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={handleSend}
+              disabled={
+                !isAuthenticated ||
+                isLoading ||
+                isSubmitting ||
+                (!inputText.trim() && attachedFiles.length === 0)
+              }
+              className="h-9 px-3 bg-gradient-to-br from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 disabled:opacity-40 text-white font-bold text-xs rounded-lg transition-all flex items-center gap-1.5 shadow-md shadow-indigo-500/20 shrink-0"
+              title={isAuthenticated ? 'Send drop note' : 'Sign in before sending'}
+            >
+              <span>Send</span>
+              <Send className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       </div>
