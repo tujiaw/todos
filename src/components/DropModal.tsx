@@ -195,6 +195,7 @@ export const DropModal: React.FC<DropModalProps> = ({
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const dragDepthRef = useRef(0);
   const wasOpenRef = useRef(false);
@@ -404,6 +405,7 @@ export const DropModal: React.FC<DropModalProps> = ({
       title: 'Delete this Drop item?',
       description: 'The note and its attachment will be permanently deleted.',
       confirmLabel: 'Delete item',
+      container: panelRef.current,
     });
     if (!confirmed) return;
 
@@ -422,6 +424,7 @@ export const DropModal: React.FC<DropModalProps> = ({
       title: 'Clear your Drop space?',
       description: 'Every note and attachment in Edge Drop will be permanently deleted.',
       confirmLabel: 'Delete all',
+      container: panelRef.current,
     });
     if (!confirmed) return;
 
@@ -440,6 +443,7 @@ export const DropModal: React.FC<DropModalProps> = ({
       title: 'Remove this attachment?',
       description: `${fileName || 'This file'} will be removed from the pending Drop.`,
       confirmLabel: 'Remove',
+      container: panelRef.current,
     });
     if (!confirmed) return;
 
@@ -478,6 +482,7 @@ export const DropModal: React.FC<DropModalProps> = ({
 
       {/* Right Floating Drawer Panel */}
       <div
+        ref={panelRef}
         onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}

@@ -6,6 +6,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle, Trash2, X } from 'lucide-react';
 
 export interface ConfirmOptions {
@@ -13,6 +14,7 @@ export interface ConfirmOptions {
   description: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  container?: HTMLElement | null;
 }
 
 type ConfirmHandler = (options: ConfirmOptions) => Promise<boolean>;
@@ -50,9 +52,12 @@ function ConfirmDialog({
     };
   }, [onCancel]);
 
-  return (
+  const isContained = Boolean(options.container);
+  const dialog = (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm animate-in fade-in duration-150"
+      className={`inset-0 z-[100] flex items-center justify-center bg-slate-950/45 p-4 animate-in fade-in duration-150 ${
+        isContained ? 'absolute' : 'fixed backdrop-blur-sm'
+      }`}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onCancel();
       }}
@@ -115,6 +120,8 @@ function ConfirmDialog({
       </div>
     </div>
   );
+
+  return options.container ? createPortal(dialog, options.container) : dialog;
 }
 
 export function ConfirmProvider({ children }: { children: React.ReactNode }) {
