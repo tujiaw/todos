@@ -139,8 +139,8 @@ function FileTypeIcon({
   return <Icon className={`${className} ${colorClass} shrink-0`} />;
 }
 
-const DROP_TEXT_COLLAPSE_CHARS = 180;
-const DROP_TEXT_COLLAPSE_LINES = 5;
+const DROP_TEXT_COLLAPSE_CHARS = 480;
+const DROP_TEXT_COLLAPSE_LINES = 10;
 
 function shouldCollapseDropText(content: string): boolean {
   if (content.length > DROP_TEXT_COLLAPSE_CHARS) return true;
@@ -157,7 +157,7 @@ function CollapsibleDropText({ content }: { content: string }) {
     <div className="space-y-1.5">
       <div
         className={`text-[13px] text-slate-700 dark:text-slate-200 leading-relaxed whitespace-pre-wrap break-words font-sans ${
-          collapsed ? 'line-clamp-4' : ''
+          collapsed ? 'line-clamp-[10]' : ''
         }`}
       >
         {link ? (
@@ -167,7 +167,7 @@ function CollapsibleDropText({ content }: { content: string }) {
             rel="noopener noreferrer"
             className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 inline-flex items-start gap-1 break-all font-medium"
           >
-            <span className={collapsed ? 'line-clamp-4' : ''}>{content}</span>
+            <span className={collapsed ? 'line-clamp-[10]' : ''}>{content}</span>
             <ExternalLink className="w-3 h-3 shrink-0 mt-0.5" />
           </a>
         ) : (
