@@ -1,18 +1,37 @@
 import type { Category, Task } from '../types';
 import type { SyncOp } from './syncQueue';
 
+export interface MergeTasksResult {
+  merged: Task[];
+  toPush: Task[];
+  /** Outbox ops that lost the LWW contest and should be dropped. */
+  staleOps: SyncOp[];
+}
+
+export interface MergeCategoriesResult {
+  merged: Category[];
+  toPush: Category[];
+  staleOps: SyncOp[];
+}
+
+/**
+ * Last-write-wins merge.
+ * - Pending upsert wins only when its updatedAt >= remote.updatedAt.
+ * - Pending delete wins only when op.createdAt >= remote.updatedAt.
+ * - Local-only rows are kept and pushed (avoid silent loss if outbox write failed).
+ */
 export function mergeTasksLww(
   localTasks: Task[],
   remoteTasks: Task[],
   pendingOps: SyncOp[]
-): { merged: Task[]; toPush: Task[] } {
-  const pendingDeletes = new Set(
-    pendingOps.filter((op) => op.type === 'delete_task').map((op) => op.entityId)
+): MergeTasksResult {
+  const pendingDeleteOps = pendingOps.filter((op) => op.type === 'delete_task');
+  const pendingDeletes = new Map(pendingDeleteOps.map((op) => [op.entityId, op]));
+  const pendingUpsertOps = pendingOps.filter(
+    (op) => op.type === 'upsert_task' && op.payload
   );
   const pendingUpserts = new Map(
-    pendingOps
-      .filter((op) => op.type === 'upsert_task' && op.payload)
-      .map((op) => [op.entityId, op.payload as Task])
+    pendingUpsertOps.map((op) => [op.entityId, op])
   );
 
   const localById = new Map(localTasks.map((task) => [task.id, task]));
@@ -21,38 +40,54 @@ export function mergeTasksLww(
 
   const merged: Task[] = [];
   const toPush: Task[] = [];
+  const staleOps: SyncOp[] = [];
 
   for (const id of allIds) {
-    if (pendingDeletes.has(id)) {
+    const deleteOp = pendingDeletes.get(id);
+    const upsertOp = pendingUpserts.get(id);
+    const pendingTask = upsertOp?.payload as Task | undefined;
+    const local = pendingTask || localById.get(id);
+    const remote = remoteById.get(id);
+
+    if (deleteOp) {
+      if (remote && remote.updatedAt > deleteOp.createdAt) {
+        // Remote edit is newer than the delete — keep remote, drop stale delete.
+        staleOps.push(deleteOp);
+        if (upsertOp) staleOps.push(upsertOp);
+        merged.push(remote);
+        continue;
+      }
+      // Delete wins: omit from merged; flushOutbox will remove remote.
+      if (upsertOp) staleOps.push(upsertOp);
       continue;
     }
 
-    const pending = pendingUpserts.get(id);
-    const local = pending || localById.get(id);
-    const remote = remoteById.get(id);
-
     if (local && remote) {
-      // Pending outbox upsert always wins over remote (unsynced local edit).
-      const winner = pending || (local.updatedAt >= remote.updatedAt ? local : remote);
-      merged.push(winner);
-      if (winner === local || pending) {
-        if (pending || local.updatedAt !== remote.updatedAt) {
-          toPush.push(winner);
+      if (upsertOp && pendingTask) {
+        if (pendingTask.updatedAt >= remote.updatedAt) {
+          merged.push(pendingTask);
+          toPush.push(pendingTask);
+        } else {
+          staleOps.push(upsertOp);
+          merged.push(remote);
         }
+        continue;
+      }
+
+      if (local.updatedAt >= remote.updatedAt) {
+        merged.push(local);
+        if (local.updatedAt !== remote.updatedAt) {
+          toPush.push(local);
+        }
+      } else {
+        merged.push(remote);
       }
       continue;
     }
 
     if (local && !remote) {
-      // Local-only: keep and push unless we know remote deleted it
-      // (no pending upsert and not in local from a fresh create → treat as remote delete)
-      if (pending || pendingUpserts.has(id)) {
-        merged.push(local);
-        toPush.push(local);
-      } else {
-        // Remote missing and no pending upsert → remote delete wins
-        continue;
-      }
+      merged.push(local);
+      toPush.push(local);
       continue;
     }
 
@@ -62,25 +97,26 @@ export function mergeTasksLww(
   }
 
   merged.sort((a, b) => b.createdAt - a.createdAt);
-  return { merged, toPush };
+  return { merged, toPush, staleOps };
 }
 
 export function mergeCategories(
   localCategories: Category[],
   remoteCategories: Category[],
   pendingOps: SyncOp[]
-): { merged: Category[]; toPush: Category[] } {
+): MergeCategoriesResult {
   const pendingDeletes = new Set(
     pendingOps.filter((op) => op.type === 'delete_category').map((op) => op.entityId)
   );
   const pendingUpserts = new Map(
     pendingOps
       .filter((op) => op.type === 'upsert_category' && op.payload)
-      .map((op) => [op.entityId, op.payload as Category])
+      .map((op) => [op.entityId, op])
   );
 
   const byId = new Map<string, Category>();
   const toPush: Category[] = [];
+  const staleOps: SyncOp[] = [];
 
   for (const cat of remoteCategories) {
     if (!pendingDeletes.has(cat.id)) {
@@ -90,10 +126,10 @@ export function mergeCategories(
 
   for (const cat of localCategories) {
     if (pendingDeletes.has(cat.id)) continue;
-    const pending = pendingUpserts.get(cat.id);
-    if (pending) {
-      byId.set(cat.id, pending);
-      toPush.push(pending);
+    const upsertOp = pendingUpserts.get(cat.id);
+    if (upsertOp?.payload) {
+      byId.set(cat.id, upsertOp.payload as Category);
+      toPush.push(upsertOp.payload as Category);
       continue;
     }
     if (!byId.has(cat.id)) {
@@ -102,13 +138,21 @@ export function mergeCategories(
     }
   }
 
-  for (const [id, cat] of pendingUpserts) {
-    if (pendingDeletes.has(id)) continue;
+  for (const [id, op] of pendingUpserts) {
+    if (pendingDeletes.has(id) || !op.payload) continue;
+    const cat = op.payload as Category;
     byId.set(id, cat);
     if (!toPush.some((item) => item.id === id)) {
       toPush.push(cat);
     }
   }
 
-  return { merged: Array.from(byId.values()), toPush };
+  return { merged: Array.from(byId.values()), toPush, staleOps };
+}
+
+/** Remove stale ops (by id) from an outbox list. */
+export function withoutStaleOps(ops: SyncOp[], staleOps: SyncOp[]): SyncOp[] {
+  if (staleOps.length === 0) return ops;
+  const staleIds = new Set(staleOps.map((op) => op.id));
+  return ops.filter((op) => !staleIds.has(op.id));
 }

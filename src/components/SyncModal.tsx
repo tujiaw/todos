@@ -155,7 +155,7 @@ export const SyncModal: React.FC<SyncModalProps> = ({
 
           {/* Supabase Cloud Storage Status Card */}
           <div className="p-4 rounded-xl bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-md space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
                 <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${syncDotClass}`} />
                 <span className="font-bold text-sm truncate">{syncStatusLabel}</span>
@@ -169,6 +169,11 @@ export const SyncModal: React.FC<SyncModalProps> = ({
                 Console <ExternalLink className="w-3 h-3" />
               </a>
             </div>
+            {syncError && (
+              <p className="text-[11px] text-rose-300 leading-relaxed break-words">
+                {syncError}
+              </p>
+            )}
 
             {/* User State */}
             {user ? (

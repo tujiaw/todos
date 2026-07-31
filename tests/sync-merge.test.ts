@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { Category, Task } from '../src/types.ts';
-import { mergeCategories, mergeTasksLww } from '../src/utils/mergeSync.ts';
+import { mergeCategories, mergeTasksLww, withoutStaleOps } from '../src/utils/mergeSync.ts';
 import { compactOps, type SyncOp } from '../src/utils/syncQueue.ts';
 
 function task(partial: Partial<Task> & Pick<Task, 'id' | 'updatedAt'>): Task {
@@ -56,14 +56,14 @@ describe('mergeTasksLww', () => {
     assert.equal(toPush.length, 1);
   });
 
-  it('drops local-only tasks without pending upsert (remote delete)', () => {
-    const local = [task({ id: 'gone', updatedAt: 5 })];
+  it('keeps local-only tasks and marks them to push', () => {
+    const local = [task({ id: 'local-only', updatedAt: 5 })];
     const { merged, toPush } = mergeTasksLww(local, [], []);
-    assert.equal(merged.length, 0);
-    assert.equal(toPush.length, 0);
+    assert.equal(merged.length, 1);
+    assert.equal(toPush.length, 1);
   });
 
-  it('keeps pending upsert over remote', () => {
+  it('drops stale pending upsert when remote is newer', () => {
     const local = [task({ id: 't1', updatedAt: 1, title: 'old-local' })];
     const remote = [task({ id: 't1', updatedAt: 50, title: 'remote' })];
     const pending: SyncOp[] = [
@@ -75,8 +75,60 @@ describe('mergeTasksLww', () => {
         createdAt: 99,
       },
     ];
-    const { merged } = mergeTasksLww(local, remote, pending);
+    const { merged, staleOps } = mergeTasksLww(local, remote, pending);
+    assert.equal(merged[0].title, 'remote');
+    assert.equal(staleOps.length, 1);
+    assert.equal(staleOps[0].id, 'op');
+  });
+
+  it('keeps newer pending upsert over older remote', () => {
+    const local = [task({ id: 't1', updatedAt: 1, title: 'old-local' })];
+    const remote = [task({ id: 't1', updatedAt: 10, title: 'remote' })];
+    const pending: SyncOp[] = [
+      {
+        id: 'op',
+        type: 'upsert_task',
+        entityId: 't1',
+        payload: task({ id: 't1', updatedAt: 20, title: 'pending' }),
+        createdAt: 99,
+      },
+    ];
+    const { merged, toPush, staleOps } = mergeTasksLww(local, remote, pending);
     assert.equal(merged[0].title, 'pending');
+    assert.equal(toPush[0].title, 'pending');
+    assert.equal(staleOps.length, 0);
+  });
+
+  it('drops stale pending delete when remote edit is newer', () => {
+    const remote = [task({ id: 't1', updatedAt: 100, title: 'edited-elsewhere' })];
+    const pending: SyncOp[] = [
+      { id: 'del', type: 'delete_task', entityId: 't1', createdAt: 50 },
+    ];
+    const { merged, staleOps } = mergeTasksLww([], remote, pending);
+    assert.equal(merged[0].title, 'edited-elsewhere');
+    assert.equal(staleOps[0].id, 'del');
+  });
+
+  it('honors pending delete when it is newer than remote', () => {
+    const remote = [task({ id: 't1', updatedAt: 10, title: 'remote' })];
+    const pending: SyncOp[] = [
+      { id: 'del', type: 'delete_task', entityId: 't1', createdAt: 50 },
+    ];
+    const { merged, staleOps } = mergeTasksLww([], remote, pending);
+    assert.equal(merged.length, 0);
+    assert.equal(staleOps.length, 0);
+  });
+});
+
+describe('withoutStaleOps', () => {
+  it('removes stale ops by id', () => {
+    const ops: SyncOp[] = [
+      { id: 'a', type: 'delete_task', entityId: 't1', createdAt: 1 },
+      { id: 'b', type: 'upsert_task', entityId: 't2', createdAt: 2 },
+    ];
+    const next = withoutStaleOps(ops, [ops[0]]);
+    assert.equal(next.length, 1);
+    assert.equal(next[0].id, 'b');
   });
 });
 

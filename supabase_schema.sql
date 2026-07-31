@@ -89,7 +89,7 @@ create index if not exists todo_tasks_user_date_idx on public.todo_tasks(user_id
 create table if not exists public.drop_items (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users(id) on delete cascade not null default auth.uid(),
-  kind text not null default 'text' check (kind in ('text', 'image')),
+  kind text not null default 'text' check (kind in ('text', 'image', 'file')),
   content text,
   file_name text,
   file_path text,

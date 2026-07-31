@@ -48,8 +48,14 @@ import {
   type AiAssistResult,
 } from './utils/aiAssist';
 import { formatWeekDisplayLabel } from './utils/week';
-import { mergeCategories, mergeTasksLww } from './utils/mergeSync';
-import { clearOutbox, countPendingOps, enqueueOp, loadOutbox } from './utils/syncQueue';
+import { mergeCategories, mergeTasksLww, withoutStaleOps } from './utils/mergeSync';
+import {
+  clearOutbox,
+  countPendingOps,
+  enqueueOp,
+  loadOutbox,
+  replaceOutbox,
+} from './utils/syncQueue';
 import { flushOutbox } from './utils/flushOutbox';
 import {
   supabase,
@@ -113,6 +119,7 @@ export default function App() {
   const tasksRef = useRef<Task[]>([]);
   const categoriesRef = useRef<Category[]>([]);
   const realtimeSyncTimerRef = useRef<number | null>(null);
+  const syncInFlightRef = useRef<Promise<void> | null>(null);
 
   // Modals state
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -323,67 +330,98 @@ export default function App() {
     if (!user) return;
     const quiet = Boolean(options?.quiet);
 
-    setIsSyncing(true);
-    setSyncError(null);
-    try {
-      const flushResult = await flushOutbox(user);
-      refreshPendingCount(user.id);
-      if (flushResult.remaining > 0 && flushResult.lastError) {
-        setSyncError(flushResult.lastError);
-        if (!quiet) {
-          showToast(
-            `Could not sync ${flushResult.remaining} change(s). Will retry when online.`,
-            'error'
-          );
+    const run = async () => {
+      setIsSyncing(true);
+      setSyncError(null);
+      try {
+        const flushResult = await flushOutbox(user);
+        refreshPendingCount(user.id);
+        if (flushResult.remaining > 0 && flushResult.lastError) {
+          setSyncError(flushResult.lastError);
+          if (!quiet) {
+            showToast(
+              `Could not sync ${flushResult.remaining} change(s). Will retry when online.`,
+              'error'
+            );
+          }
         }
+
+        const [remoteTasks, remoteCats] = await Promise.all([
+          fetchTasksFromSupabase(),
+          fetchCategoriesFromSupabase(),
+        ]);
+
+        const pendingOps = loadOutbox(user.id);
+        const {
+          merged: mergedTasks,
+          toPush: tasksToPush,
+          staleOps: staleTaskOps,
+        } = mergeTasksLww(tasksRef.current, remoteTasks, pendingOps);
+        let {
+          merged: mergedCats,
+          toPush: catsToPush,
+          staleOps: staleCatOps,
+        } = mergeCategories(categoriesRef.current, remoteCats, pendingOps);
+
+        const staleOps = [...staleTaskOps, ...staleCatOps];
+        if (staleOps.length > 0) {
+          replaceOutbox(user.id, withoutStaleOps(loadOutbox(user.id), staleOps));
+          refreshPendingCount(user.id);
+        }
+
+        if (mergedCats.length === 0) {
+          const fallback = createDefaultWorkCategory(user.id);
+          mergedCats = [fallback];
+          catsToPush = [fallback];
+        }
+
+        persistTasks(mergedTasks);
+        persistCategories(mergedCats);
+
+        try {
+          if (tasksToPush.length > 0) {
+            await syncAllTasksToSupabase(tasksToPush, user);
+          }
+          if (catsToPush.length > 0) {
+            await syncAllCategoriesToSupabase(catsToPush, user);
+          }
+        } catch (pushErr) {
+          for (const task of tasksToPush) {
+            enqueueOp(user.id, 'upsert_task', task.id, task);
+          }
+          for (const cat of catsToPush) {
+            enqueueOp(user.id, 'upsert_category', cat.id, cat);
+          }
+          refreshPendingCount(user.id);
+          throw pushErr;
+        }
+
+        const finalFlush = await flushOutbox(user);
+        refreshPendingCount(user.id);
+        if (finalFlush.remaining > 0 && finalFlush.lastError) {
+          setSyncError(finalFlush.lastError);
+        }
+      } catch (err) {
+        console.error('Supabase sync error:', err);
+        const message = err instanceof Error ? err.message : 'Sync failed';
+        setSyncError(message);
+        if (!quiet) showToast(message, 'error');
+      } finally {
+        setIsSyncing(false);
       }
+    };
 
-      const [remoteTasks, remoteCats] = await Promise.all([
-        fetchTasksFromSupabase(),
-        fetchCategoriesFromSupabase(),
-      ]);
-
-      const pendingOps = loadOutbox(user.id);
-      const { merged: mergedTasks, toPush: tasksToPush } = mergeTasksLww(
-        tasksRef.current,
-        remoteTasks,
-        pendingOps
-      );
-      let { merged: mergedCats, toPush: catsToPush } = mergeCategories(
-        categoriesRef.current,
-        remoteCats,
-        pendingOps
-      );
-
-      if (mergedCats.length === 0) {
-        const fallback = createDefaultWorkCategory(user.id);
-        mergedCats = [fallback];
-        catsToPush = [fallback];
+    const previous = syncInFlightRef.current;
+    const chained = (async () => {
+      if (previous) await previous.catch(() => undefined);
+      await run();
+    })();
+    syncInFlightRef.current = chained.finally(() => {
+      if (syncInFlightRef.current === chained) {
+        syncInFlightRef.current = null;
       }
-
-      persistTasks(mergedTasks);
-      persistCategories(mergedCats);
-
-      if (tasksToPush.length > 0) {
-        await syncAllTasksToSupabase(tasksToPush, user);
-      }
-      if (catsToPush.length > 0) {
-        await syncAllCategoriesToSupabase(catsToPush, user);
-      }
-
-      const finalFlush = await flushOutbox(user);
-      refreshPendingCount(user.id);
-      if (finalFlush.remaining > 0 && finalFlush.lastError) {
-        setSyncError(finalFlush.lastError);
-      }
-    } catch (err) {
-      console.error('Supabase sync error:', err);
-      const message = err instanceof Error ? err.message : 'Sync failed';
-      setSyncError(message);
-      if (!quiet) showToast(message, 'error');
-    } finally {
-      setIsSyncing(false);
-    }
+    });
+    await chained;
   }, [persistCategories, persistTasks, refreshPendingCount, showToast, user]);
 
   const queueAndFlush = useCallback(
@@ -876,6 +914,29 @@ export default function App() {
     persistTasks(tasksImported);
     persistCategories(categoriesImported);
     if (!user) return;
+
+    try {
+      const [remoteTasks, remoteCats] = await Promise.all([
+        fetchTasksFromSupabase(),
+        fetchCategoriesFromSupabase(),
+      ]);
+      const importedTaskIds = new Set(tasksImported.map((task) => task.id));
+      const importedCatIds = new Set(categoriesImported.map((cat) => cat.id));
+
+      for (const remote of remoteTasks) {
+        if (!importedTaskIds.has(remote.id)) {
+          enqueueOp(user.id, 'delete_task', remote.id);
+        }
+      }
+      for (const remote of remoteCats) {
+        if (!importedCatIds.has(remote.id)) {
+          enqueueOp(user.id, 'delete_category', remote.id);
+        }
+      }
+    } catch (err) {
+      console.warn('Could not diff remote data during import:', err);
+    }
+
     for (const cat of categoriesImported) {
       enqueueOp(user.id, 'upsert_category', cat.id, cat);
     }
@@ -898,6 +959,14 @@ export default function App() {
 
   const handleLogoutClick = async () => {
     try {
+      if (user && countPendingOps(user.id) > 0) {
+        const confirmed = await confirmAction({
+          title: 'Sign out with unsynced changes?',
+          description: `${countPendingOps(user.id)} local change(s) have not reached the cloud yet and will be discarded.`,
+          confirmLabel: 'Sign out anyway',
+        });
+        if (!confirmed) return;
+      }
       if (user) clearOutbox(user.id);
       clearLocalUserData();
       await logoutSupabase();
