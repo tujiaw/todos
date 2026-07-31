@@ -1,4 +1,43 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <rect width="512" height="512" rx="128" fill="#2563eb"/>
-  <path d="M150 260 L220 330 L360 170" fill="none" stroke="#ffffff" stroke-width="48" stroke-linecap="round" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="96" y1="40" x2="416" y2="472" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4F46E5"/>
+      <stop offset="0.55" stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#0EA5E9"/>
+    </linearGradient>
+    <linearGradient id="card" x1="156" y1="120" x2="356" y2="392" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#EEF2FF"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#0F172A" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+
+  <!-- App tile -->
+  <rect width="512" height="512" rx="116" fill="url(#bg)"/>
+
+  <!-- Soft highlight -->
+  <circle cx="150" cy="120" r="140" fill="#FFFFFF" fill-opacity="0.12"/>
+
+  <!-- Task card -->
+  <g filter="url(#shadow)">
+    <rect x="128" y="112" width="256" height="288" rx="40" fill="url(#card)"/>
+  </g>
+
+  <!-- Checklist rows -->
+  <rect x="176" y="168" width="28" height="28" rx="8" fill="#2563EB"/>
+  <path d="M183 182 L187.5 186.5 L199 175" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="220" y="174" width="120" height="16" rx="8" fill="#CBD5E1"/>
+
+  <rect x="176" y="230" width="28" height="28" rx="8" fill="#2563EB"/>
+  <path d="M183 244 L187.5 248.5 L199 237" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="220" y="236" width="96" height="16" rx="8" fill="#CBD5E1"/>
+
+  <rect x="176" y="292" width="28" height="28" rx="8" fill="#E2E8F0"/>
+  <rect x="220" y="298" width="108" height="16" rx="8" fill="#E2E8F0"/>
+
+  <!-- Accent check badge -->
+  <circle cx="340" cy="340" r="46" fill="#10B981"/>
+  <path d="M318 340 L332 354 L364 322" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

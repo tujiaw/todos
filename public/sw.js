@@ -1,5 +1,12 @@
-const CACHE_NAME = 'daily-todo-pwa-v3';
-const ASSETS_TO_CACHE = ['/index.html', '/manifest.json', '/icon.svg', '/apple-touch-icon.png'];
+const CACHE_NAME = 'daily-todo-pwa-v4';
+const ASSETS_TO_CACHE = [
+  '/index.html',
+  '/manifest.json',
+  '/icon.svg',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/apple-touch-icon.png',
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
