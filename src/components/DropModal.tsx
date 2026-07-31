@@ -251,9 +251,8 @@ export const DropModal: React.FC<DropModalProps> = ({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const dragDepthRef = useRef(0);
-  const prevNewestItemIdRef = useRef<string | null>(null);
-  // While true, pin to bottom instantly (open + initial sync). Smooth only after settle.
-  const suppressSmoothScrollRef = useRef(true);
+  const hasSeededScrollRef = useRef(false);
+  const lastNewestIdRef = useRef<string | null>(null);
   const newestItemId = dropItems.length > 0 ? dropItems[dropItems.length - 1].id : null;
   const hasSearchQuery = Boolean(searchQuery.trim());
 
@@ -269,36 +268,40 @@ export const DropModal: React.FC<DropModalProps> = ({
     }
   };
 
+  // Open: jump to bottom. Close: reset tracking.
   useLayoutEffect(() => {
     if (!isOpen) {
-      prevNewestItemIdRef.current = null;
-      suppressSmoothScrollRef.current = true;
+      hasSeededScrollRef.current = false;
+      lastNewestIdRef.current = null;
       return;
     }
     scrollToBottomInstant();
   }, [isOpen]);
 
-  // Keep jumping to bottom without animation until the first sync finishes.
+  // Before seed (opening / first sync): always jump.
+  // After seed: animate only when the newest item id changes (send / receive).
   useLayoutEffect(() => {
-    if (!isOpen || !suppressSmoothScrollRef.current) return;
-    scrollToBottomInstant();
-    prevNewestItemIdRef.current = newestItemId;
-    if (!isLoading) {
-      suppressSmoothScrollRef.current = false;
+    if (!isOpen) return;
+
+    if (!hasSeededScrollRef.current) {
+      scrollToBottomInstant();
+      if (!isLoading) {
+        hasSeededScrollRef.current = true;
+        lastNewestIdRef.current = newestItemId;
+      }
+      return;
     }
-  }, [isOpen, isLoading, dropItems.length, newestItemId]);
 
-  // After the panel is settled, animate only when a newer item appears.
-  useEffect(() => {
-    if (!isOpen || suppressSmoothScrollRef.current) return;
-    if (newestItemId === null || newestItemId === prevNewestItemIdRef.current) return;
-    prevNewestItemIdRef.current = newestItemId;
+    if (newestItemId === null || newestItemId === lastNewestIdRef.current) {
+      return;
+    }
 
+    lastNewestIdRef.current = newestItemId;
     const frame = requestAnimationFrame(() => {
       scrollToBottomSmooth();
     });
     return () => cancelAnimationFrame(frame);
-  }, [isOpen, newestItemId]);
+  }, [isOpen, isLoading, dropItems, newestItemId]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -850,11 +853,8 @@ export const DropModal: React.FC<DropModalProps> = ({
                               onClick={() => setPreviewImage(item.url || null)}
                               onLoad={() => {
                                 if (item.id !== newestItemId) return;
-                                if (suppressSmoothScrollRef.current) {
-                                  scrollToBottomInstant();
-                                  return;
-                                }
-                                scrollToBottomSmooth();
+                                // Image height changes: pin without animation.
+                                scrollToBottomInstant();
                               }}
                             />
                           </div>
