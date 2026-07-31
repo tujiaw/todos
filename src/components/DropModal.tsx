@@ -196,38 +196,40 @@ export const DropModal: React.FC<DropModalProps> = ({
   const panelRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const dragDepthRef = useRef(0);
-  const wasOpenRef = useRef(false);
-  const lastNewestItemIdRef = useRef<string | null>(null);
+  const prevNewestItemIdRef = useRef<string | null>(null);
   const newestItemId = dropItems.length > 0 ? dropItems[dropItems.length - 1].id : null;
 
+  // First open: instant scroll to bottom (no animation)
   useEffect(() => {
     if (!isOpen) {
-      wasOpenRef.current = false;
+      prevNewestItemIdRef.current = null;
       return;
     }
-
-    const isOpening = !wasOpenRef.current;
-    const hasNewLatestItem =
-      newestItemId !== null && newestItemId !== lastNewestItemIdRef.current;
-    wasOpenRef.current = true;
-    lastNewestItemIdRef.current = newestItemId;
-
-    if (!isOpening && !hasNewLatestItem) return;
 
     const frame = requestAnimationFrame(() => {
       const container = scrollContainerRef.current;
       if (container) {
-        if (isOpening) {
-          container.scrollTop = container.scrollHeight;
-        } else {
-          container.scrollTo({
-            top: container.scrollHeight,
-            behavior: 'smooth',
-          });
-        }
+        container.scrollTop = container.scrollHeight;
       }
     });
+    return () => cancelAnimationFrame(frame);
+  }, [isOpen]);
 
+  // New items arrive while open: smooth scroll to bottom
+  useEffect(() => {
+    if (!isOpen) return;
+    if (newestItemId === null || newestItemId === prevNewestItemIdRef.current) return;
+    prevNewestItemIdRef.current = newestItemId;
+
+    const frame = requestAnimationFrame(() => {
+      const container = scrollContainerRef.current;
+      if (container) {
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: 'smooth',
+        });
+      }
+    });
     return () => cancelAnimationFrame(frame);
   }, [isOpen, newestItemId]);
 
