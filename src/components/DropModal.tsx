@@ -252,36 +252,50 @@ export const DropModal: React.FC<DropModalProps> = ({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const dragDepthRef = useRef(0);
   const prevNewestItemIdRef = useRef<string | null>(null);
+  // While true, pin to bottom instantly (open + initial sync). Smooth only after settle.
+  const suppressSmoothScrollRef = useRef(true);
   const newestItemId = dropItems.length > 0 ? dropItems[dropItems.length - 1].id : null;
   const hasSearchQuery = Boolean(searchQuery.trim());
 
-  // First open: instant scroll to bottom before paint (no visible animation)
+  const scrollToBottomInstant = () => {
+    const container = scrollContainerRef.current;
+    if (container) container.scrollTop = container.scrollHeight;
+  };
+
+  const scrollToBottomSmooth = () => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+    }
+  };
+
   useLayoutEffect(() => {
     if (!isOpen) {
       prevNewestItemIdRef.current = null;
+      suppressSmoothScrollRef.current = true;
       return;
     }
-
-    const container = scrollContainerRef.current;
-    if (container) {
-      container.scrollTop = container.scrollHeight;
-    }
+    scrollToBottomInstant();
   }, [isOpen]);
 
-  // New items arrive while open: smooth scroll to bottom
+  // Keep jumping to bottom without animation until the first sync finishes.
+  useLayoutEffect(() => {
+    if (!isOpen || !suppressSmoothScrollRef.current) return;
+    scrollToBottomInstant();
+    prevNewestItemIdRef.current = newestItemId;
+    if (!isLoading) {
+      suppressSmoothScrollRef.current = false;
+    }
+  }, [isOpen, isLoading, dropItems.length, newestItemId]);
+
+  // After the panel is settled, animate only when a newer item appears.
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || suppressSmoothScrollRef.current) return;
     if (newestItemId === null || newestItemId === prevNewestItemIdRef.current) return;
     prevNewestItemIdRef.current = newestItemId;
 
     const frame = requestAnimationFrame(() => {
-      const container = scrollContainerRef.current;
-      if (container) {
-        container.scrollTo({
-          top: container.scrollHeight,
-          behavior: 'smooth',
-        });
-      }
+      scrollToBottomSmooth();
     });
     return () => cancelAnimationFrame(frame);
   }, [isOpen, newestItemId]);
@@ -835,10 +849,12 @@ export const DropModal: React.FC<DropModalProps> = ({
                               className="w-full h-full object-contain max-h-56 rounded-xl cursor-pointer hover:opacity-95 transition-opacity"
                               onClick={() => setPreviewImage(item.url || null)}
                               onLoad={() => {
-                                if (item.id === newestItemId) {
-                                  const container = scrollContainerRef.current;
-                                  container?.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+                                if (item.id !== newestItemId) return;
+                                if (suppressSmoothScrollRef.current) {
+                                  scrollToBottomInstant();
+                                  return;
                                 }
+                                scrollToBottomSmooth();
                               }}
                             />
                           </div>
