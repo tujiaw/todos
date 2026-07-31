@@ -1047,11 +1047,13 @@ export default function App() {
     <div className="app-shell min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans flex flex-col selection:bg-indigo-100 dark:selection:bg-indigo-900 selection:text-indigo-950 dark:selection:text-indigo-100 transition-colors">
       {updateAvailable && (
         <div className="sticky top-0 z-50 bg-indigo-600 text-white text-xs px-3 py-2 flex items-center justify-between gap-3">
-          <span>新版本已就绪，正在应用更新…若提示一直不消失，可点「立即刷新」。</span>
+          <span>发现新版本，点击刷新以加载最新应用。</span>
           <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
-              onClick={() => void applyUpdate()}
+              onClick={() => {
+                void applyUpdate();
+              }}
               className="px-2.5 py-1 rounded-lg bg-white text-indigo-700 font-semibold"
             >
               立即刷新

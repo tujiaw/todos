@@ -5,17 +5,14 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
-const SW_RELOAD_FLAG = 'daily_todos_sw_reloading';
-
 function activateWaitingWorker(worker: ServiceWorker | null | undefined) {
   worker?.postMessage({ type: 'SKIP_WAITING' });
 }
 
-/** Activate waiting worker and reload once (guarded against loops). */
-function activateWaitingAndReload(worker: ServiceWorker) {
-  if (sessionStorage.getItem(SW_RELOAD_FLAG) === '1') return;
-  sessionStorage.setItem(SW_RELOAD_FLAG, '1');
-  activateWaitingWorker(worker);
+function hardReload() {
+  const url = new URL(window.location.href);
+  url.searchParams.set('_sw', String(Date.now()));
+  window.location.replace(url.toString());
 }
 
 export function usePWA() {
@@ -26,17 +23,21 @@ export function usePWA() {
   const [updateAvailable, setUpdateAvailable] = useState(false);
 
   const applyUpdate = useCallback(async () => {
-    if (!('serviceWorker' in navigator)) {
-      window.location.reload();
-      return;
+    setUpdateAvailable(false);
+    try {
+      if ('serviceWorker' in navigator) {
+        const registration = await navigator.serviceWorker.getRegistration();
+        activateWaitingWorker(registration?.waiting);
+        // Also nudge installing worker if present.
+        activateWaitingWorker(registration?.installing);
+      }
+    } catch (error) {
+      console.warn('Failed to activate waiting service worker:', error);
     }
-    const registration = await navigator.serviceWorker.getRegistration();
-    if (registration?.waiting) {
-      activateWaitingAndReload(registration.waiting);
-      return;
-    }
-    sessionStorage.setItem(SW_RELOAD_FLAG, '1');
-    window.location.reload();
+    // Always reload — never gate on session flags (that caused "no response").
+    window.setTimeout(() => {
+      hardReload();
+    }, 50);
   }, []);
 
   const dismissUpdate = useCallback(() => {
@@ -52,29 +53,22 @@ export function usePWA() {
       setIsInstalled(true);
     }
 
-    // Finished a one-shot SW reload — clear sticky "update available" state.
-    if (sessionStorage.getItem(SW_RELOAD_FLAG)) {
-      sessionStorage.removeItem(SW_RELOAD_FLAG);
+    // Strip cache-bust query from a previous hard reload.
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('_sw')) {
+      url.searchParams.delete('_sw');
+      window.history.replaceState(window.history.state, '', url.toString());
       setUpdateAvailable(false);
     }
 
-    const handleControllerChange = () => {
-      if (sessionStorage.getItem(SW_RELOAD_FLAG) === '1') {
-        window.location.reload();
-        return;
-      }
-      setUpdateAvailable(false);
-    };
-
-    const takeWaitingUpdate = (registration: ServiceWorkerRegistration) => {
+    const markUpdateAvailable = (registration: ServiceWorkerRegistration) => {
       if (registration.waiting && navigator.serviceWorker.controller) {
         setUpdateAvailable(true);
-        activateWaitingAndReload(registration.waiting);
       }
     };
 
     const trackWaiting = (registration: ServiceWorkerRegistration) => {
-      takeWaitingUpdate(registration);
+      markUpdateAvailable(registration);
 
       registration.addEventListener('updatefound', () => {
         const installing = registration.installing;
@@ -82,9 +76,6 @@ export function usePWA() {
         installing.addEventListener('statechange', () => {
           if (installing.state === 'installed' && navigator.serviceWorker.controller) {
             setUpdateAvailable(true);
-            if (registration.waiting) {
-              activateWaitingAndReload(registration.waiting);
-            }
           }
         });
       });
@@ -95,7 +86,7 @@ export function usePWA() {
         .register('/sw.js')
         .then((registration) => {
           trackWaiting(registration);
-          void registration.update().then(() => takeWaitingUpdate(registration));
+          void registration.update().then(() => markUpdateAvailable(registration));
         })
         .catch((error) => {
           console.warn('PWA Service Worker registration failed:', error);
@@ -108,7 +99,6 @@ export function usePWA() {
       } else {
         window.addEventListener('load', registerServiceWorker);
       }
-      navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
     }
 
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -133,9 +123,6 @@ export function usePWA() {
 
     return () => {
       window.removeEventListener('load', registerServiceWorker);
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange);
-      }
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
       window.removeEventListener('online', handleOnline);
