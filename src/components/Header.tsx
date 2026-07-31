@@ -3,7 +3,6 @@ import {
   Calendar as CalendarIcon,
   ChevronLeft,
   ChevronRight,
-  RefreshCw,
   CheckCircle2,
   Flame,
   Sun,
@@ -88,7 +87,6 @@ const DateNavigator: React.FC<DateNavigatorProps> = ({
   compact = false,
   onSelectDate,
 }) => {
-  const isToday = selectedDate === todayStr;
   const formattedDate = formatDateDisplay(selectedDate, todayStr);
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -130,10 +128,6 @@ const DateNavigator: React.FC<DateNavigatorProps> = ({
     ? 'flex items-center gap-1.5 px-2 py-1 text-xs font-semibold text-slate-800 dark:text-slate-100 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-all cursor-pointer min-h-[30px]'
     : 'flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-slate-800 dark:text-slate-100 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-all cursor-pointer min-h-[32px]';
 
-  const todayBtnClass = compact
-    ? 'ml-1 px-2 py-0.5 text-xs font-medium bg-blue-50 dark:bg-blue-950/80 text-blue-600 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/80 border border-blue-200 dark:border-blue-800 rounded-lg transition-colors flex items-center gap-1 min-h-[30px]'
-    : 'ml-1 px-2 py-1 text-xs font-medium bg-blue-50 dark:bg-blue-950/80 text-blue-600 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/80 border border-blue-200 dark:border-blue-800 rounded-lg transition-colors flex items-center gap-1 min-h-[32px]';
-
   return (
     <div
       ref={rootRef}
@@ -172,18 +166,6 @@ const DateNavigator: React.FC<DateNavigatorProps> = ({
       >
         <ChevronRight className="w-4 h-4" />
       </button>
-
-      {!isToday && (
-        <button
-          type="button"
-          onClick={() => onSelectDate(todayStr)}
-          className={todayBtnClass}
-          title="Return to Today"
-        >
-          <RefreshCw className="w-3 h-3" />
-          <span>Today</span>
-        </button>
-      )}
 
       {open && (
         <div
