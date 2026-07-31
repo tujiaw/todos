@@ -25,7 +25,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({
   const [description, setDescription] = useState('');
   const [categoryId, setCategoryId] = useState<string>(categories[0]?.id || '');
   const [priority, setPriority] = useState<Priority>('medium');
-  const [dueTime, setDueTime] = useState<string>('18:00');
+  const [dueTime, setDueTime] = useState<string>('');
   const [estimatedMinutes, setEstimatedMinutes] = useState<number | ''>('');
   const [imageUrl, setImageUrl] = useState<string>('');
   const [showImageInput, setShowImageInput] = useState(false);
@@ -63,7 +63,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({
     if (resetKey === 0) return;
     setTitle('');
     setDescription('');
-    setDueTime('18:00');
+    setDueTime('');
     setEstimatedMinutes('');
     setImageUrl('');
     setShowImageInput(false);
@@ -103,7 +103,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({
       completed: false,
       categoryId,
       priority,
-      dueTime: dueTime || '18:00',
+      dueTime: dueTime || undefined,
       estimatedMinutes: typeof estimatedMinutes === 'number' ? estimatedMinutes : undefined,
       imageUrl: imageUrl.trim() || undefined,
       pinned: false,
@@ -114,10 +114,9 @@ export const TaskInput: React.FC<TaskInputProps> = ({
       })),
     });
 
-    // Reset form
     setTitle('');
     setDescription('');
-    setDueTime('18:00');
+    setDueTime('');
     setEstimatedMinutes('');
     setImageUrl('');
     setShowImageInput(false);
@@ -159,12 +158,22 @@ export const TaskInput: React.FC<TaskInputProps> = ({
 
   const handleFormSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    if (aiEnabled) {
+    handleAddTask();
+  };
+
+  const handleTitleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== 'Enter') return;
+    if ((event.metaKey || event.ctrlKey) && aiEnabled) {
+      event.preventDefault();
       void handleGenerateDraft();
-    } else {
-      handleAddTask();
     }
   };
+
+  const priorityFlagClass = (() => {
+    if (priority === 'high') return 'text-rose-500 fill-rose-500';
+    if (priority === 'medium') return 'text-amber-500 fill-amber-500';
+    return 'text-slate-400';
+  })();
 
   const handleRemoveImage = async () => {
     const confirmed = await confirmAction({
@@ -179,22 +188,23 @@ export const TaskInput: React.FC<TaskInputProps> = ({
   return (
     <div id="task-input-card" className="task-composer p-3.5 sm:p-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/70 dark:border-slate-800 transition-all">
       <form onSubmit={handleFormSubmit}>
-        <div className="mb-2">
-          <h3 className="text-sm font-bold text-slate-950 dark:text-white">What needs your attention?</h3>
+        <div className="mb-2 flex items-baseline justify-between gap-2">
+          <h3 className="text-sm font-bold text-slate-950 dark:text-white">New task</h3>
+          {aiEnabled && (
+            <span className="text-[10px] text-slate-400 dark:text-slate-500">
+              Enter adds · ⌘/Ctrl+Enter drafts
+            </span>
+          )}
         </div>
-        {/* Main Title Input Bar */}
         <div className="flex items-center gap-2">
           <div className="flex-1 relative">
             <input
               type="text"
               id="input-task-title"
-              placeholder={
-                aiEnabled
-                  ? 'Write a task and press Enter for AI...'
-                  : 'Write a task and press Enter...'
-              }
+              placeholder="Write a task and press Enter..."
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              onKeyDown={handleTitleKeyDown}
               className="w-full h-10 text-sm font-semibold text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 bg-slate-50/80 dark:bg-slate-800/70 rounded-xl px-3.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
               maxLength={100}
               required
@@ -218,22 +228,23 @@ export const TaskInput: React.FC<TaskInputProps> = ({
             </button>
 
             <button
-              type="button"
+              type="submit"
               id="btn-add-task-submit"
-              onClick={handleAddTask}
               disabled={!title.trim() || !categoryId}
-              className="w-10 bg-gradient-to-br from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 disabled:opacity-40 text-white transition-all flex items-center justify-center border-l border-white/15 active:scale-95"
-              title="Add task"
+              className="min-w-10 px-2.5 sm:px-3 bg-gradient-to-br from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 disabled:opacity-40 text-white transition-all flex items-center justify-center gap-1 border-l border-white/15 active:scale-95"
+              title="Add task (Enter)"
               aria-label="Add task"
             >
               <Plus className="w-4 h-4 stroke-[2.6]" />
+              <span className="hidden sm:inline text-[11px] font-semibold">Add</span>
             </button>
             {aiEnabled && (
               <button
-                type="submit"
+                type="button"
+                onClick={() => void handleGenerateDraft()}
                 disabled={!title.trim() || isGeneratingDraft || categories.length === 0}
                 className="w-10 flex items-center justify-center border-l border-slate-200 dark:border-slate-700 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 disabled:opacity-40 transition-colors"
-                title="Use AI to turn this into a task draft"
+                title="Draft with AI (⌘/Ctrl+Enter)"
                 aria-label="Generate AI task draft"
               >
                 {isGeneratingDraft ? (
@@ -286,15 +297,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({
 
           {/* Priority Selector */}
           <div className="soft-pill flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-300 px-2.5 py-1.5 transition-colors">
-            <Flag
-              className={`w-3 h-3 ${
-                priority === 'high'
-                  ? 'text-rose-500 fill-rose-500'
-                  : priority === 'medium'
-                  ? 'text-amber-500 fill-amber-500'
-                  : 'text-slate-400'
-              }`}
-            />
+            <Flag className={`w-3 h-3 ${priorityFlagClass}`} />
             <select
               id="select-task-priority"
               value={priority}

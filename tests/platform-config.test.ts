@@ -119,7 +119,7 @@ test('Drop remains a text and file transfer surface without task AI actions', ()
   assert.ok(attachIndex >= 0 && inputIndex > attachIndex && sendIndex > inputIndex);
 });
 
-test('task input places AI after add and uses AI for form submission', () => {
+test('task input adds on Enter and drafts with AI via modifier or button', () => {
   const addButtonIndex = taskInput.indexOf('id="btn-add-task-submit"');
   const aiButtonIndex = taskInput.indexOf('aria-label="Generate AI task draft"');
 
@@ -128,6 +128,10 @@ test('task input places AI after add and uses AI for form submission', () => {
   assert.match(taskInput, /<form onSubmit=\{handleFormSubmit\}>/);
   assert.match(
     taskInput,
-    /const handleFormSubmit[\s\S]*event\.preventDefault\(\);[\s\S]*void handleGenerateDraft\(\);/
+    /const handleFormSubmit[\s\S]*event\.preventDefault\(\);[\s\S]*handleAddTask\(\);/
   );
+  assert.match(taskInput, /metaKey \|\| event\.ctrlKey/);
+  assert.match(taskInput, /useState<string>\(''\)/);
+  assert.match(taskInput, /dueTime: dueTime \|\| undefined/);
+  assert.match(taskInput, /Write a task and press Enter\.\.\./);
 });
