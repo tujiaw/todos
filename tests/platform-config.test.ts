@@ -37,8 +37,14 @@ test('PWA metadata includes the current mobile capability tag', () => {
 });
 
 test('AI requests use a same-origin Vercel Function and direct DeepSeek provider', () => {
+  const weeklySummaryFunction = readFileSync(
+    new URL('../api/generate-weekly-summary.ts', import.meta.url),
+    'utf8'
+  );
+
   assert.match(vercelConfig, /api\/generate-task-draft\.ts/);
   assert.match(vercelConfig, /api\/generate-dashboard-copy\.ts/);
+  assert.match(vercelConfig, /api\/generate-weekly-summary\.ts/);
   assert.match(vercelFunction, /from '\.\.\/server\/providers\.js'/);
   assert.match(vercelFunction, /from '\.\.\/server\/rate-limit\.js'/);
   assert.match(vercelFunction, /from '\.\.\/server\/task-draft\.js'/);
@@ -52,8 +58,12 @@ test('AI requests use a same-origin Vercel Function and direct DeepSeek provider
   assert.doesNotMatch(packageJson, /"ai"\s*:/);
   assert.match(aiClient, /fetch\('\/api\/generate-task-draft'/);
   assert.match(aiClient, /fetch\('\/api\/generate-dashboard-copy'/);
+  assert.match(aiClient, /fetch\('\/api\/generate-weekly-summary'/);
   assert.match(dashboardCopyFunction, /await authenticate/);
   assert.match(dashboardCopyFunction, /DeepSeekJsonProvider/);
+  assert.match(weeklySummaryFunction, /await authenticate/);
+  assert.match(weeklySummaryFunction, /DeepSeekJsonProvider/);
+  assert.match(weeklySummaryFunction, /weekly-summary\.js/);
   assert.match(aiClient, /await response\.text\(\)/);
   assert.match(aiClient, /FUNCTION\|EDGE_FUNCTION/);
   assert.doesNotMatch(aiClient, /supabase\.functions\.invoke/);
@@ -63,7 +73,9 @@ test('global AI preference disables AI UI and uses daily dashboard cache', () =>
   assert.match(storage, /daily_todos_ai_enabled_v1/);
   assert.match(syncModal, /role="switch"/);
   assert.match(syncModal, /AI Features/);
+  assert.match(syncModal, /weekly meeting minutes/);
   assert.match(app, /aiEnabled=\{aiEnabled\}/);
+  assert.match(app, /onOpenWeeklySummary=\{handleOpenWeeklySummary\}/);
   assert.match(app, /setDashboardCopy\(DEFAULT_DASHBOARD_COPY\)/);
   assert.match(aiClient, /daily_todos_dashboard_copy_v1/);
   assert.match(aiClient, /cached\.date !== date/);

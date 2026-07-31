@@ -1,4 +1,5 @@
 import { Category, TaskDraft } from '../types';
+import type { WeeklySummaryPayload } from '../utils/week';
 import { supabase } from './supabase';
 
 interface GenerateTaskDraftInput {
@@ -158,4 +159,52 @@ export async function generateDashboardCopy(
   }
   if (!data?.copy) throw new Error('The AI service returned empty dashboard copy.');
   return data.copy;
+}
+
+export interface WeeklySummaryResult {
+  title: string;
+  overview: string;
+  completedHighlights: string[];
+  unfinishedItems: string[];
+  risksOrBlockers: string[];
+  nextWeekFocus: string[];
+  minutesText: string;
+}
+
+export async function generateWeeklySummary(
+  input: WeeklySummaryPayload,
+  signal?: AbortSignal
+): Promise<WeeklySummaryResult> {
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
+  const accessToken = sessionData.session?.access_token;
+  if (!accessToken) throw new Error('请先登录后再生成周会纪要。');
+
+  const response = await fetch('/api/generate-weekly-summary', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(input),
+    signal,
+  });
+  const responseBody = await response.text();
+  let data: { summary?: WeeklySummaryResult; error?: string } | null = null;
+  try {
+    data = responseBody ? JSON.parse(responseBody) : null;
+  } catch {
+    // Vercel platform errors can be plain text.
+  }
+  if (!response.ok) {
+    const platformCode = getPlatformErrorCode(responseBody);
+    throw new Error(
+      data?.error ||
+        `AI service request failed (HTTP ${response.status}${
+          platformCode ? `: ${platformCode}` : ''
+        }).`
+    );
+  }
+  if (!data?.summary) throw new Error('AI 未返回周会纪要内容。');
+  return data.summary;
 }

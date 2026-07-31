@@ -23,15 +23,23 @@ import { TaskEditModal } from './components/TaskEditModal';
 import { SyncModal } from './components/SyncModal';
 import { CategorySettingsModal } from './components/CategorySettingsModal';
 import { DropModal } from './components/DropModal';
+import { WeeklySummaryModal } from './components/WeeklySummaryModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { useConfirm } from './components/ConfirmDialog';
 import {
   generateDashboardCopy,
   generateTaskDraft,
+  generateWeeklySummary,
   loadCachedDashboardCopy,
   saveCachedDashboardCopy,
   type DashboardCopy,
+  type WeeklySummaryResult,
 } from './lib/ai';
+import {
+  buildLocalWeeklyMinutes,
+  buildWeeklySummaryPayload,
+  type WeeklySummaryPayload,
+} from './utils/week';
 import {
   supabase,
   initializeAuthSession,
@@ -97,6 +105,14 @@ export default function App() {
   const [isSyncModalOpen, setIsSyncModalOpen] = useState<boolean>(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState<boolean>(false);
   const [isDropModalOpen, setIsDropModalOpen] = useState<boolean>(false);
+  const [isWeeklySummaryOpen, setIsWeeklySummaryOpen] = useState(false);
+  const [weeklySummaryPayload, setWeeklySummaryPayload] =
+    useState<WeeklySummaryPayload | null>(null);
+  const [weeklySummary, setWeeklySummary] = useState<WeeklySummaryResult | null>(null);
+  const [isWeeklySummaryLoading, setIsWeeklySummaryLoading] = useState(false);
+  const [weeklySummaryError, setWeeklySummaryError] = useState<string | null>(null);
+  const [weeklySummaryUsedFallback, setWeeklySummaryUsedFallback] = useState(false);
+  const weeklySummaryAbortRef = useRef<AbortController | null>(null);
 
   // Drop Items State
   const [dropItems, setDropItems] = useState<DropItem[]>([]);
@@ -442,6 +458,84 @@ export default function App() {
     }
   };
 
+  const runWeeklySummary = useCallback(
+    async (payload: WeeklySummaryPayload) => {
+      weeklySummaryAbortRef.current?.abort();
+      const controller = new AbortController();
+      weeklySummaryAbortRef.current = controller;
+
+      const localMinutes = buildLocalWeeklyMinutes(payload);
+      const localSummary: WeeklySummaryResult = {
+        title: `工作周报（${payload.periodLabel}）`,
+        overview: `本周共 ${payload.stats.total} 项任务，已完成 ${payload.stats.completed} 项，完成率 ${payload.stats.completionRate}%。`,
+        completedHighlights: payload.completedTasks
+          .slice(0, 8)
+          .map((task) => `${task.title}（${task.category}）`),
+        unfinishedItems: payload.pendingTasks
+          .slice(0, 8)
+          .map((task) => `${task.title}（${task.category}）`),
+        risksOrBlockers:
+          payload.stats.pendingByPriority.high > 0
+            ? [`高优先级未完成 ${payload.stats.pendingByPriority.high} 项，建议优先跟进。`]
+            : [],
+        nextWeekFocus: payload.pendingTasks.slice(0, 5).map((task) => `跟进：${task.title}`),
+        minutesText: localMinutes,
+      };
+
+      setWeeklySummaryPayload(payload);
+      setWeeklySummary(localSummary);
+      setWeeklySummaryUsedFallback(true);
+      setWeeklySummaryError(null);
+      setIsWeeklySummaryLoading(true);
+
+      if (!aiEnabled) {
+        setWeeklySummaryError('AI 已关闭，已生成本地周会草稿。可在设置中开启 AI。');
+        setIsWeeklySummaryLoading(false);
+        return;
+      }
+      if (!user) {
+        setWeeklySummaryError('请先登录以使用 AI 润色；当前已提供可复制的本地纪要。');
+        setIsWeeklySummaryLoading(false);
+        return;
+      }
+
+      try {
+        const summary = await generateWeeklySummary(payload, controller.signal);
+        if (controller.signal.aborted) return;
+        setWeeklySummary(summary);
+        setWeeklySummaryUsedFallback(false);
+        setWeeklySummaryError(null);
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') return;
+        setWeeklySummaryError(
+          error instanceof Error
+            ? `${error.message} 已保留本地纪要草稿。`
+            : 'AI 生成失败，已保留本地纪要草稿。'
+        );
+        setWeeklySummaryUsedFallback(true);
+      } finally {
+        if (!controller.signal.aborted) setIsWeeklySummaryLoading(false);
+      }
+    },
+    [aiEnabled, user]
+  );
+
+  const handleOpenWeeklySummary = (weekAnchorDate: string) => {
+    const payload = buildWeeklySummaryPayload(tasks, categories, weekAnchorDate);
+    setIsWeeklySummaryOpen(true);
+    void runWeeklySummary(payload);
+  };
+
+  const handleCloseWeeklySummary = () => {
+    weeklySummaryAbortRef.current?.abort();
+    setIsWeeklySummaryOpen(false);
+  };
+
+  const handleRegenerateWeeklySummary = () => {
+    if (!weeklySummaryPayload) return;
+    void runWeeklySummary(weeklySummaryPayload);
+  };
+
   const handleGenerateTaskDraft = async (text: string) => {
     if (!aiEnabled) throw new Error('AI features are disabled in Settings.');
     const draft = await generateTaskDraft({
@@ -734,6 +828,7 @@ export default function App() {
             dateStr={selectedDate}
             tasks={tasks}
             onDateSelect={setSelectedDate}
+            onOpenWeeklySummary={handleOpenWeeklySummary}
           />
 
           <TaskInput
@@ -832,6 +927,17 @@ export default function App() {
         mode="create"
         onClose={handleCloseDraftTask}
         onSave={handleCreateDraftTask}
+      />
+
+      <WeeklySummaryModal
+        isOpen={isWeeklySummaryOpen}
+        onClose={handleCloseWeeklySummary}
+        payload={weeklySummaryPayload}
+        summary={weeklySummary}
+        isLoading={isWeeklySummaryLoading}
+        error={weeklySummaryError}
+        usedFallback={weeklySummaryUsedFallback}
+        onGenerate={handleRegenerateWeeklySummary}
       />
 
       {/* Mobile Smartphone Bottom Navigation Toolbar */}

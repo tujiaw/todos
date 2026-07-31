@@ -1,8 +1,16 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, ChevronLeft, ChevronRight, BarChart2, CalendarDays } from 'lucide-react';
+import {
+  Sparkles,
+  ChevronLeft,
+  ChevronRight,
+  BarChart2,
+  CalendarDays,
+  FileText,
+} from 'lucide-react';
 import { Task } from '../types';
 import { getTodayDateString } from '../data/initialData';
+import { getWeekDays } from '../utils/week';
 
 interface ProgressBarProps {
   totalTasks: number;
@@ -10,29 +18,10 @@ interface ProgressBarProps {
   dateStr: string;
   tasks: Task[];
   onDateSelect?: (date: string) => void;
+  onOpenWeeklySummary?: (weekAnchorDate: string) => void;
 }
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-function getWeekDays(anchorDateStr: string): string[] {
-  const anchor = new Date(anchorDateStr + 'T00:00:00');
-  const dayOfWeek = anchor.getDay(); // 0=Sun … 6=Sat
-  // Monday offset: if Sunday(0) → -6, else 1 - dayOfWeek
-  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-  const monday = new Date(anchor);
-  monday.setDate(anchor.getDate() + mondayOffset);
-
-  const days: string[] = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    days.push(`${y}-${m}-${day}`);
-  }
-  return days;
-}
 
 export const ProgressBar: React.FC<ProgressBarProps> = ({
   totalTasks,
@@ -40,6 +29,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   dateStr,
   tasks,
   onDateSelect,
+  onOpenWeeklySummary,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [weekOffset, setWeekOffset] = useState(0);
@@ -259,6 +249,17 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
                   );
                 })}
               </div>
+
+              {onOpenWeeklySummary && (
+                <button
+                  type="button"
+                  onClick={() => onOpenWeeklySummary(weekAnchor)}
+                  className="w-full inline-flex items-center justify-center gap-1.5 min-h-9 px-3 rounded-xl bg-white/90 dark:bg-slate-900/70 border border-indigo-100 dark:border-indigo-900/50 text-indigo-700 dark:text-indigo-200 text-[12px] font-semibold hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  生成周会纪要
+                </button>
+              )}
             </div>
           </motion.div>
         )}

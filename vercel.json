@@ -6,6 +6,9 @@
     },
     "api/generate-dashboard-copy.ts": {
       "maxDuration": 30
+    },
+    "api/generate-weekly-summary.ts": {
+      "maxDuration": 30
     }
   }
 }

@@ -107,7 +107,7 @@ export const SyncModal: React.FC<SyncModalProps> = ({
               <div>
                 <h4 className="font-bold text-slate-800 dark:text-slate-100">AI Features</h4>
                 <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
-                  Enable task drafting and one cached dashboard message per day.
+                  Task drafting, daily dashboard copy, and weekly meeting minutes.
                 </p>
               </div>
             </div>
