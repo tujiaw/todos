@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Trophy, Sparkles, ChevronDown, ChevronLeft, ChevronRight, BarChart2, CalendarDays } from 'lucide-react';
+import { Sparkles, ChevronDown, ChevronLeft, ChevronRight, BarChart2, CalendarDays } from 'lucide-react';
 import { Task } from '../types';
 import { getTodayDateString } from '../data/initialData';
 
@@ -89,14 +89,6 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   const MAX_BAR_HEIGHT_PX = 56;
   const MIN_BAR_HEIGHT_PX = 4;
 
-  const getMotivationalText = () => {
-    if (totalTasks === 0) return 'No tasks scheduled for today. Click below to add one!';
-    if (percentage === 0) return 'Ready to go! Check off tasks to start a productive day.';
-    if (percentage < 50) return 'Good start, keep up the momentum!';
-    if (percentage < 100) return 'More than half done, victory is in sight!';
-    return 'Awesome! All tasks for today are completed! 🎉';
-  };
-
   return (
     <div
       id="progress-card"
@@ -157,12 +149,6 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
             transition={{ duration: 0.2 }}
             className="pt-3 mt-3 border-t border-slate-100 dark:border-slate-800/80 space-y-3 relative z-10 overflow-hidden"
           >
-            {/* Motivational Text */}
-            <p className="text-xs text-slate-600 dark:text-slate-300 font-medium flex items-center gap-1.5">
-              {percentage === 100 && <Trophy className="w-3.5 h-3.5 text-amber-500 inline" />}
-              <span>{getMotivationalText()}</span>
-            </p>
-
             {/* Weekly Bar Chart */}
             <div className="bg-slate-50/80 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800 space-y-2">
               <div className="flex items-center gap-1">
