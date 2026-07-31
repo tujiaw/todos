@@ -12,7 +12,6 @@ import {
   LoaderCircle,
   Search,
   EllipsisVertical,
-  StickyNote,
   File as FileIcon,
   FileArchive,
   FileAudio,
@@ -527,7 +526,7 @@ export const DropModal: React.FC<DropModalProps> = ({
         <div className="drop-header px-4 sm:px-5 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="drop-logo p-2 rounded-xl bg-white/70 text-indigo-600 border border-white/80 shrink-0">
-              <StickyNote className="w-4 h-4" />
+              <Send className="w-4 h-4" />
             </div>
             <div className="min-w-0">
               <h3
@@ -561,7 +560,7 @@ export const DropModal: React.FC<DropModalProps> = ({
               {menuOpen && (
                 <div
                   role="menu"
-                  className="absolute right-0 top-full mt-1.5 w-44 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl overflow-hidden z-20 py-1"
+                  className="absolute right-0 top-full mt-1.5 w-44 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl overflow-hidden z-50 py-1"
                 >
                   <button
                     type="button"
@@ -684,7 +683,7 @@ export const DropModal: React.FC<DropModalProps> = ({
           ) : dropItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-slate-400 text-xs gap-3 py-12 text-center">
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-950/50 dark:to-indigo-950/70 text-indigo-600 dark:text-indigo-300 flex items-center justify-center shadow-inner">
-                {hasSearchQuery ? <Search className="w-6 h-6" /> : <StickyNote className="w-6 h-6" />}
+                {hasSearchQuery ? <Search className="w-6 h-6" /> : <Send className="w-6 h-6" />}
               </div>
               <div className="space-y-1.5 max-w-xs">
                 <p className="font-semibold text-slate-700 dark:text-slate-300">
