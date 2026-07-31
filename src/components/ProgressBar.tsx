@@ -41,7 +41,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   tasks,
   onDateSelect,
 }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
   const [weekOffset, setWeekOffset] = useState(0);
   const percentage = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
 
