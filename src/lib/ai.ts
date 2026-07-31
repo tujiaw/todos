@@ -1,6 +1,8 @@
 import { Category, TaskDraft } from '../types';
-import type { WeeklySummaryPayload } from '../utils/week';
+import type { AiAssistPayload, AiAssistResult } from '../utils/aiAssist';
 import { supabase } from './supabase';
+
+export type { AiAssistResult } from '../utils/aiAssist';
 
 interface GenerateTaskDraftInput {
   text: string;
@@ -161,26 +163,16 @@ export async function generateDashboardCopy(
   return data.copy;
 }
 
-export interface WeeklySummaryResult {
-  title: string;
-  overview: string;
-  completedHighlights: string[];
-  unfinishedItems: string[];
-  risksOrBlockers: string[];
-  nextWeekFocus: string[];
-  minutesText: string;
-}
-
-export async function generateWeeklySummary(
-  input: WeeklySummaryPayload,
+export async function generateAiAssist(
+  input: AiAssistPayload,
   signal?: AbortSignal
-): Promise<WeeklySummaryResult> {
+): Promise<AiAssistResult> {
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
   if (sessionError) throw sessionError;
   const accessToken = sessionData.session?.access_token;
-  if (!accessToken) throw new Error('Please sign in before generating weekly minutes.');
+  if (!accessToken) throw new Error('Please sign in before using AI assist.');
 
-  const response = await fetch('/api/generate-weekly-summary', {
+  const response = await fetch('/api/generate-ai-assist', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -190,7 +182,7 @@ export async function generateWeeklySummary(
     signal,
   });
   const responseBody = await response.text();
-  let data: { summary?: WeeklySummaryResult; error?: string } | null = null;
+  let data: { result?: AiAssistResult; error?: string } | null = null;
   try {
     data = responseBody ? JSON.parse(responseBody) : null;
   } catch {
@@ -205,6 +197,6 @@ export async function generateWeeklySummary(
         }).`
     );
   }
-  if (!data?.summary) throw new Error('AI 未返回周会纪要内容。');
-  return data.summary;
+  if (!data?.result) throw new Error('The AI service returned an empty assist result.');
+  return data.result;
 }

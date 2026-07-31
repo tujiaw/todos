@@ -41,10 +41,15 @@ test('AI requests use a same-origin Vercel Function and direct DeepSeek provider
     new URL('../api/generate-weekly-summary.ts', import.meta.url),
     'utf8'
   );
+  const aiAssistFunction = readFileSync(
+    new URL('../api/generate-ai-assist.ts', import.meta.url),
+    'utf8'
+  );
 
   assert.match(vercelConfig, /api\/generate-task-draft\.ts/);
   assert.match(vercelConfig, /api\/generate-dashboard-copy\.ts/);
   assert.match(vercelConfig, /api\/generate-weekly-summary\.ts/);
+  assert.match(vercelConfig, /api\/generate-ai-assist\.ts/);
   assert.match(vercelFunction, /from '\.\.\/server\/providers\.js'/);
   assert.match(vercelFunction, /from '\.\.\/server\/rate-limit\.js'/);
   assert.match(vercelFunction, /from '\.\.\/server\/task-draft\.js'/);
@@ -58,12 +63,14 @@ test('AI requests use a same-origin Vercel Function and direct DeepSeek provider
   assert.doesNotMatch(packageJson, /"ai"\s*:/);
   assert.match(aiClient, /fetch\('\/api\/generate-task-draft'/);
   assert.match(aiClient, /fetch\('\/api\/generate-dashboard-copy'/);
-  assert.match(aiClient, /fetch\('\/api\/generate-weekly-summary'/);
+  assert.match(aiClient, /fetch\('\/api\/generate-ai-assist'/);
   assert.match(dashboardCopyFunction, /await authenticate/);
   assert.match(dashboardCopyFunction, /DeepSeekJsonProvider/);
   assert.match(weeklySummaryFunction, /await authenticate/);
   assert.match(weeklySummaryFunction, /DeepSeekJsonProvider/);
   assert.match(weeklySummaryFunction, /weekly-summary\.js/);
+  assert.match(aiAssistFunction, /await authenticate/);
+  assert.match(aiAssistFunction, /ai-assist\.js/);
   assert.match(aiClient, /await response\.text\(\)/);
   assert.match(aiClient, /FUNCTION\|EDGE_FUNCTION/);
   assert.doesNotMatch(aiClient, /supabase\.functions\.invoke/);
@@ -73,22 +80,22 @@ test('global AI preference disables AI UI and uses daily dashboard cache', () =>
   assert.match(storage, /daily_todos_ai_enabled_v1/);
   assert.match(syncModal, /role="switch"/);
   assert.match(syncModal, /AI Features/);
-  assert.match(syncModal, /weekly meeting minutes/);
+  assert.match(syncModal, /Week menu AI assists/);
   assert.match(app, /aiEnabled=\{aiEnabled\}/);
-  assert.match(app, /onOpenWeeklySummary=\{handleOpenWeeklySummary\}/);
+  assert.match(app, /onOpenAiAssist=\{handleOpenAiAssist\}/);
   const progressBar = readFileSync(
     new URL('../src/components/ProgressBar.tsx', import.meta.url),
     'utf8'
   );
-  assert.match(progressBar, /Weekly minutes/);
+  assert.match(progressBar, /AI Assist/);
   assert.match(progressBar, /setWeekOffset\(0\)/);
-  const weeklyModal = readFileSync(
-    new URL('../src/components/WeeklySummaryModal.tsx', import.meta.url),
+  assert.match(progressBar, /aria-haspopup="menu"/);
+  const aiAssistModal = readFileSync(
+    new URL('../src/components/AiAssistModal.tsx', import.meta.url),
     'utf8'
   );
-  assert.match(weeklyModal, /Copy minutes/);
-  assert.match(weeklyModal, /disabled=\{!summary\?\.minutesText\}/);
-  assert.match(weeklyModal, /Highlights & follow-ups/);
+  assert.match(aiAssistModal, /Copy-ready notes/);
+  assert.match(aiAssistModal, /disabled=\{!result\?\.copyText\}/);
   assert.match(app, /setDashboardCopy\(DEFAULT_DASHBOARD_COPY\)/);
   assert.match(aiClient, /daily_todos_dashboard_copy_v1/);
   assert.match(aiClient, /cached\.date !== date/);

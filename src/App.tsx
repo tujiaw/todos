@@ -23,23 +23,29 @@ import { TaskEditModal } from './components/TaskEditModal';
 import { SyncModal } from './components/SyncModal';
 import { CategorySettingsModal } from './components/CategorySettingsModal';
 import { DropModal } from './components/DropModal';
-import { WeeklySummaryModal } from './components/WeeklySummaryModal';
+import { AiAssistModal } from './components/AiAssistModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { useConfirm } from './components/ConfirmDialog';
 import {
+  generateAiAssist,
   generateDashboardCopy,
   generateTaskDraft,
-  generateWeeklySummary,
   loadCachedDashboardCopy,
   saveCachedDashboardCopy,
   type DashboardCopy,
-  type WeeklySummaryResult,
 } from './lib/ai';
 import {
-  buildLocalWeeklyMinutes,
-  buildWeeklySummaryPayload,
-  type WeeklySummaryPayload,
-} from './utils/week';
+  buildBacklogTriagePayload,
+  buildDailyStandupPayload,
+  buildLocalAiAssistResult,
+  buildTodayFocusPayload,
+  buildWeeklyAssistPayload,
+  getAiAssistLabel,
+  type AiAssistMode,
+  type AiAssistPayload,
+  type AiAssistResult,
+} from './utils/aiAssist';
+import { formatWeekDisplayLabel } from './utils/week';
 import {
   supabase,
   initializeAuthSession,
@@ -105,14 +111,15 @@ export default function App() {
   const [isSyncModalOpen, setIsSyncModalOpen] = useState<boolean>(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState<boolean>(false);
   const [isDropModalOpen, setIsDropModalOpen] = useState<boolean>(false);
-  const [isWeeklySummaryOpen, setIsWeeklySummaryOpen] = useState(false);
-  const [weeklySummaryPayload, setWeeklySummaryPayload] =
-    useState<WeeklySummaryPayload | null>(null);
-  const [weeklySummary, setWeeklySummary] = useState<WeeklySummaryResult | null>(null);
-  const [isWeeklySummaryLoading, setIsWeeklySummaryLoading] = useState(false);
-  const [weeklySummaryError, setWeeklySummaryError] = useState<string | null>(null);
-  const [weeklySummaryUsedFallback, setWeeklySummaryUsedFallback] = useState(false);
-  const weeklySummaryAbortRef = useRef<AbortController | null>(null);
+  const [isAiAssistOpen, setIsAiAssistOpen] = useState(false);
+  const [aiAssistMode, setAiAssistMode] = useState<AiAssistMode | null>(null);
+  const [aiAssistPayload, setAiAssistPayload] = useState<AiAssistPayload | null>(null);
+  const [aiAssistResult, setAiAssistResult] = useState<AiAssistResult | null>(null);
+  const [aiAssistSubtitle, setAiAssistSubtitle] = useState('');
+  const [isAiAssistLoading, setIsAiAssistLoading] = useState(false);
+  const [aiAssistError, setAiAssistError] = useState<string | null>(null);
+  const [aiAssistUsedFallback, setAiAssistUsedFallback] = useState(false);
+  const aiAssistAbortRef = useRef<AbortController | null>(null);
 
   // Drop Items State
   const [dropItems, setDropItems] = useState<DropItem[]>([]);
@@ -458,86 +465,92 @@ export default function App() {
     }
   };
 
-  const runWeeklySummary = useCallback(
-    async (payload: WeeklySummaryPayload) => {
-      weeklySummaryAbortRef.current?.abort();
+  const runAiAssist = useCallback(
+    async (payload: AiAssistPayload, subtitle: string) => {
+      aiAssistAbortRef.current?.abort();
       const controller = new AbortController();
-      weeklySummaryAbortRef.current = controller;
+      aiAssistAbortRef.current = controller;
 
-      const localMinutes = buildLocalWeeklyMinutes(payload);
-      const localSummary: WeeklySummaryResult = {
-        title: `工作周报（${payload.periodLabel}）`,
-        overview: `本周共 ${payload.stats.total} 项任务，已完成 ${payload.stats.completed} 项，完成率 ${payload.stats.completionRate}%。`,
-        completedHighlights: payload.completedTasks
-          .slice(0, 8)
-          .map((task) => `${task.title}（${task.category}）`),
-        unfinishedItems: payload.pendingTasks
-          .slice(0, 8)
-          .map((task) => `${task.title}（${task.category}）`),
-        risksOrBlockers:
-          payload.stats.pendingByPriority.high > 0
-            ? [`高优先级未完成 ${payload.stats.pendingByPriority.high} 项，建议优先跟进。`]
-            : [],
-        nextWeekFocus: payload.pendingTasks.slice(0, 5).map((task) => `跟进：${task.title}`),
-        minutesText: localMinutes,
-      };
-
-      setWeeklySummaryPayload(payload);
-      setWeeklySummary(localSummary);
-      setWeeklySummaryUsedFallback(true);
-      setWeeklySummaryError(null);
-      setIsWeeklySummaryLoading(true);
+      const localResult = buildLocalAiAssistResult(payload);
+      setAiAssistMode(payload.mode);
+      setAiAssistPayload(payload);
+      setAiAssistSubtitle(subtitle);
+      setAiAssistResult(localResult);
+      setAiAssistUsedFallback(true);
+      setAiAssistError(null);
+      setIsAiAssistLoading(true);
 
       if (!aiEnabled) {
-        setWeeklySummaryError(
+        setAiAssistError(
           'AI is off. A local draft is ready to copy — enable AI in Settings to polish it.'
         );
-        setIsWeeklySummaryLoading(false);
+        setIsAiAssistLoading(false);
         return;
       }
       if (!user) {
-        setWeeklySummaryError(
+        setAiAssistError(
           'Sign in to polish with AI. A copy-ready local draft is available now.'
         );
-        setIsWeeklySummaryLoading(false);
+        setIsAiAssistLoading(false);
         return;
       }
 
       try {
-        const summary = await generateWeeklySummary(payload, controller.signal);
+        const result = await generateAiAssist(payload, controller.signal);
         if (controller.signal.aborted) return;
-        setWeeklySummary(summary);
-        setWeeklySummaryUsedFallback(false);
-        setWeeklySummaryError(null);
+        setAiAssistResult(result);
+        setAiAssistUsedFallback(false);
+        setAiAssistError(null);
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') return;
-        setWeeklySummaryError(
+        setAiAssistError(
           error instanceof Error
             ? `${error.message} Keeping the local draft.`
             : 'AI polish failed. Keeping the local draft.'
         );
-        setWeeklySummaryUsedFallback(true);
+        setAiAssistUsedFallback(true);
       } finally {
-        if (!controller.signal.aborted) setIsWeeklySummaryLoading(false);
+        if (!controller.signal.aborted) setIsAiAssistLoading(false);
       }
     },
     [aiEnabled, user]
   );
 
-  const handleOpenWeeklySummary = (weekAnchorDate: string) => {
-    const payload = buildWeeklySummaryPayload(tasks, categories, weekAnchorDate);
-    setIsWeeklySummaryOpen(true);
-    void runWeeklySummary(payload);
+  const handleOpenAiAssist = (mode: AiAssistMode, weekAnchorDate: string) => {
+    const today = getTodayDateString();
+    let payload: AiAssistPayload;
+    let subtitle = '';
+
+    if (mode === 'weekly_minutes') {
+      payload = buildWeeklyAssistPayload(tasks, categories, weekAnchorDate);
+      if (payload.mode !== 'weekly_minutes') return;
+      subtitle = formatWeekDisplayLabel(payload.startDate, payload.endDate, {
+        preferThisWeek: true,
+        today,
+      });
+    } else if (mode === 'today_focus') {
+      payload = buildTodayFocusPayload(tasks, categories, selectedDate, today);
+      subtitle = selectedDate === today ? 'Today' : selectedDate;
+    } else if (mode === 'daily_standup') {
+      payload = buildDailyStandupPayload(tasks, categories, today);
+      subtitle = today;
+    } else {
+      payload = buildBacklogTriagePayload(tasks, categories, today);
+      subtitle = `${payload.pendingTasks.length} open tasks`;
+    }
+
+    setIsAiAssistOpen(true);
+    void runAiAssist(payload, subtitle || getAiAssistLabel(mode));
   };
 
-  const handleCloseWeeklySummary = () => {
-    weeklySummaryAbortRef.current?.abort();
-    setIsWeeklySummaryOpen(false);
+  const handleCloseAiAssist = () => {
+    aiAssistAbortRef.current?.abort();
+    setIsAiAssistOpen(false);
   };
 
-  const handleRegenerateWeeklySummary = () => {
-    if (!weeklySummaryPayload) return;
-    void runWeeklySummary(weeklySummaryPayload);
+  const handleRegenerateAiAssist = () => {
+    if (!aiAssistPayload) return;
+    void runAiAssist(aiAssistPayload, aiAssistSubtitle);
   };
 
   const handleGenerateTaskDraft = async (text: string) => {
@@ -832,7 +845,7 @@ export default function App() {
             dateStr={selectedDate}
             tasks={tasks}
             onDateSelect={setSelectedDate}
-            onOpenWeeklySummary={handleOpenWeeklySummary}
+            onOpenAiAssist={handleOpenAiAssist}
           />
 
           <TaskInput
@@ -933,15 +946,16 @@ export default function App() {
         onSave={handleCreateDraftTask}
       />
 
-      <WeeklySummaryModal
-        isOpen={isWeeklySummaryOpen}
-        onClose={handleCloseWeeklySummary}
-        payload={weeklySummaryPayload}
-        summary={weeklySummary}
-        isLoading={isWeeklySummaryLoading}
-        error={weeklySummaryError}
-        usedFallback={weeklySummaryUsedFallback}
-        onGenerate={handleRegenerateWeeklySummary}
+      <AiAssistModal
+        isOpen={isAiAssistOpen}
+        onClose={handleCloseAiAssist}
+        mode={aiAssistMode}
+        subtitle={aiAssistSubtitle}
+        result={aiAssistResult}
+        isLoading={isAiAssistLoading}
+        error={aiAssistError}
+        usedFallback={aiAssistUsedFallback}
+        onGenerate={handleRegenerateAiAssist}
       />
 
       {/* Mobile Smartphone Bottom Navigation Toolbar */}

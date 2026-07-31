@@ -9,47 +9,30 @@ import {
   Sparkles,
   X,
 } from 'lucide-react';
-import type { WeeklySummaryResult } from '../lib/ai';
-import { formatWeekDisplayLabel, type WeeklySummaryPayload } from '../utils/week';
-import { getTodayDateString } from '../data/initialData';
+import {
+  getAiAssistLabel,
+  type AiAssistMode,
+  type AiAssistResult,
+} from '../utils/aiAssist';
 
-interface WeeklySummaryModalProps {
+interface AiAssistModalProps {
   isOpen: boolean;
   onClose: () => void;
-  payload: WeeklySummaryPayload | null;
-  summary: WeeklySummaryResult | null;
+  mode: AiAssistMode | null;
+  subtitle?: string;
+  result: AiAssistResult | null;
   isLoading: boolean;
   error: string | null;
   usedFallback: boolean;
   onGenerate: () => void;
 }
 
-function Section({ title, items }: { title: string; items: string[] }) {
-  if (items.length === 0) return null;
-  return (
-    <section className="space-y-1.5">
-      <h4 className="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-        {title}
-      </h4>
-      <ul className="space-y-1">
-        {items.map((item, index) => (
-          <li
-            key={`${title}-${index}`}
-            className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed pl-3 border-l-2 border-indigo-200 dark:border-indigo-800"
-          >
-            {item}
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-export const WeeklySummaryModal: React.FC<WeeklySummaryModalProps> = ({
+export const AiAssistModal: React.FC<AiAssistModalProps> = ({
   isOpen,
   onClose,
-  payload,
-  summary,
+  mode,
+  subtitle,
+  result,
   isLoading,
   error,
   usedFallback,
@@ -77,7 +60,7 @@ export const WeeklySummaryModal: React.FC<WeeklySummaryModalProps> = ({
   }, [isOpen, onClose]);
 
   const handleCopy = async () => {
-    const text = summary?.minutesText;
+    const text = result?.copyText;
     if (!text) return;
     try {
       await navigator.clipboard.writeText(text);
@@ -89,27 +72,15 @@ export const WeeklySummaryModal: React.FC<WeeklySummaryModalProps> = ({
     }
   };
 
-  const weekDisplay = payload
-    ? formatWeekDisplayLabel(payload.startDate, payload.endDate, {
-        preferThisWeek: true,
-        today: getTodayDateString(),
-      })
-    : '';
-
-  const hasDetails =
-    Boolean(summary) &&
-    ((summary?.completedHighlights.length ?? 0) > 0 ||
-      (summary?.unfinishedItems.length ?? 0) > 0 ||
-      (summary?.risksOrBlockers.length ?? 0) > 0 ||
-      (summary?.nextWeekFocus.length ?? 0) > 0);
+  const hasDetails = Boolean(result?.sections.length);
 
   return (
     <AnimatePresence>
-      {isOpen && payload && (
+      {isOpen && mode && (
         <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-0 sm:p-4">
           <motion.button
             type="button"
-            aria-label="Close weekly summary"
+            aria-label="Close AI assist"
             className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -119,7 +90,7 @@ export const WeeklySummaryModal: React.FC<WeeklySummaryModalProps> = ({
           <motion.div
             role="dialog"
             aria-modal="true"
-            aria-labelledby="weekly-summary-title"
+            aria-labelledby="ai-assist-title"
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 16 }}
@@ -130,17 +101,18 @@ export const WeeklySummaryModal: React.FC<WeeklySummaryModalProps> = ({
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-300 mb-1">
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span className="text-[11px] font-semibold tracking-wide">Weekly minutes</span>
+                  <span className="text-[11px] font-semibold tracking-wide">
+                    {getAiAssistLabel(mode)}
+                  </span>
                 </div>
                 <h3
-                  id="weekly-summary-title"
+                  id="ai-assist-title"
                   className="text-base font-bold text-slate-900 dark:text-white leading-snug"
                 >
-                  {weekDisplay}
+                  {result?.title || getAiAssistLabel(mode)}
                 </h3>
                 <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                  {payload.stats.completed}/{payload.stats.total} done ·{' '}
-                  {payload.stats.completionRate}% complete
+                  {subtitle || 'AI assist'}
                   {usedFallback ? ' · Local draft' : ''}
                 </p>
               </div>
@@ -167,50 +139,10 @@ export const WeeklySummaryModal: React.FC<WeeklySummaryModalProps> = ({
                 </div>
               )}
 
-              {payload.stats.total === 0 && (
-                <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 px-3.5 py-3 text-sm text-slate-600 dark:text-slate-300">
-                  No tasks this week yet. Add a few items, then regenerate for a richer report.
-                </div>
-              )}
-
-              {payload.stats.byCategory.length > 0 && (
-                <section className="space-y-2">
-                  <h4 className="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                    By category
-                  </h4>
-                  <div className="space-y-1.5">
-                    {payload.stats.byCategory.map((category) => {
-                      const rate =
-                        category.total === 0
-                          ? 0
-                          : Math.round((category.completed / category.total) * 100);
-                      return (
-                        <div key={category.name} className="space-y-1">
-                          <div className="flex items-center justify-between text-[11px]">
-                            <span className="font-medium text-slate-600 dark:text-slate-300 truncate">
-                              {category.name}
-                            </span>
-                            <span className="text-slate-400 dark:text-slate-500 shrink-0">
-                              {category.completed}/{category.total}
-                            </span>
-                          </div>
-                          <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                            <div
-                              className="h-full rounded-full bg-indigo-500 dark:bg-indigo-400 transition-all"
-                              style={{ width: `${rate}%` }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </section>
-              )}
-
-              {summary && (
+              {result && (
                 <>
                   <p className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed">
-                    {summary.overview}
+                    {result.overview}
                   </p>
 
                   {hasDetails && (
@@ -221,17 +153,30 @@ export const WeeklySummaryModal: React.FC<WeeklySummaryModalProps> = ({
                         className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left text-[12px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors"
                         aria-expanded={detailsOpen}
                       >
-                        <span>Highlights & follow-ups</span>
+                        <span>Highlights</span>
                         <ChevronDown
                           className={`w-4 h-4 transition-transform ${detailsOpen ? 'rotate-180' : ''}`}
                         />
                       </button>
                       {detailsOpen && (
                         <div className="px-3 pb-3 space-y-3 border-t border-slate-100 dark:border-slate-800 pt-3">
-                          <Section title="Completed" items={summary.completedHighlights} />
-                          <Section title="Follow-ups" items={summary.unfinishedItems} />
-                          <Section title="Risks" items={summary.risksOrBlockers} />
-                          <Section title="Next week" items={summary.nextWeekFocus} />
+                          {result.sections.map((section) => (
+                            <section key={section.heading} className="space-y-1.5">
+                              <h4 className="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                                {section.heading}
+                              </h4>
+                              <ul className="space-y-1">
+                                {section.items.map((item, index) => (
+                                  <li
+                                    key={`${section.heading}-${index}`}
+                                    className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed pl-3 border-l-2 border-indigo-200 dark:border-indigo-800"
+                                  >
+                                    {item}
+                                  </li>
+                                ))}
+                              </ul>
+                            </section>
+                          ))}
                         </div>
                       )}
                     </div>
@@ -239,18 +184,18 @@ export const WeeklySummaryModal: React.FC<WeeklySummaryModalProps> = ({
 
                   <section className="space-y-1.5">
                     <h4 className="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                      Meeting notes (Chinese, copy-ready)
+                      Copy-ready notes
                     </h4>
                     <pre className="whitespace-pre-wrap text-[13px] leading-relaxed text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-950/60 border border-slate-100 dark:border-slate-800 rounded-xl p-3.5 font-sans">
-                      {summary.minutesText}
+                      {result.copyText}
                     </pre>
                   </section>
                 </>
               )}
 
-              {!summary && !isLoading && (
+              {!result && !isLoading && (
                 <div className="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
-                  No minutes yet. Tap Regenerate to create a report.
+                  No result yet. Tap Regenerate to create one.
                 </div>
               )}
             </div>
@@ -268,7 +213,7 @@ export const WeeklySummaryModal: React.FC<WeeklySummaryModalProps> = ({
               <button
                 type="button"
                 onClick={handleCopy}
-                disabled={!summary?.minutesText}
+                disabled={!result?.copyText}
                 className="flex-1 inline-flex items-center justify-center gap-1.5 min-h-10 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold disabled:opacity-50 transition-colors"
               >
                 {copied ? (
@@ -279,7 +224,7 @@ export const WeeklySummaryModal: React.FC<WeeklySummaryModalProps> = ({
                 ) : (
                   <>
                     <ClipboardCopy className="w-3.5 h-3.5" />
-                    Copy minutes
+                    Copy
                   </>
                 )}
               </button>

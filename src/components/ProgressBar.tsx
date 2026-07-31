@@ -1,15 +1,24 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Sparkles,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   BarChart2,
   CalendarDays,
   FileText,
+  ListChecks,
+  Megaphone,
+  Filter,
 } from 'lucide-react';
 import { Task } from '../types';
 import { getTodayDateString } from '../data/initialData';
+import {
+  getAiAssistHint,
+  getAiAssistLabel,
+  type AiAssistMode,
+} from '../utils/aiAssist';
 import { formatWeekDisplayLabel, getWeekDays } from '../utils/week';
 
 interface ProgressBarProps {
@@ -18,10 +27,20 @@ interface ProgressBarProps {
   dateStr: string;
   tasks: Task[];
   onDateSelect?: (date: string) => void;
-  onOpenWeeklySummary?: (weekAnchorDate: string) => void;
+  onOpenAiAssist?: (mode: AiAssistMode, weekAnchorDate: string) => void;
 }
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+const AI_MENU_ITEMS: Array<{
+  mode: AiAssistMode;
+  icon: React.ReactNode;
+}> = [
+  { mode: 'weekly_minutes', icon: <FileText className="w-3.5 h-3.5" /> },
+  { mode: 'today_focus', icon: <ListChecks className="w-3.5 h-3.5" /> },
+  { mode: 'daily_standup', icon: <Megaphone className="w-3.5 h-3.5" /> },
+  { mode: 'backlog_triage', icon: <Filter className="w-3.5 h-3.5" /> },
+];
 
 export const ProgressBar: React.FC<ProgressBarProps> = ({
   totalTasks,
@@ -29,15 +48,35 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   dateStr,
   tasks,
   onDateSelect,
-  onOpenWeeklySummary,
+  onOpenAiAssist,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [weekOffset, setWeekOffset] = useState(0);
+  const menuRef = useRef<HTMLDivElement>(null);
   const percentage = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
 
   useEffect(() => {
     setWeekOffset(0);
   }, [dateStr]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [menuOpen]);
 
   const weekAnchor = useMemo(() => {
     const d = new Date(`${dateStr}T00:00:00`);
@@ -75,17 +114,21 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
     [weekDays, weekOffset]
   );
 
-  const weekTaskCount = weekStats.reduce((sum, day) => sum + day.total, 0);
   const maxTotal = Math.max(...weekStats.map((d) => d.total), 1);
   const MAX_BAR_HEIGHT_PX = 56;
   const MIN_BAR_HEIGHT_PX = 4;
 
+  const handleAiSelect = (mode: AiAssistMode) => {
+    setMenuOpen(false);
+    onOpenAiAssist?.(mode, weekAnchor);
+  };
+
   return (
     <div
       id="progress-card"
-      className="progress-card h-full p-4 sm:p-5 bg-gradient-to-br from-indigo-50 via-blue-50 to-violet-100 dark:from-slate-950 dark:via-indigo-950 dark:to-indigo-900 text-slate-800 dark:text-white rounded-3xl transition-colors overflow-hidden"
+      className="progress-card h-full p-4 sm:p-5 bg-gradient-to-br from-indigo-50 via-blue-50 to-violet-100 dark:from-slate-950 dark:via-indigo-950 dark:to-indigo-900 text-slate-800 dark:text-white rounded-3xl transition-colors overflow-visible"
     >
-      <div className="relative z-10 flex items-center justify-between gap-3">
+      <div className="relative z-20 flex items-center justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-1.5">
             <div className="flex items-center gap-1.5">
@@ -116,33 +159,94 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="inline-flex items-center gap-1 px-2.5 min-h-[34px] text-slate-600 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-slate-800/80 rounded-xl transition-colors text-[11px] font-semibold"
-          title={isExpanded ? 'Collapse week stats' : 'Expand week stats'}
-          aria-expanded={isExpanded}
-        >
-          <BarChart2 className="w-4 h-4" />
-          <span>Week</span>
-        </button>
-      </div>
+        <div ref={menuRef} className="relative shrink-0">
+          <div className="inline-flex items-stretch rounded-xl border border-indigo-100/80 dark:border-indigo-900/50 bg-white/80 dark:bg-slate-900/55 overflow-hidden shadow-sm">
+            <button
+              type="button"
+              onClick={() => {
+                setIsExpanded((open) => !open);
+                setMenuOpen(false);
+              }}
+              className={`inline-flex items-center gap-1 px-2.5 min-h-[34px] text-[11px] font-semibold transition-colors ${
+                isExpanded
+                  ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-200'
+                  : 'text-slate-600 dark:text-slate-300 hover:bg-indigo-50/70 dark:hover:bg-slate-800/80'
+              }`}
+              title={isExpanded ? 'Collapse week stats' : 'Expand week stats'}
+              aria-expanded={isExpanded}
+            >
+              <BarChart2 className="w-4 h-4" />
+              <span>Week</span>
+            </button>
+            {onOpenAiAssist && (
+              <>
+                <span className="w-px bg-indigo-100 dark:bg-indigo-900/60" aria-hidden />
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen((open) => !open)}
+                  className={`inline-flex items-center justify-center min-h-[34px] min-w-[30px] transition-colors ${
+                    menuOpen
+                      ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-200'
+                      : 'text-slate-500 dark:text-slate-400 hover:bg-indigo-50/70 dark:hover:bg-slate-800/80'
+                  }`}
+                  title="AI assist"
+                  aria-haspopup="menu"
+                  aria-expanded={menuOpen}
+                >
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 transition-transform ${menuOpen ? 'rotate-180' : ''}`}
+                  />
+                </button>
+              </>
+            )}
+          </div>
 
-      {onOpenWeeklySummary && (
-        <button
-          type="button"
-          onClick={() => onOpenWeeklySummary(weekAnchor)}
-          className="relative z-10 mt-3 w-full inline-flex items-center justify-between gap-2 min-h-9 px-3 rounded-xl bg-white/85 dark:bg-slate-900/55 border border-indigo-100 dark:border-indigo-900/50 text-indigo-700 dark:text-indigo-200 text-[12px] font-semibold hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
-        >
-          <span className="inline-flex items-center gap-1.5 min-w-0">
-            <FileText className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">Weekly minutes · {weekLabel}</span>
-          </span>
-          <span className="text-[10px] font-medium text-indigo-400 dark:text-indigo-300 shrink-0">
-            {weekTaskCount} tasks
-          </span>
-        </button>
-      )}
+          <AnimatePresence>
+            {menuOpen && onOpenAiAssist && (
+              <motion.div
+                role="menu"
+                aria-label="AI assist"
+                initial={{ opacity: 0, y: -4, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                transition={{ duration: 0.14 }}
+                className="absolute right-0 top-full mt-1.5 w-64 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl overflow-hidden z-30"
+              >
+                <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800">
+                  <p className="text-[11px] font-bold text-slate-700 dark:text-slate-200">AI Assist</p>
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                    {weekLabel}
+                  </p>
+                </div>
+                <ul className="py-1">
+                  {AI_MENU_ITEMS.map((item) => (
+                    <li key={item.mode}>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => handleAiSelect(item.mode)}
+                        className="w-full flex items-start gap-2.5 px-3 py-2.5 text-left hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
+                      >
+                        <span className="mt-0.5 text-indigo-600 dark:text-indigo-300 shrink-0">
+                          {item.icon}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block text-[12px] font-semibold text-slate-800 dark:text-slate-100">
+                            {getAiAssistLabel(item.mode)}
+                          </span>
+                          <span className="block text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                            {getAiAssistHint(item.mode)}
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
 
       <AnimatePresence>
         {isExpanded && (

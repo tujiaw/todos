@@ -9,6 +9,9 @@
     },
     "api/generate-weekly-summary.ts": {
       "maxDuration": 30
+    },
+    "api/generate-ai-assist.ts": {
+      "maxDuration": 30
     }
   }
 }
