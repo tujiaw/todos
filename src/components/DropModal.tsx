@@ -12,6 +12,7 @@ import {
   LoaderCircle,
   Search,
   Database,
+  EllipsisVertical,
   File as FileIcon,
   FileArchive,
   FileAudio,
@@ -189,6 +190,7 @@ export const DropModal: React.FC<DropModalProps> = ({
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
+  const [showToolbar, setShowToolbar] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -518,6 +520,18 @@ export const DropModal: React.FC<DropModalProps> = ({
             </button>
             <button
               type="button"
+              onClick={() => setShowToolbar(!showToolbar)}
+              className={`drop-header-action p-2 rounded-xl transition-colors ${
+                showToolbar
+                  ? 'bg-white/60 dark:bg-white/10 text-indigo-700 dark:text-white'
+                  : 'text-indigo-500 dark:text-indigo-200 hover:text-indigo-700 dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/10'
+              }`}
+              title="Toggle search & clear"
+            >
+              <EllipsisVertical className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
               onClick={onClose}
               className="drop-header-action p-2 text-indigo-500 dark:text-indigo-200 hover:text-indigo-700 dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/10 rounded-xl transition-colors"
               aria-label="Close Edge Drop"
@@ -547,7 +561,8 @@ export const DropModal: React.FC<DropModalProps> = ({
           </div>
         )}
 
-        {/* Search Bar & Actions Bar */}
+        {/* Search Bar & Actions Bar — toggled via "..." */}
+        {showToolbar && (
         <div className="drop-toolbar px-4 sm:px-5 py-3 flex items-center justify-between gap-2 text-xs">
           <div className="relative flex-1">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
@@ -582,6 +597,7 @@ export const DropModal: React.FC<DropModalProps> = ({
             </button>
           )}
         </div>
+        )}
 
         {/* Feed Items Container with Scroll Detection */}
         <div
