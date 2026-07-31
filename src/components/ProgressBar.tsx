@@ -1,12 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { CheckCircle2, Clock, ListTodo, Trophy, Sparkles, ChevronDown, BarChart2, CalendarDays } from 'lucide-react';
+import { Trophy, Sparkles, ChevronDown, ChevronLeft, ChevronRight, BarChart2, CalendarDays } from 'lucide-react';
 import { Task } from '../types';
+import { getTodayDateString } from '../data/initialData';
 
 interface ProgressBarProps {
   totalTasks: number;
   completedTasks: number;
-  totalEstimatedMinutes: number;
   dateStr: string;
   tasks: Task[];
 }
@@ -36,17 +36,27 @@ function getWeekDays(anchorDateStr: string): string[] {
 export const ProgressBar: React.FC<ProgressBarProps> = ({
   totalTasks,
   completedTasks,
-  totalEstimatedMinutes,
   dateStr,
   tasks,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [weekOffset, setWeekOffset] = useState(0);
   const percentage = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
 
-  // Compute per-day stats for the current week
+  // Compute the anchor date for the displayed week
+  const weekAnchor = useMemo(() => {
+    const d = new Date(dateStr + 'T00:00:00');
+    d.setDate(d.getDate() + weekOffset * 7);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }, [dateStr, weekOffset]);
+
+  // Compute per-day stats for the displayed week
   const weekStats = useMemo(() => {
-    const weekDays = getWeekDays(dateStr);
-    const todayStr = dateStr;
+    const weekDays = getWeekDays(weekAnchor);
+    const todayStr = getTodayDateString();
 
     return weekDays.map((day) => {
       const dayTasks = tasks.filter((t) => t.date === day);
@@ -55,7 +65,25 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
       const uncompleted = total - completed;
       return { date: day, total, completed, uncompleted, isToday: day === todayStr };
     });
-  }, [tasks, dateStr]);
+  }, [tasks, weekAnchor]);
+
+  // Week range label e.g. "Jul 28 – Aug 3"
+  const weekLabel = useMemo(() => {
+    const days = getWeekDays(weekAnchor);
+    const formatShort = (dateStr: string) => {
+      const d = new Date(dateStr + 'T00:00:00');
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    };
+    const start = formatShort(days[0]);
+    const end = formatShort(days[6]);
+
+    const isCurrentWeek = weekOffset === 0;
+    const isCurrentYear = new Date(days[0]).getFullYear() === new Date().getFullYear();
+
+    if (isCurrentWeek) return 'This Week';
+    const year = new Date(days[0]).getFullYear();
+    return isCurrentYear ? `${start} – ${end}` : `${start} – ${end}, ${year}`;
+  }, [weekAnchor, weekOffset]);
 
   const maxTotal = Math.max(...weekStats.map((d) => d.total), 1);
   const MAX_BAR_HEIGHT_PX = 56;
@@ -67,15 +95,6 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
     if (percentage < 50) return 'Good start, keep up the momentum!';
     if (percentage < 100) return 'More than half done, victory is in sight!';
     return 'Awesome! All tasks for today are completed! 🎉';
-  };
-
-  const formatHoursMinutes = (totalMins: number) => {
-    if (!totalMins || totalMins <= 0) return '0 mins';
-    const h = Math.floor(totalMins / 60);
-    const m = totalMins % 60;
-    if (h > 0 && m > 0) return `${h}h ${m}m`;
-    if (h > 0) return `${h}h`;
-    return `${m} mins`;
   };
 
   return (
@@ -144,40 +163,36 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
               <span>{getMotivationalText()}</span>
             </p>
 
-            {/* Quick Stats Grid */}
-            <div className="grid grid-cols-3 gap-2">
-              <div className="bg-slate-50/80 dark:bg-slate-800/50 p-2 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
-                <div className="flex items-center justify-center gap-1 text-slate-500 dark:text-slate-400 text-[11px] mb-0.5">
-                  <ListTodo className="w-3 h-3 text-blue-500" />
-                  <span>Total Tasks</span>
-                </div>
-                <p className="text-sm font-bold text-slate-900 dark:text-white">{totalTasks}</p>
-              </div>
-
-              <div className="bg-slate-50/80 dark:bg-slate-800/50 p-2 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
-                <div className="flex items-center justify-center gap-1 text-slate-500 dark:text-slate-400 text-[11px] mb-0.5">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                  <span>Completed</span>
-                </div>
-                <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{completedTasks}</p>
-              </div>
-
-              <div className="bg-slate-50/80 dark:bg-slate-800/50 p-2 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
-                <div className="flex items-center justify-center gap-1 text-slate-500 dark:text-slate-400 text-[11px] mb-0.5">
-                  <Clock className="w-3 h-3 text-indigo-500 dark:text-indigo-400" />
-                  <span>Est. Time</span>
-                </div>
-                <p className="text-xs font-bold text-slate-800 dark:text-slate-200 mt-0.5 truncate" title={formatHoursMinutes(totalEstimatedMinutes)}>
-                  {formatHoursMinutes(totalEstimatedMinutes)}
-                </p>
-              </div>
-            </div>
-
             {/* Weekly Bar Chart */}
             <div className="bg-slate-50/80 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800 space-y-2">
-              <div className="flex items-center gap-1.5">
-                <CalendarDays className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
-                <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200">This Week</span>
+              <div className="flex items-center gap-1">
+                <CalendarDays className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 shrink-0" />
+
+                {/* Week Navigator */}
+                <div className="flex items-center gap-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setWeekOffset((o) => o - 1)}
+                    className="p-0.5 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                    title="Previous Week"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200 min-w-[100px] text-center">
+                    {weekLabel}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setWeekOffset((o) => o + 1)}
+                    disabled={weekOffset === 0}
+                    className="p-0.5 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors disabled:opacity-30 disabled:cursor-default"
+                    title={weekOffset === 0 ? 'Current week' : 'Next Week'}
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {/* Legend */}
                 <div className="flex items-center gap-2 ml-auto text-[10px] text-slate-400 dark:text-slate-500">
                   <span className="flex items-center gap-1">
                     <span className="w-2 h-2 rounded-sm bg-emerald-400 dark:bg-emerald-500" />
