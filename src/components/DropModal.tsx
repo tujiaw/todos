@@ -238,6 +238,7 @@ export const DropModal: React.FC<DropModalProps> = ({
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [sendingLabel, setSendingLabel] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [isClearing, setIsClearing] = useState(false);
@@ -248,6 +249,7 @@ export const DropModal: React.FC<DropModalProps> = ({
   const [menuOpen, setMenuOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const composerInputRef = useRef<HTMLTextAreaElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -355,31 +357,69 @@ export const DropModal: React.FC<DropModalProps> = ({
 
   if (!isOpen) return null;
 
+  let sendButtonTitle = 'Sign in before sending';
+  if (isSubmitting) {
+    sendButtonTitle = 'Sending…';
+  } else if (isAuthenticated) {
+    sendButtonTitle = 'Send drop note';
+  }
+
   const openSearch = () => {
     setMenuOpen(false);
     setShowToolbar(true);
     requestAnimationFrame(() => searchInputRef.current?.focus());
   };
 
+  const focusComposer = () => {
+    requestAnimationFrame(() => {
+      composerInputRef.current?.focus();
+    });
+  };
+
+  const buildSendingLabel = (content: string, files: File[]) => {
+    if (files.length === 1) {
+      return `Sending ${files[0].name}…`;
+    }
+    if (files.length > 1) {
+      return `Sending ${files.length} files…`;
+    }
+    if (content) {
+      return 'Sending note…';
+    }
+    return 'Sending…';
+  };
+
   const handleSend = async () => {
     if (isSubmitting || (!inputText.trim() && attachedFiles.length === 0)) return;
 
+    const content = inputText.trim();
+    const files = attachedFiles;
+    setInputText('');
+    setAttachedFiles([]);
+    setAttachmentError(null);
     setIsSubmitting(true);
+    setSendingLabel(buildSendingLabel(content, files));
+    focusComposer();
+
     try {
-      await onAddDropItem(inputText.trim(), attachedFiles);
-      setInputText('');
-      setAttachedFiles([]);
+      await onAddDropItem(content, files);
     } catch (err) {
       console.error('Failed to add drop item:', err);
+      setInputText((current) => (current ? current : content));
+      setAttachedFiles((current) => (current.length > 0 ? current : files));
     } finally {
       setIsSubmitting(false);
+      setSendingLabel(null);
+      focusComposer();
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      if (!isSubmitting) {
+        handleSend();
+      }
     }
   };
 
@@ -434,7 +474,7 @@ export const DropModal: React.FC<DropModalProps> = ({
   const handleDragEnter = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     dragDepthRef.current += 1;
-    if (!isSubmitting && isAuthenticated && event.dataTransfer.types.includes('Files')) {
+    if (isAuthenticated && event.dataTransfer.types.includes('Files')) {
       setIsDraggingFiles(true);
     }
   };
@@ -456,7 +496,7 @@ export const DropModal: React.FC<DropModalProps> = ({
     event.preventDefault();
     dragDepthRef.current = 0;
     setIsDraggingFiles(false);
-    if (isSubmitting || !isAuthenticated) return;
+    if (!isAuthenticated) return;
 
     const files = Array.from(event.dataTransfer.files) as File[];
     if (files.length > 0) {
@@ -958,6 +998,17 @@ export const DropModal: React.FC<DropModalProps> = ({
             </div>
           )}
 
+          {isSubmitting && sendingLabel && (
+            <div
+              className="flex items-center gap-2 px-2.5 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900 text-xs text-indigo-700 dark:text-indigo-300"
+              role="status"
+              aria-live="polite"
+            >
+              <LoaderCircle className="w-3.5 h-3.5 animate-spin shrink-0" />
+              <span className="truncate font-medium">{sendingLabel}</span>
+            </div>
+          )}
+
           {/* Single-row input composer */}
           <div className="drop-composer relative flex items-center gap-1.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 focus-within:ring-4 focus-within:ring-indigo-500/10 focus-within:border-indigo-400 transition-all p-1.5 shadow-sm">
             <input
@@ -965,13 +1016,13 @@ export const DropModal: React.FC<DropModalProps> = ({
               ref={fileInputRef}
               onChange={handleFileUpload}
               multiple
-              disabled={isSubmitting || !isAuthenticated}
+              disabled={!isAuthenticated}
               className="hidden"
             />
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              disabled={isSubmitting || !isAuthenticated}
+              disabled={!isAuthenticated}
               className="h-9 shrink-0 text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-300 flex items-center gap-1 px-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
               title={isAuthenticated ? 'Attach file or image' : 'Sign in to attach files'}
             >
@@ -980,6 +1031,7 @@ export const DropModal: React.FC<DropModalProps> = ({
             </button>
 
             <textarea
+              ref={composerInputRef}
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -989,7 +1041,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                   ? 'Drop a note or paste an image...'
                   : 'Sign in to send notes…'
               }
-              disabled={!isAuthenticated || isSubmitting}
+              disabled={!isAuthenticated}
               rows={1}
               className="min-w-0 flex-1 h-9 text-[13px] leading-5 px-2 py-2 bg-slate-50/80 dark:bg-slate-800/70 rounded-lg text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none resize-none disabled:cursor-not-allowed disabled:opacity-60"
             />
@@ -1003,10 +1055,20 @@ export const DropModal: React.FC<DropModalProps> = ({
                 (!inputText.trim() && attachedFiles.length === 0)
               }
               className="h-9 px-3 bg-gradient-to-br from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 disabled:opacity-40 text-white font-bold text-xs rounded-lg transition-all flex items-center gap-1.5 shadow-md shadow-indigo-500/20 shrink-0"
-              title={isAuthenticated ? 'Send drop note' : 'Sign in before sending'}
+              title={sendButtonTitle}
+              aria-busy={isSubmitting}
             >
-              <span>Send</span>
-              <Send className="w-3.5 h-3.5" />
+              {isSubmitting ? (
+                <>
+                  <LoaderCircle className="w-3.5 h-3.5 animate-spin" />
+                  <span>Sending</span>
+                </>
+              ) : (
+                <>
+                  <span>Send</span>
+                  <Send className="w-3.5 h-3.5" />
+                </>
+              )}
             </button>
           </div>
         </div>
