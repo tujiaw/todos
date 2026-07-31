@@ -145,13 +145,25 @@ export const subscribeToSyncEvents = (onSync: (type: string) => void) => {
 };
 
 // Export data as JSON file
-export const exportDataAsJSON = () => {
-  const tasks = loadTasks();
+export const exportDataAsJSON = (filter?: { startDate?: string; endDate?: string }) => {
+  const allTasks = loadTasks();
   const categories = loadCategories();
+
+  const tasks = (filter?.startDate || filter?.endDate)
+    ? allTasks.filter((t) => {
+        if (filter.startDate && t.date < filter.startDate) return false;
+        if (filter.endDate && t.date > filter.endDate) return false;
+        return true;
+      })
+    : allTasks;
+
   const data = {
     app: 'DailyTodoApp',
     version: '1.0',
     exportDate: new Date().toISOString(),
+    dateRange: filter?.startDate || filter?.endDate
+      ? { start: filter.startDate || 'earliest', end: filter.endDate || 'latest' }
+      : undefined,
     tasks,
     categories,
   };

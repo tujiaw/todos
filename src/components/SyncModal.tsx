@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   X,
-  HardDriveUpload,
   Download,
   Upload,
   CheckCircle2,
@@ -9,15 +8,14 @@ import {
   RefreshCw,
   Database,
   Github,
-  Code2,
-  Copy,
-  Check,
   LogOut,
   ExternalLink,
   Sparkles,
+  CalendarDays,
 } from 'lucide-react';
 import { User } from '@supabase/supabase-js';
 import { exportDataAsJSON, importDataFromJSON } from '../utils/storage';
+import { getTodayDateString } from '../data/initialData';
 
 interface SyncModalProps {
   isOpen: boolean;
@@ -32,142 +30,6 @@ interface SyncModalProps {
   onAiEnabledChange: (enabled: boolean) => void;
 }
 
-const SQL_SCHEMA_SNIPPET = `-- Copy and run the following SQL script in the Supabase Console SQL Editor:
--- 1. Create todo_categories table
-create table if not exists public.todo_categories (
-  id text primary key,
-  user_id uuid references auth.users(id) on delete cascade,
-  name text not null,
-  color text not null,
-  bg_class text not null,
-  text_class text not null,
-  border_class text not null,
-  is_default boolean default false,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
-);
-
-alter table public.todo_categories enable row level security;
-
-create policy "Users can view categories" on public.todo_categories
-  for select using (auth.uid() = user_id or user_id is null or is_default = true);
-
-create policy "Users can insert categories" on public.todo_categories
-  for insert with check (auth.uid() = user_id);
-
-create policy "Users can update categories" on public.todo_categories
-  for update using (auth.uid() = user_id);
-
-create policy "Users can delete categories" on public.todo_categories
-  for delete using (auth.uid() = user_id);
-
--- 2. Create todo_tasks table
-create table if not exists public.todo_tasks (
-  id text primary key,
-  user_id uuid references auth.users(id) on delete cascade not null,
-  title text not null,
-  description text,
-  date text not null,
-  completed boolean default false not null,
-  category_id text not null,
-  priority text default 'medium' not null,
-  due_time text,
-  estimated_minutes integer,
-  image_url text,
-  subtasks jsonb default '[]'::jsonb not null,
-  pinned boolean default false not null,
-  created_at bigint not null,
-  updated_at bigint not null
-);
-
-alter table public.todo_tasks enable row level security;
-
-create policy "Users can view own tasks" on public.todo_tasks
-  for select using (auth.uid() = user_id);
-
-create policy "Users can insert own tasks" on public.todo_tasks
-  for insert with check (auth.uid() = user_id);
-
-create policy "Users can update own tasks" on public.todo_tasks
-  for update using (auth.uid() = user_id);
-
-create policy "Users can delete own tasks" on public.todo_tasks
-  for delete using (auth.uid() = user_id);
-
--- 3. Create Edge Drop table
-create table if not exists public.drop_items (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users(id) on delete cascade not null default auth.uid(),
-  kind text not null default 'text' check (kind in ('text', 'image')),
-  content text,
-  file_name text,
-  file_path text,
-  file_size bigint,
-  mime_type text,
-  created_at timestamp with time zone default now() not null,
-  expires_at timestamp with time zone default (now() + interval '90 days') not null
-);
-
-alter table public.drop_items drop constraint if exists drop_items_kind_check;
-alter table public.drop_items add constraint drop_items_kind_check
-  check (kind in ('text', 'image'));
-
-alter table public.drop_items enable row level security;
-
-drop policy if exists "drop_items_select_own" on public.drop_items;
-drop policy if exists "drop_items_insert_own" on public.drop_items;
-drop policy if exists "drop_items_delete_own" on public.drop_items;
-
-create policy "drop_items_select_own" on public.drop_items
-  for select using (auth.uid() = user_id);
-
-create policy "drop_items_insert_own" on public.drop_items
-  for insert with check (
-    auth.uid() = user_id
-    and expires_at > now()
-    and expires_at <= now() + interval '90 days 5 minutes'
-  );
-
-create policy "drop_items_delete_own" on public.drop_items
-  for delete using (auth.uid() = user_id);
-
--- 4. Private Storage bucket for Drop attachments (20 MB per object)
-insert into storage.buckets (id, name, public, file_size_limit)
-values ('drop-files', 'drop-files', false, 20971520)
-on conflict (id) do update
-set public = false,
-    file_size_limit = excluded.file_size_limit;
-
-drop policy if exists "Drop users can read own files" on storage.objects;
-drop policy if exists "Drop users can upload own files" on storage.objects;
-drop policy if exists "Drop users can delete own files" on storage.objects;
-
-create policy "Drop users can read own files" on storage.objects
-  for select to authenticated
-  using (
-    bucket_id = 'drop-files'
-    and (storage.foldername(name))[1] = (select auth.uid()::text)
-  );
-
-create policy "Drop users can upload own files" on storage.objects
-  for insert to authenticated
-  with check (
-    bucket_id = 'drop-files'
-    and (storage.foldername(name))[1] = (select auth.uid()::text)
-  );
-
-create policy "Drop users can delete own files" on storage.objects
-  for delete to authenticated
-  using (
-    bucket_id = 'drop-files'
-    and (storage.foldername(name))[1] = (select auth.uid()::text)
-  );
-
--- Remove legacy database-backed AI quota objects. AI calls are now handled by
--- a same-origin Vercel Function with a lightweight in-memory safety limit.
-drop function if exists public.consume_ai_daily_quota();
-drop table if exists public.ai_daily_usage;
-`;
-
 export const SyncModal: React.FC<SyncModalProps> = ({
   isOpen,
   onClose,
@@ -180,28 +42,21 @@ export const SyncModal: React.FC<SyncModalProps> = ({
   aiEnabled,
   onAiEnabledChange,
 }) => {
-  const [importJsonText, setImportJsonText] = useState('');
   const [feedback, setFeedback] = useState<{ success: boolean; message: string } | null>(null);
-  const [copiedSql, setCopiedSql] = useState(false);
-  const [showSqlModal, setShowSqlModal] = useState(false);
+  const [exportStart, setExportStart] = useState('');
+  const [exportEnd, setExportEnd] = useState('');
 
   if (!isOpen) return null;
 
   const handleExport = () => {
-    exportDataAsJSON();
-    setFeedback({ success: true, message: 'Backup file exported successfully!' });
-  };
-
-  const handleImportSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!importJsonText.trim()) return;
-
-    const result = importDataFromJSON(importJsonText);
-    setFeedback(result);
-    if (result.success) {
-      onRefreshData();
-      setImportJsonText('');
-    }
+    exportDataAsJSON({
+      startDate: exportStart || undefined,
+      endDate: exportEnd || undefined,
+    });
+    const range = exportStart || exportEnd
+      ? ` (${exportStart || 'earliest'} – ${exportEnd || 'latest'})`
+      : '';
+    setFeedback({ success: true, message: `Backup exported successfully!${range}` });
   };
 
   const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -220,12 +75,6 @@ export const SyncModal: React.FC<SyncModalProps> = ({
       }
     };
     reader.readAsText(file);
-  };
-
-  const handleCopySql = () => {
-    navigator.clipboard.writeText(SQL_SCHEMA_SNIPPET);
-    setCopiedSql(true);
-    setTimeout(() => setCopiedSql(false), 2000);
   };
 
   return (
@@ -249,6 +98,7 @@ export const SyncModal: React.FC<SyncModalProps> = ({
 
         {/* Content Body */}
         <div className="p-5 space-y-4 text-xs max-h-[80vh] overflow-y-auto">
+          {/* AI Features */}
           <div className="p-3.5 rounded-xl border border-indigo-100 dark:border-indigo-900/60 bg-indigo-50/60 dark:bg-indigo-950/30 flex items-center justify-between gap-4">
             <div className="flex items-start gap-2.5">
               <span className="p-1.5 rounded-lg bg-white dark:bg-indigo-950 text-indigo-600 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900">
@@ -352,44 +202,6 @@ export const SyncModal: React.FC<SyncModalProps> = ({
             )}
           </div>
 
-          {/* Database Table Schema Accordion / Action */}
-          <div className="p-3.5 rounded-xl border border-blue-100 dark:border-blue-900/60 bg-blue-50/50 dark:bg-blue-950/30 space-y-2">
-            <div className="flex items-center justify-between">
-              <h4 className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
-                <Code2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                <span>Supabase Database Schema SQL</span>
-              </h4>
-              <button
-                type="button"
-                onClick={() => setShowSqlModal(!showSqlModal)}
-                className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline"
-              >
-                {showSqlModal ? 'Hide SQL' : 'View / Copy SQL'}
-              </button>
-            </div>
-            <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
-              Note: When connecting to Supabase for the first time, run this script in the Supabase SQL Editor to create tables and RLS policies.
-            </p>
-
-            {showSqlModal && (
-              <div className="space-y-2 pt-1">
-                <div className="relative">
-                  <pre className="p-3 rounded-xl bg-slate-900 text-slate-100 text-[10px] font-mono overflow-x-auto max-h-48 border border-slate-800">
-                    {SQL_SCHEMA_SNIPPET}
-                  </pre>
-                  <button
-                    type="button"
-                    onClick={handleCopySql}
-                    className="absolute top-2 right-2 px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-md text-[10px] font-semibold flex items-center gap-1 transition-colors"
-                  >
-                    {copiedSql ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                    <span>{copiedSql ? 'Copied' : 'Copy SQL'}</span>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
           {/* Feedback Alert */}
           {feedback && (
             <div
@@ -415,8 +227,34 @@ export const SyncModal: React.FC<SyncModalProps> = ({
               Export Data File (JSON Backup)
             </h4>
             <p className="text-slate-500 dark:text-slate-400 text-[11px]">
-              Export all local tasks, subtasks, completion status, and categories into a JSON file.
+              Select a date range to export tasks. Leave empty to export all.
             </p>
+
+            {/* Date Range */}
+            <div className="flex items-center gap-2">
+              <div className="flex-1 flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 px-2.5 py-1.5">
+                <CalendarDays className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <input
+                  type="date"
+                  value={exportStart}
+                  onChange={(e) => setExportStart(e.target.value)}
+                  className="bg-transparent text-[11px] text-slate-700 dark:text-slate-200 focus:outline-none w-full"
+                  placeholder="Start"
+                />
+              </div>
+              <span className="text-slate-300 dark:text-slate-600 text-[11px]">–</span>
+              <div className="flex-1 flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 px-2.5 py-1.5">
+                <CalendarDays className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <input
+                  type="date"
+                  value={exportEnd}
+                  onChange={(e) => setExportEnd(e.target.value)}
+                  className="bg-transparent text-[11px] text-slate-700 dark:text-slate-200 focus:outline-none w-full"
+                  placeholder="End"
+                />
+              </div>
+            </div>
+
             <button
               type="button"
               onClick={handleExport}
@@ -433,38 +271,20 @@ export const SyncModal: React.FC<SyncModalProps> = ({
               <Upload className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
               Import Data Backup
             </h4>
-            <p className="text-slate-500 dark:text-slate-400 text-[11px]">Choose a JSON backup file or paste JSON data below:</p>
+            <p className="text-slate-500 dark:text-slate-400 text-[11px]">
+              Choose a previously exported JSON backup file to restore.
+            </p>
 
-            <div className="flex items-center gap-2">
-              <label className="flex-1 cursor-pointer py-2 px-3 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium rounded-xl border border-slate-200 dark:border-slate-700 text-center transition-colors truncate min-h-[38px] flex items-center justify-center">
-                Choose File...
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={handleFileImport}
-                  className="hidden"
-                />
-              </label>
-            </div>
-
-            {/* Paste JSON manually */}
-            <form onSubmit={handleImportSubmit} className="space-y-2 pt-1">
-              <textarea
-                value={importJsonText}
-                onChange={(e) => setImportJsonText(e.target.value)}
-                placeholder="Or paste JSON string here..."
-                className="w-full text-[11px] p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-mono focus:outline-none"
-                rows={2}
+            <label className="cursor-pointer py-2.5 px-3 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium rounded-xl border border-slate-200 dark:border-slate-700 text-center transition-colors flex items-center justify-center gap-2 min-h-[38px]">
+              <Upload className="w-3.5 h-3.5" />
+              Choose JSON File
+              <input
+                type="file"
+                accept=".json"
+                onChange={handleFileImport}
+                className="hidden"
               />
-              <button
-                type="submit"
-                disabled={!importJsonText.trim()}
-                className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold rounded-xl shadow-xs transition-colors flex items-center justify-center gap-1.5 min-h-[38px]"
-              >
-                <Upload className="w-3.5 h-3.5" />
-                Import JSON Data
-              </button>
-            </form>
+            </label>
           </div>
 
         </div>
