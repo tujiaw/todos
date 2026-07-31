@@ -359,10 +359,6 @@ export default function App() {
   const totalTasksCount = selectedDateTasks.length;
   const completedTasksCount = selectedDateTasks.filter((t) => t.completed).length;
   const pendingTasksCount = totalTasksCount - completedTasksCount;
-  const totalEstimatedMinutes = selectedDateTasks.reduce(
-    (sum, t) => sum + (t.estimatedMinutes || 0),
-    0
-  );
 
   useEffect(() => {
     if (!aiEnabled) {
@@ -735,7 +731,6 @@ export default function App() {
           <ProgressBar
             totalTasks={totalTasksCount}
             completedTasks={completedTasksCount}
-            totalEstimatedMinutes={totalEstimatedMinutes}
             dateStr={selectedDate}
             tasks={tasks}
           />
