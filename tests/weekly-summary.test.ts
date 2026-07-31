@@ -8,6 +8,7 @@ import {
 import {
   buildLocalWeeklyMinutes,
   buildWeeklySummaryPayload,
+  formatWeekDisplayLabel,
   getWeekDays,
 } from '../src/utils/week.ts';
 import type { Category, Task } from '../src/types.ts';
@@ -53,6 +54,23 @@ test('getWeekDays returns Monday-Sunday for midweek anchor', () => {
     '2026-08-01',
     '2026-08-02',
   ]);
+});
+
+test('formatWeekDisplayLabel prefers This Week when current', () => {
+  assert.equal(
+    formatWeekDisplayLabel('2026-07-27', '2026-08-02', {
+      preferThisWeek: true,
+      today: '2026-07-29',
+    }),
+    'This Week'
+  );
+  assert.match(
+    formatWeekDisplayLabel('2026-07-20', '2026-07-26', {
+      preferThisWeek: true,
+      today: '2026-07-29',
+    }),
+    /Jul/
+  );
 });
 
 test('buildWeeklySummaryPayload aggregates week tasks', () => {

@@ -489,12 +489,16 @@ export default function App() {
       setIsWeeklySummaryLoading(true);
 
       if (!aiEnabled) {
-        setWeeklySummaryError('AI 已关闭，已生成本地周会草稿。可在设置中开启 AI。');
+        setWeeklySummaryError(
+          'AI is off. A local draft is ready to copy — enable AI in Settings to polish it.'
+        );
         setIsWeeklySummaryLoading(false);
         return;
       }
       if (!user) {
-        setWeeklySummaryError('请先登录以使用 AI 润色；当前已提供可复制的本地纪要。');
+        setWeeklySummaryError(
+          'Sign in to polish with AI. A copy-ready local draft is available now.'
+        );
         setIsWeeklySummaryLoading(false);
         return;
       }
@@ -509,8 +513,8 @@ export default function App() {
         if (error instanceof Error && error.name === 'AbortError') return;
         setWeeklySummaryError(
           error instanceof Error
-            ? `${error.message} 已保留本地纪要草稿。`
-            : 'AI 生成失败，已保留本地纪要草稿。'
+            ? `${error.message} Keeping the local draft.`
+            : 'AI polish failed. Keeping the local draft.'
         );
         setWeeklySummaryUsedFallback(true);
       } finally {

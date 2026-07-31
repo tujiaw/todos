@@ -76,6 +76,19 @@ test('global AI preference disables AI UI and uses daily dashboard cache', () =>
   assert.match(syncModal, /weekly meeting minutes/);
   assert.match(app, /aiEnabled=\{aiEnabled\}/);
   assert.match(app, /onOpenWeeklySummary=\{handleOpenWeeklySummary\}/);
+  const progressBar = readFileSync(
+    new URL('../src/components/ProgressBar.tsx', import.meta.url),
+    'utf8'
+  );
+  assert.match(progressBar, /Weekly minutes/);
+  assert.match(progressBar, /setWeekOffset\(0\)/);
+  const weeklyModal = readFileSync(
+    new URL('../src/components/WeeklySummaryModal.tsx', import.meta.url),
+    'utf8'
+  );
+  assert.match(weeklyModal, /Copy minutes/);
+  assert.match(weeklyModal, /disabled=\{!summary\?\.minutesText\}/);
+  assert.match(weeklyModal, /Highlights & follow-ups/);
   assert.match(app, /setDashboardCopy\(DEFAULT_DASHBOARD_COPY\)/);
   assert.match(aiClient, /daily_todos_dashboard_copy_v1/);
   assert.match(aiClient, /cached\.date !== date/);

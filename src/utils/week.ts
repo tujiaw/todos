@@ -23,6 +23,29 @@ export function formatWeekRangeLabel(startDate: string, endDate: string): string
   return `${startDate} ~ ${endDate}`;
 }
 
+/** Human-readable week range for UI chrome, e.g. "Jul 28 – Aug 3". */
+export function formatWeekDisplayLabel(
+  startDate: string,
+  endDate: string,
+  options?: { preferThisWeek?: boolean; today?: string }
+): string {
+  if (options?.preferThisWeek && options.today) {
+    const todayWeek = getWeekDays(options.today);
+    if (todayWeek[0] === startDate && todayWeek[6] === endDate) return 'This Week';
+  }
+  const formatShort = (dateStr: string) =>
+    new Date(`${dateStr}T00:00:00`).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+    });
+  const start = formatShort(startDate);
+  const end = formatShort(endDate);
+  const year = new Date(`${startDate}T00:00:00`).getFullYear();
+  const currentYear = new Date().getFullYear();
+  if (year === currentYear) return `${start} – ${end}`;
+  return `${start} – ${end}, ${year}`;
+}
+
 export interface WeeklyTaskBrief {
   title: string;
   category: string;

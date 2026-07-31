@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Sparkles,
@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { Task } from '../types';
 import { getTodayDateString } from '../data/initialData';
-import { getWeekDays } from '../utils/week';
+import { formatWeekDisplayLabel, getWeekDays } from '../utils/week';
 
 interface ProgressBarProps {
   totalTasks: number;
@@ -35,9 +35,12 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   const [weekOffset, setWeekOffset] = useState(0);
   const percentage = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
 
-  // Compute the anchor date for the displayed week
+  useEffect(() => {
+    setWeekOffset(0);
+  }, [dateStr]);
+
   const weekAnchor = useMemo(() => {
-    const d = new Date(dateStr + 'T00:00:00');
+    const d = new Date(`${dateStr}T00:00:00`);
     d.setDate(d.getDate() + weekOffset * 7);
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -45,38 +48,34 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
     return `${y}-${m}-${day}`;
   }, [dateStr, weekOffset]);
 
-  // Compute per-day stats for the displayed week
-  const weekStats = useMemo(() => {
-    const weekDays = getWeekDays(weekAnchor);
-    const todayStr = getTodayDateString();
+  const weekDays = useMemo(() => getWeekDays(weekAnchor), [weekAnchor]);
 
+  const weekStats = useMemo(() => {
+    const todayStr = getTodayDateString();
     return weekDays.map((day) => {
       const dayTasks = tasks.filter((t) => t.date === day);
       const total = dayTasks.length;
       const completed = dayTasks.filter((t) => t.completed).length;
-      const uncompleted = total - completed;
-      return { date: day, total, completed, uncompleted, isToday: day === todayStr };
+      return {
+        date: day,
+        total,
+        completed,
+        uncompleted: total - completed,
+        isToday: day === todayStr,
+      };
     });
-  }, [tasks, weekAnchor]);
+  }, [tasks, weekDays]);
 
-  // Week range label e.g. "Jul 28 – Aug 3"
-  const weekLabel = useMemo(() => {
-    const days = getWeekDays(weekAnchor);
-    const formatShort = (dateStr: string) => {
-      const d = new Date(dateStr + 'T00:00:00');
-      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    };
-    const start = formatShort(days[0]);
-    const end = formatShort(days[6]);
+  const weekLabel = useMemo(
+    () =>
+      formatWeekDisplayLabel(weekDays[0], weekDays[6], {
+        preferThisWeek: weekOffset === 0,
+        today: getTodayDateString(),
+      }),
+    [weekDays, weekOffset]
+  );
 
-    const isCurrentWeek = weekOffset === 0;
-    const isCurrentYear = new Date(days[0]).getFullYear() === new Date().getFullYear();
-
-    if (isCurrentWeek) return 'This Week';
-    const year = new Date(days[0]).getFullYear();
-    return isCurrentYear ? `${start} – ${end}` : `${start} – ${end}, ${year}`;
-  }, [weekAnchor, weekOffset]);
-
+  const weekTaskCount = weekStats.reduce((sum, day) => sum + day.total, 0);
   const maxTotal = Math.max(...weekStats.map((d) => d.total), 1);
   const MAX_BAR_HEIGHT_PX = 56;
   const MIN_BAR_HEIGHT_PX = 4;
@@ -86,30 +85,29 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
       id="progress-card"
       className="progress-card h-full p-4 sm:p-5 bg-gradient-to-br from-indigo-50 via-blue-50 to-violet-100 dark:from-slate-950 dark:via-indigo-950 dark:to-indigo-900 text-slate-800 dark:text-white rounded-3xl transition-colors overflow-hidden"
     >
-      {/* Main Compact Progress Bar Row */}
       <div className="relative z-10 flex items-center justify-between gap-3">
-        {/* Left: Progress Label & Bar */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-1.5">
             <div className="flex items-center gap-1.5">
-              <span className="p-1 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
+              <span className="p-1 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300">
                 <Sparkles className="w-3.5 h-3.5" />
               </span>
               <h2 className="text-xs font-semibold text-slate-800 dark:text-white">Daily Progress</h2>
             </div>
             <div className="flex items-baseline gap-1 text-xs">
               <span className="font-bold text-indigo-700 dark:text-white">{percentage}%</span>
-              <span className="text-[11px] text-indigo-500 dark:text-indigo-200 font-medium">({completedTasks}/{totalTasks})</span>
+              <span className="text-[11px] text-indigo-500 dark:text-indigo-200 font-medium">
+                ({completedTasks}/{totalTasks})
+              </span>
             </div>
           </div>
 
-          {/* Progress Bar Container */}
           <div className="w-full bg-white/75 dark:bg-white/12 rounded-full h-2.5 overflow-hidden p-0.5 border border-indigo-100 dark:border-white/10">
             <motion.div
               className={`h-full rounded-full transition-all duration-500 ${
                 percentage === 100
                   ? 'bg-gradient-to-r from-emerald-500 to-teal-500'
-                  : 'bg-gradient-to-r from-blue-600 to-indigo-600'
+                  : 'bg-gradient-to-r from-indigo-600 to-indigo-500'
               }`}
               initial={{ width: 0 }}
               animate={{ width: `${percentage}%` }}
@@ -118,18 +116,34 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
           </div>
         </div>
 
-        {/* Expand Details Toggle Button */}
         <button
           type="button"
           onClick={() => setIsExpanded(!isExpanded)}
-          className="p-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors min-h-[34px] min-w-[34px] flex items-center justify-center"
-          title={isExpanded ? 'Collapse Stats' : 'Expand Stats'}
+          className="inline-flex items-center gap-1 px-2.5 min-h-[34px] text-slate-600 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-slate-800/80 rounded-xl transition-colors text-[11px] font-semibold"
+          title={isExpanded ? 'Collapse week stats' : 'Expand week stats'}
+          aria-expanded={isExpanded}
         >
           <BarChart2 className="w-4 h-4" />
+          <span>Week</span>
         </button>
       </div>
 
-      {/* Expanded Details Section */}
+      {onOpenWeeklySummary && (
+        <button
+          type="button"
+          onClick={() => onOpenWeeklySummary(weekAnchor)}
+          className="relative z-10 mt-3 w-full inline-flex items-center justify-between gap-2 min-h-9 px-3 rounded-xl bg-white/85 dark:bg-slate-900/55 border border-indigo-100 dark:border-indigo-900/50 text-indigo-700 dark:text-indigo-200 text-[12px] font-semibold hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
+        >
+          <span className="inline-flex items-center gap-1.5 min-w-0">
+            <FileText className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">Weekly minutes · {weekLabel}</span>
+          </span>
+          <span className="text-[10px] font-medium text-indigo-400 dark:text-indigo-300 shrink-0">
+            {weekTaskCount} tasks
+          </span>
+        </button>
+      )}
+
       <AnimatePresence>
         {isExpanded && (
           <motion.div
@@ -139,12 +153,10 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
             transition={{ duration: 0.2 }}
             className="pt-3 mt-3 border-t border-slate-100 dark:border-slate-800/80 space-y-3 relative z-10 overflow-hidden"
           >
-            {/* Weekly Bar Chart */}
             <div className="bg-slate-50/80 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800 space-y-2">
               <div className="flex items-center gap-1">
                 <CalendarDays className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 shrink-0" />
 
-                {/* Week Navigator */}
                 <div className="flex items-center gap-0.5">
                   <button
                     type="button"
@@ -168,7 +180,6 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
                   </button>
                 </div>
 
-                {/* Legend */}
                 <div className="flex items-center gap-2 ml-auto text-[10px] text-slate-400 dark:text-slate-500">
                   <span className="flex items-center gap-1">
                     <span className="w-2 h-2 rounded-sm bg-emerald-400 dark:bg-emerald-500" />
@@ -181,19 +192,20 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
                 </div>
               </div>
 
-              {/* Bar Chart */}
               <div className="flex items-end justify-around gap-1.5 h-20">
                 {weekStats.map((day) => {
-                  const barHeight = day.total === 0
-                    ? MIN_BAR_HEIGHT_PX
-                    : Math.max(MIN_BAR_HEIGHT_PX, Math.round((day.total / maxTotal) * MAX_BAR_HEIGHT_PX));
+                  const barHeight =
+                    day.total === 0
+                      ? MIN_BAR_HEIGHT_PX
+                      : Math.max(
+                          MIN_BAR_HEIGHT_PX,
+                          Math.round((day.total / maxTotal) * MAX_BAR_HEIGHT_PX)
+                        );
 
                   const completedRatio = day.total === 0 ? 0 : day.completed / day.total;
                   const completedHeight = Math.round(barHeight * completedRatio);
                   const uncompletedHeight = barHeight - completedHeight;
-
-                  // 0=Mon … 6=Sun
-                  const dow = new Date(day.date + 'T00:00:00').getDay();
+                  const dow = new Date(`${day.date}T00:00:00`).getDay();
                   const dayIndex = dow === 0 ? 6 : dow - 1;
 
                   return (
@@ -204,29 +216,26 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
                       className="flex flex-col items-center gap-1 flex-1 min-w-0 group cursor-pointer hover:bg-white/50 dark:hover:bg-white/5 rounded-lg py-1 -my-1 transition-colors"
                       title={`${DAY_LABELS[dayIndex]}: ${day.total} tasks (${day.completed} done)`}
                     >
-                      {/* Count label above bar */}
-                      {day.total > 0 && (
+                      {day.total > 0 ? (
                         <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 leading-none transition-colors">
                           {day.total}
                         </span>
-                      )}
-                      {day.total === 0 && (
-                        <span className="text-[10px] text-slate-300 dark:text-slate-600 leading-none">-</span>
+                      ) : (
+                        <span className="text-[10px] text-slate-300 dark:text-slate-600 leading-none">
+                          -
+                        </span>
                       )}
 
-                      {/* Stacked Bar */}
                       <div
                         className="w-full max-w-[24px] rounded-md overflow-hidden flex flex-col justify-end group-hover:ring-2 group-hover:ring-indigo-400/60 transition-all"
                         style={{ height: `${barHeight}px` }}
                       >
-                        {/* Completed portion (top, green) */}
                         {completedHeight > 0 && (
                           <div
                             className="w-full bg-emerald-400 dark:bg-emerald-500 transition-all duration-300"
                             style={{ height: `${completedHeight}px` }}
                           />
                         )}
-                        {/* Uncompleted portion (bottom, gray) */}
                         {uncompletedHeight > 0 && (
                           <div
                             className="w-full bg-slate-300 dark:bg-slate-600 transition-all duration-300"
@@ -235,7 +244,6 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
                         )}
                       </div>
 
-                      {/* Day label */}
                       <span
                         className={`text-[10px] font-medium leading-none mt-0.5 group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-colors ${
                           day.isToday
@@ -249,17 +257,6 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
                   );
                 })}
               </div>
-
-              {onOpenWeeklySummary && (
-                <button
-                  type="button"
-                  onClick={() => onOpenWeeklySummary(weekAnchor)}
-                  className="w-full inline-flex items-center justify-center gap-1.5 min-h-9 px-3 rounded-xl bg-white/90 dark:bg-slate-900/70 border border-indigo-100 dark:border-indigo-900/50 text-indigo-700 dark:text-indigo-200 text-[12px] font-semibold hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  生成周会纪要
-                </button>
-              )}
             </div>
           </motion.div>
         )}

@@ -178,7 +178,7 @@ export async function generateWeeklySummary(
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
   if (sessionError) throw sessionError;
   const accessToken = sessionData.session?.access_token;
-  if (!accessToken) throw new Error('请先登录后再生成周会纪要。');
+  if (!accessToken) throw new Error('Please sign in before generating weekly minutes.');
 
   const response = await fetch('/api/generate-weekly-summary', {
     method: 'POST',

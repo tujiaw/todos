@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   Check,
+  ChevronDown,
   ClipboardCopy,
   LoaderCircle,
   RefreshCw,
@@ -9,7 +10,8 @@ import {
   X,
 } from 'lucide-react';
 import type { WeeklySummaryResult } from '../lib/ai';
-import type { WeeklySummaryPayload } from '../utils/week';
+import { formatWeekDisplayLabel, type WeeklySummaryPayload } from '../utils/week';
+import { getTodayDateString } from '../data/initialData';
 
 interface WeeklySummaryModalProps {
   isOpen: boolean;
@@ -22,13 +24,7 @@ interface WeeklySummaryModalProps {
   onGenerate: () => void;
 }
 
-function Section({
-  title,
-  items,
-}: {
-  title: string;
-  items: string[];
-}) {
+function Section({ title, items }: { title: string; items: string[] }) {
   if (items.length === 0) return null;
   return (
     <section className="space-y-1.5">
@@ -36,9 +32,9 @@ function Section({
         {title}
       </h4>
       <ul className="space-y-1">
-        {items.map((item) => (
+        {items.map((item, index) => (
           <li
-            key={`${title}-${item}`}
+            key={`${title}-${index}`}
             className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed pl-3 border-l-2 border-indigo-200 dark:border-indigo-800"
           >
             {item}
@@ -60,11 +56,13 @@ export const WeeklySummaryModal: React.FC<WeeklySummaryModalProps> = ({
   onGenerate,
 }) => {
   const [copied, setCopied] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const copyTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!isOpen) {
       setCopied(false);
+      setDetailsOpen(false);
       if (copyTimerRef.current) window.clearTimeout(copyTimerRef.current);
     }
   }, [isOpen]);
@@ -90,6 +88,20 @@ export const WeeklySummaryModal: React.FC<WeeklySummaryModalProps> = ({
       setCopied(false);
     }
   };
+
+  const weekDisplay = payload
+    ? formatWeekDisplayLabel(payload.startDate, payload.endDate, {
+        preferThisWeek: true,
+        today: getTodayDateString(),
+      })
+    : '';
+
+  const hasDetails =
+    Boolean(summary) &&
+    ((summary?.completedHighlights.length ?? 0) > 0 ||
+      (summary?.unfinishedItems.length ?? 0) > 0 ||
+      (summary?.risksOrBlockers.length ?? 0) > 0 ||
+      (summary?.nextWeekFocus.length ?? 0) > 0);
 
   return (
     <AnimatePresence>
@@ -118,18 +130,18 @@ export const WeeklySummaryModal: React.FC<WeeklySummaryModalProps> = ({
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-300 mb-1">
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span className="text-[11px] font-semibold tracking-wide">周会纪要</span>
+                  <span className="text-[11px] font-semibold tracking-wide">Weekly minutes</span>
                 </div>
                 <h3
                   id="weekly-summary-title"
                   className="text-base font-bold text-slate-900 dark:text-white leading-snug"
                 >
-                  {summary?.title || `工作周报（${payload.periodLabel}）`}
+                  {weekDisplay}
                 </h3>
                 <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                  {payload.stats.completed}/{payload.stats.total} 完成 · 完成率{' '}
-                  {payload.stats.completionRate}%
-                  {usedFallback ? ' · 本地草稿' : ''}
+                  {payload.stats.completed}/{payload.stats.total} done ·{' '}
+                  {payload.stats.completionRate}% complete
+                  {usedFallback ? ' · Local draft' : ''}
                 </p>
               </div>
               <button
@@ -145,7 +157,7 @@ export const WeeklySummaryModal: React.FC<WeeklySummaryModalProps> = ({
               {isLoading && (
                 <div className="inline-flex items-center gap-2 rounded-xl border border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/70 dark:bg-indigo-950/30 px-3 py-2 text-xs text-indigo-700 dark:text-indigo-200">
                   <LoaderCircle className="w-3.5 h-3.5 animate-spin" />
-                  AI 正在润色周会纪要…
+                  Polishing with AI… You can copy the draft now.
                 </div>
               )}
 
@@ -155,19 +167,79 @@ export const WeeklySummaryModal: React.FC<WeeklySummaryModalProps> = ({
                 </div>
               )}
 
+              {payload.stats.total === 0 && (
+                <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 px-3.5 py-3 text-sm text-slate-600 dark:text-slate-300">
+                  No tasks this week yet. Add a few items, then regenerate for a richer report.
+                </div>
+              )}
+
+              {payload.stats.byCategory.length > 0 && (
+                <section className="space-y-2">
+                  <h4 className="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                    By category
+                  </h4>
+                  <div className="space-y-1.5">
+                    {payload.stats.byCategory.map((category) => {
+                      const rate =
+                        category.total === 0
+                          ? 0
+                          : Math.round((category.completed / category.total) * 100);
+                      return (
+                        <div key={category.name} className="space-y-1">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="font-medium text-slate-600 dark:text-slate-300 truncate">
+                              {category.name}
+                            </span>
+                            <span className="text-slate-400 dark:text-slate-500 shrink-0">
+                              {category.completed}/{category.total}
+                            </span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-indigo-500 dark:bg-indigo-400 transition-all"
+                              style={{ width: `${rate}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
+
               {summary && (
                 <>
                   <p className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed">
                     {summary.overview}
                   </p>
-                  <Section title="已完成亮点" items={summary.completedHighlights} />
-                  <Section title="待跟进" items={summary.unfinishedItems} />
-                  <Section title="风险与阻塞" items={summary.risksOrBlockers} />
-                  <Section title="下周计划" items={summary.nextWeekFocus} />
+
+                  {hasDetails && (
+                    <div className="rounded-xl border border-slate-100 dark:border-slate-800 overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => setDetailsOpen((open) => !open)}
+                        className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left text-[12px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors"
+                        aria-expanded={detailsOpen}
+                      >
+                        <span>Highlights & follow-ups</span>
+                        <ChevronDown
+                          className={`w-4 h-4 transition-transform ${detailsOpen ? 'rotate-180' : ''}`}
+                        />
+                      </button>
+                      {detailsOpen && (
+                        <div className="px-3 pb-3 space-y-3 border-t border-slate-100 dark:border-slate-800 pt-3">
+                          <Section title="Completed" items={summary.completedHighlights} />
+                          <Section title="Follow-ups" items={summary.unfinishedItems} />
+                          <Section title="Risks" items={summary.risksOrBlockers} />
+                          <Section title="Next week" items={summary.nextWeekFocus} />
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <section className="space-y-1.5">
                     <h4 className="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                      完整纪要（可复制）
+                      Meeting notes (Chinese, copy-ready)
                     </h4>
                     <pre className="whitespace-pre-wrap text-[13px] leading-relaxed text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-950/60 border border-slate-100 dark:border-slate-800 rounded-xl p-3.5 font-sans">
                       {summary.minutesText}
@@ -178,7 +250,7 @@ export const WeeklySummaryModal: React.FC<WeeklySummaryModalProps> = ({
 
               {!summary && !isLoading && (
                 <div className="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
-                  暂无纪要，请点击重新生成。
+                  No minutes yet. Tap Regenerate to create a report.
                 </div>
               )}
             </div>
@@ -191,23 +263,23 @@ export const WeeklySummaryModal: React.FC<WeeklySummaryModalProps> = ({
                 className="inline-flex items-center justify-center gap-1.5 min-h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 transition-colors"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-                重新生成
+                Regenerate
               </button>
               <button
                 type="button"
                 onClick={handleCopy}
-                disabled={!summary?.minutesText || isLoading}
+                disabled={!summary?.minutesText}
                 className="flex-1 inline-flex items-center justify-center gap-1.5 min-h-10 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold disabled:opacity-50 transition-colors"
               >
                 {copied ? (
                   <>
                     <Check className="w-3.5 h-3.5" />
-                    已复制
+                    Copied
                   </>
                 ) : (
                   <>
                     <ClipboardCopy className="w-3.5 h-3.5" />
-                    复制周会纪要
+                    Copy minutes
                   </>
                 )}
               </button>
