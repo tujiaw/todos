@@ -20,7 +20,7 @@ function chunk(type, data) {
   return Buffer.concat([len, t, data, crc]);
 }
 
-function writePng(filePath, size, paint) {
+function buildPngBuffer(size, paint) {
   const raw = Buffer.alloc((size * 4 + 1) * size);
   for (let y = 0; y < size; y++) {
     raw[y * (size * 4 + 1)] = 0;
@@ -38,13 +38,41 @@ function writePng(filePath, size, paint) {
   ihdr.writeUInt32BE(size, 4);
   ihdr[8] = 8;
   ihdr[9] = 6;
-  const png = Buffer.concat([
+  return Buffer.concat([
     Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
     chunk('IHDR', ihdr),
     chunk('IDAT', zlib.deflateSync(raw, { level: 9 })),
     chunk('IEND', Buffer.alloc(0)),
   ]);
-  fs.writeFileSync(filePath, png);
+}
+
+function writeIco(filePath, pngEntries) {
+  const header = Buffer.alloc(6);
+  header.writeUInt16LE(0, 0);
+  header.writeUInt16LE(1, 2);
+  header.writeUInt16LE(pngEntries.length, 4);
+
+  const dirEntrySize = 16;
+  let offset = 6 + dirEntrySize * pngEntries.length;
+  const entries = [];
+  const blobs = [];
+
+  for (const { size, png } of pngEntries) {
+    const entry = Buffer.alloc(dirEntrySize);
+    entry[0] = size >= 256 ? 0 : size;
+    entry[1] = size >= 256 ? 0 : size;
+    entry[2] = 0;
+    entry[3] = 0;
+    entry.writeUInt16LE(1, 4);
+    entry.writeUInt16LE(32, 6);
+    entry.writeUInt32LE(png.length, 8);
+    entry.writeUInt32LE(offset, 12);
+    entries.push(entry);
+    blobs.push(png);
+    offset += png.length;
+  }
+
+  fs.writeFileSync(filePath, Buffer.concat([header, ...entries, ...blobs]));
 }
 
 function distSeg(px, py, x1, y1, x2, y2) {
@@ -182,14 +210,23 @@ function paintIcon(x, y, size) {
 }
 
 const publicDir = path.resolve('public');
-const outputs = [
+const pngOutputs = [
+  { size: 32, name: 'favicon-32.png' },
+  { size: 48, name: 'favicon-48.png' },
   { size: 180, name: 'apple-touch-icon.png' },
   { size: 192, name: 'icon-192.png' },
   { size: 512, name: 'icon-512.png' },
 ];
 
-for (const { size, name } of outputs) {
-  const filePath = path.join(publicDir, name);
-  writePng(filePath, size, paintIcon);
+for (const { size, name } of pngOutputs) {
+  const png = buildPngBuffer(size, paintIcon);
+  fs.writeFileSync(path.join(publicDir, name), png);
   console.log('wrote', name);
 }
+
+const icoPngs = [16, 32, 48].map((size) => ({
+  size,
+  png: buildPngBuffer(size, paintIcon),
+}));
+writeIco(path.join(publicDir, 'favicon.ico'), icoPngs);
+console.log('wrote favicon.ico');

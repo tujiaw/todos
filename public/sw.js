@@ -1,7 +1,10 @@
-const CACHE_NAME = 'daily-todo-pwa-v4';
+const CACHE_NAME = 'daily-todo-pwa-v5';
 const ASSETS_TO_CACHE = [
   '/index.html',
   '/manifest.json',
+  '/favicon.ico',
+  '/favicon-32.png',
+  '/favicon-48.png',
   '/icon.svg',
   '/icon-192.png',
   '/icon-512.png',
