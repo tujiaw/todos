@@ -50,28 +50,27 @@ function shiftDate(dateStr: string, days: number): string {
 }
 
 function formatDateDisplay(dateStr: string, todayStr: string) {
-  const d = new Date(dateStr + 'T00:00:00');
-  if (isNaN(d.getTime())) return { full: dateStr, short: dateStr };
+  const d = new Date(`${dateStr}T00:00:00`);
+  if (isNaN(d.getTime())) return { full: dateStr, short: dateStr, isToday: false };
 
-  const todayDate = new Date(todayStr + 'T00:00:00');
+  const todayDate = new Date(`${todayStr}T00:00:00`);
   const diffDays = Math.round((d.getTime() - todayDate.getTime()) / (1000 * 3600 * 24));
-  const formatted = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+  const monthDay = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  // Keep label length stable so prev/next stay clickable in the same spot.
+  const base = `${dayName}, ${monthDay}`;
 
   if (diffDays === 0) {
-    return {
-      full: `${formatted} (Today)`,
-      short: `Today (${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})`,
-    };
+    return { full: `Today · ${monthDay}`, short: `Today · ${monthDay}`, isToday: true };
+  }
+  if (diffDays === -1) {
+    return { full: `Yest. · ${monthDay}`, short: `Yest. · ${monthDay}`, isToday: false };
+  }
+  if (diffDays === 1) {
+    return { full: `Tom. · ${monthDay}`, short: `Tom. · ${monthDay}`, isToday: false };
   }
 
-  if (diffDays === -1) return { full: `${formatted} (Yesterday)`, short: `Yesterday` };
-  if (diffDays === 1) return { full: `${formatted} (Tomorrow)`, short: `Tomorrow` };
-
-  const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
-  return {
-    full: `${dayName}, ${formatted}`,
-    short: `${dayName}, ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
-  };
+  return { full: base, short: base, isToday: false };
 }
 
 interface DateNavigatorProps {
@@ -120,19 +119,16 @@ const DateNavigator: React.FC<DateNavigatorProps> = ({
     setOpen(false);
   };
 
-  const navBtnClass = compact
-    ? 'p-1 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-all min-h-[30px] min-w-[30px] flex items-center justify-center'
-    : 'p-1.5 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-all min-h-[32px] min-w-[32px] flex items-center justify-center';
-
-  const dateBtnClass = compact
-    ? 'flex items-center gap-1.5 px-2 py-1 text-xs font-semibold text-slate-800 dark:text-slate-100 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-all cursor-pointer min-h-[30px]'
-    : 'flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-slate-800 dark:text-slate-100 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-all cursor-pointer min-h-[32px]';
+  const navBtnClass =
+    'p-1.5 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-all min-h-[32px] min-w-[32px] flex items-center justify-center shrink-0';
 
   return (
     <div
       ref={rootRef}
-      className={`relative flex items-center gap-1 bg-slate-100/80 dark:bg-slate-900/80 p-1.5 rounded-2xl border border-slate-200/70 dark:border-slate-800 ${
-        compact ? 'justify-between w-full mt-2' : 'justify-center'
+      className={`relative grid items-center gap-0.5 bg-slate-100/80 dark:bg-slate-900/80 p-1.5 rounded-2xl border border-slate-200/70 dark:border-slate-800 ${
+        compact
+          ? 'grid-cols-[32px_minmax(0,1fr)_32px] w-full mt-2'
+          : 'grid-cols-[32px_11.5rem_32px]'
       }`}
     >
       <button
@@ -148,13 +144,21 @@ const DateNavigator: React.FC<DateNavigatorProps> = ({
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className={`${dateBtnClass} ${open ? 'bg-white dark:bg-slate-700' : ''}`}
+        className={`flex items-center justify-center gap-1.5 w-full min-w-0 px-1.5 py-1 text-xs font-semibold hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-all cursor-pointer min-h-[32px] ${
+          open ? 'bg-white dark:bg-slate-700' : ''
+        } ${
+          formattedDate.isToday
+            ? 'text-indigo-700 dark:text-indigo-300'
+            : 'text-slate-800 dark:text-slate-100'
+        }`}
         title="Click to select date"
         aria-expanded={open}
         aria-haspopup="dialog"
       >
-        <CalendarIcon className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
-        <span>{compact ? formattedDate.short : formattedDate.full}</span>
+        <CalendarIcon className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+        <span className="truncate tabular-nums">
+          {compact ? formattedDate.short : formattedDate.full}
+        </span>
       </button>
 
       <button
