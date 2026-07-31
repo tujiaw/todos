@@ -180,39 +180,6 @@ body {
   color: #86efac;
 }
 
-.app-footer {
-  margin-top: 2rem;
-  padding: 1.25rem 0;
-  border-top: 1px solid rgb(226 232 240 / 0.75);
-  background: rgb(255 255 255 / 0.55);
-  color: #64748b;
-  font-size: 0.75rem;
-}
-
-.dark .app-footer {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42 / 0.5);
-}
-
-.footer-mark {
-  display: grid;
-  place-items: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 0.7rem;
-  background: linear-gradient(135deg, #2563eb, #6d28d9);
-  color: white;
-}
-
-.footer-link {
-  padding: 0.45rem 0.7rem;
-  border-radius: 0.7rem;
-  color: #4f46e5;
-  font-weight: 700;
-  transition: background-color 160ms ease;
-}
-
-.footer-link:hover { background: rgb(99 102 241 / 0.08); }
 
 .drop-panel {
   background:

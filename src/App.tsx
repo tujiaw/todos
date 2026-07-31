@@ -15,7 +15,7 @@ import {
 import { getTodayDateString } from './data/initialData';
 import { Header } from './components/Header';
 import { usePWA } from './hooks/usePWA';
-import { CheckCircle2, Download, Github, LoaderCircle, LockKeyhole, X } from 'lucide-react';
+import { Download, Github, LoaderCircle, LockKeyhole, X } from 'lucide-react';
 import { ProgressBar } from './components/ProgressBar';
 import { TaskInput } from './components/TaskInput';
 import { TaskList } from './components/TaskList';
@@ -762,21 +762,14 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="app-footer mb-16 sm:mb-0">
-        <div className="max-w-5xl mx-auto px-4 sm:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <span className="footer-mark"><CheckCircle2 className="w-3.5 h-3.5" /></span>
-            <p>Daily TODOs · Your calm space to get things done.</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setIsSyncModalOpen(true)}
-              className="footer-link"
-            >
-              Cloud sync
-            </button>
-          </div>
-        </div>
+      <footer className="py-2.5 text-center text-[11px] text-slate-400 dark:text-slate-500 border-t border-slate-100 dark:border-slate-800/50 mb-16 sm:mb-0">
+        <span>todo.ningto.com</span>
+        <span className="mx-1.5 opacity-30">•</span>
+        <span>© {new Date().getFullYear()}</span>
+        <span className="mx-1.5 opacity-30">•</span>
+        <span>Daily TODOs</span>
+        <span className="mx-1.5 opacity-30">•</span>
+        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" className="hover:text-slate-500 dark:hover:text-slate-400 transition-colors">鄂ICP备17003086号-2</a>
       </footer>
 
       {/* Edit Modal */}
