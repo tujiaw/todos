@@ -523,10 +523,6 @@ export const DropModal: React.FC<DropModalProps> = ({
     setAttachmentError(null);
   };
 
-  const isUrl = (str: string) => {
-    return str.startsWith('http://') || str.startsWith('https://');
-  };
-
   const formatDate = (raw: string | number) => {
     try {
       const date = new Date(raw);
