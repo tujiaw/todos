@@ -1,8 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
+
+const SW_RELOAD_FLAG = 'daily_todos_sw_reloading';
+
+function activateWaitingWorker(worker: ServiceWorker | null | undefined) {
+  worker?.postMessage({ type: 'SKIP_WAITING' });
+}
+
+/** Activate waiting worker and reload once (guarded against loops). */
+function activateWaitingAndReload(worker: ServiceWorker) {
+  if (sessionStorage.getItem(SW_RELOAD_FLAG) === '1') return;
+  sessionStorage.setItem(SW_RELOAD_FLAG, '1');
+  activateWaitingWorker(worker);
 }
 
 export function usePWA() {
@@ -10,30 +23,79 @@ export function usePWA() {
   const [isInstallable, setIsInstallable] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+
+  const applyUpdate = useCallback(async () => {
+    if (!('serviceWorker' in navigator)) {
+      window.location.reload();
+      return;
+    }
+    const registration = await navigator.serviceWorker.getRegistration();
+    if (registration?.waiting) {
+      activateWaitingAndReload(registration.waiting);
+      return;
+    }
+    sessionStorage.setItem(SW_RELOAD_FLAG, '1');
+    window.location.reload();
+  }, []);
+
+  const dismissUpdate = useCallback(() => {
+    setUpdateAvailable(false);
+  }, []);
 
   useEffect(() => {
-    // Check if running as standalone PWA
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+    const isStandalone =
+      window.matchMedia('(display-mode: standalone)').matches ||
       (window.navigator as unknown as { standalone?: boolean }).standalone === true;
-    
+
     if (isStandalone) {
       setIsInstalled(true);
     }
 
-    // Register Service Worker
-    let isRefreshingForServiceWorker = false;
-    const handleServiceWorkerUpdate = () => {
-      if (isRefreshingForServiceWorker) return;
-      isRefreshingForServiceWorker = true;
-      window.location.reload();
+    // Finished a one-shot SW reload — clear sticky "update available" state.
+    if (sessionStorage.getItem(SW_RELOAD_FLAG)) {
+      sessionStorage.removeItem(SW_RELOAD_FLAG);
+      setUpdateAvailable(false);
+    }
+
+    const handleControllerChange = () => {
+      if (sessionStorage.getItem(SW_RELOAD_FLAG) === '1') {
+        window.location.reload();
+        return;
+      }
+      setUpdateAvailable(false);
+    };
+
+    const takeWaitingUpdate = (registration: ServiceWorkerRegistration) => {
+      if (registration.waiting && navigator.serviceWorker.controller) {
+        setUpdateAvailable(true);
+        activateWaitingAndReload(registration.waiting);
+      }
+    };
+
+    const trackWaiting = (registration: ServiceWorkerRegistration) => {
+      takeWaitingUpdate(registration);
+
+      registration.addEventListener('updatefound', () => {
+        const installing = registration.installing;
+        if (!installing) return;
+        installing.addEventListener('statechange', () => {
+          if (installing.state === 'installed' && navigator.serviceWorker.controller) {
+            setUpdateAvailable(true);
+            if (registration.waiting) {
+              activateWaitingAndReload(registration.waiting);
+            }
+          }
+        });
+      });
     };
 
     const registerServiceWorker = () => {
       navigator.serviceWorker
         .register('/sw.js')
         .then((registration) => {
-          console.log('PWA Service Worker registered with scope:', registration.scope);
-          registration.update();
+          trackWaiting(registration);
+          void registration.update().then(() => takeWaitingUpdate(registration));
         })
         .catch((error) => {
           console.warn('PWA Service Worker registration failed:', error);
@@ -41,11 +103,14 @@ export function usePWA() {
     };
 
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', registerServiceWorker);
-      navigator.serviceWorker.addEventListener('controllerchange', handleServiceWorkerUpdate);
+      if (document.readyState === 'complete') {
+        registerServiceWorker();
+      } else {
+        window.addEventListener('load', registerServiceWorker);
+      }
+      navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
     }
 
-    // Handle install prompt event
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
@@ -56,10 +121,8 @@ export function usePWA() {
       setDeferredPrompt(null);
       setIsInstallable(false);
       setIsInstalled(true);
-      console.log('PWA installed successfully!');
     };
 
-    // Network status listeners
     const handleOnline = () => setIsOffline(false);
     const handleOffline = () => setIsOffline(true);
 
@@ -71,7 +134,7 @@ export function usePWA() {
     return () => {
       window.removeEventListener('load', registerServiceWorker);
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.removeEventListener('controllerchange', handleServiceWorkerUpdate);
+        navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange);
       }
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
@@ -82,10 +145,10 @@ export function usePWA() {
 
   const installPWA = async () => {
     if (!deferredPrompt) return false;
-    
+
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
-    
+
     if (outcome === 'accepted') {
       setIsInstallable(false);
       setDeferredPrompt(null);
@@ -98,6 +161,9 @@ export function usePWA() {
     isInstallable,
     isInstalled,
     isOffline,
+    updateAvailable,
     installPWA,
+    applyUpdate,
+    dismissUpdate,
   };
 }

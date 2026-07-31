@@ -1,47 +1,55 @@
-const CACHE_NAME = 'daily-todo-pwa-v2';
-const ASSETS_TO_CACHE = [
-  '/index.html',
-  '/manifest.json',
-  '/icon.svg'
-];
+const CACHE_NAME = 'daily-todo-pwa-v3';
+const ASSETS_TO_CACHE = ['/index.html', '/manifest.json', '/icon.svg', '/apple-touch-icon.png'];
 
-// Install event - precache core assets
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    }).then(() => self.skipWaiting())
+    caches
+      .open(CACHE_NAME)
+      .then((cache) => cache.addAll(ASSETS_TO_CACHE))
+      .then(() => self.skipWaiting())
   );
 });
 
-// Activate event - clean old caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    }).then(() => self.clients.claim())
+    caches
+      .keys()
+      .then((cacheNames) =>
+        Promise.all(
+          cacheNames.map((cacheName) => {
+            if (cacheName !== CACHE_NAME) {
+              return caches.delete(cacheName);
+            }
+            return undefined;
+          })
+        )
+      )
+      .then(() => self.clients.claim())
   );
 });
 
-// Fetch event - Stale-While-Revalidate strategy for app resources
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   const url = new URL(event.request.url);
-
-  // Skip caching external API calls / Supabase calls
   if (url.origin !== self.location.origin) {
     return;
   }
 
-  // Always fetch navigations from the network first so OAuth callbacks and
-  // new deployments cannot be trapped behind a stale cached app shell.
+  // Never cache the service worker script itself — stale sw.js causes endless
+  // "update available" prompts after deploys.
+  if (url.pathname === '/sw.js') {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
+  // Navigations: network-first so new deploys are not trapped behind old shell.
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
@@ -59,10 +67,14 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      const fetchPromise = fetch(event.request)
-        .then((networkResponse) => {
+  // Hashed Vite assets: cache-first is fine; unhashed files use network-first.
+  const isHashedAsset = /\/assets\/.+\.[a-f0-9]{8,}\./i.test(url.pathname);
+
+  if (isHashedAsset) {
+    event.respondWith(
+      caches.match(event.request).then((cachedResponse) => {
+        if (cachedResponse) return cachedResponse;
+        return fetch(event.request).then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
             const responseToCache = networkResponse.clone();
             caches.open(CACHE_NAME).then((cache) => {
@@ -70,10 +82,23 @@ self.addEventListener('fetch', (event) => {
             });
           }
           return networkResponse;
-        })
-        .catch(() => undefined);
+        });
+      })
+    );
+    return;
+  }
 
-      return cachedResponse || fetchPromise;
-    })
+  event.respondWith(
+    fetch(event.request)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
+        }
+        return networkResponse;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
