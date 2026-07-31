@@ -188,6 +188,29 @@ create table if not exists public.ai_daily_usage (
   primary key (user_id, usage_date)
 );
 
+-- Existing DBs may have created this table earlier without a `count` column
+-- (CREATE TABLE IF NOT EXISTS will not add missing columns).
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'ai_daily_usage'
+      and column_name = 'usage_count'
+  ) and not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'ai_daily_usage'
+      and column_name = 'count'
+  ) then
+    alter table public.ai_daily_usage rename column usage_count to count;
+  end if;
+end
+$$;
+
+alter table public.ai_daily_usage
+  add column if not exists count integer not null default 0;
+
 alter table public.ai_daily_usage enable row level security;
 
 drop policy if exists "ai_daily_usage_select_own" on public.ai_daily_usage;
