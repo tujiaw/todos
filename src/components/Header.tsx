@@ -16,7 +16,7 @@ import {
   Download,
   Smartphone,
   WifiOff,
-  Send,
+  StickyNote,
 } from 'lucide-react';
 import { User } from '@supabase/supabase-js';
 import { getTodayDateString } from '../data/initialData';
@@ -318,7 +318,7 @@ export const Header: React.FC<HeaderProps> = ({
                 className="p-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors min-h-[34px] min-w-[34px] flex items-center justify-center relative"
                 title="Edge Drop (Notes & Files)"
               >
-                <Send className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <StickyNote className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
               </button>
 
               <button
@@ -353,7 +353,7 @@ export const Header: React.FC<HeaderProps> = ({
                       }}
                       className="w-full text-left px-3 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
                     >
-                      <Send className="w-3.5 h-3.5 text-blue-500" />
+                      <StickyNote className="w-3.5 h-3.5 text-indigo-500" />
                       <span>Drop (Notes & Files)</span>
                     </button>
 

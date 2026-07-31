@@ -11,8 +11,8 @@ import {
   RefreshCw,
   LoaderCircle,
   Search,
-  Database,
   EllipsisVertical,
+  StickyNote,
   File as FileIcon,
   FileArchive,
   FileAudio,
@@ -191,13 +191,17 @@ export const DropModal: React.FC<DropModalProps> = ({
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
   const [showToolbar, setShowToolbar] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const dragDepthRef = useRef(0);
   const prevNewestItemIdRef = useRef<string | null>(null);
   const newestItemId = dropItems.length > 0 ? dropItems[dropItems.length - 1].id : null;
+  const hasSearchQuery = Boolean(searchQuery.trim());
 
   // First open: instant scroll to bottom before paint (no visible animation)
   useLayoutEffect(() => {
@@ -239,6 +243,8 @@ export const DropModal: React.FC<DropModalProps> = ({
       if (event.key === 'Escape') {
         if (previewImage) {
           setPreviewImage(null);
+        } else if (menuOpen) {
+          setMenuOpen(false);
         } else {
           onClose();
         }
@@ -250,12 +256,42 @@ export const DropModal: React.FC<DropModalProps> = ({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener('keydown', handleEscape);
     };
-  }, [isOpen, onClose, previewImage]);
+  }, [isOpen, onClose, previewImage, menuOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setMenuOpen(false);
+      if (!searchQuery.trim()) setShowToolbar(false);
+      return;
+    }
+  }, [isOpen, searchQuery]);
+
+  // Keep search visible while a query is active so filters never stay silent.
+  useEffect(() => {
+    if (hasSearchQuery) setShowToolbar(true);
+  }, [hasSearchQuery]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, [menuOpen]);
 
   if (!isOpen) return null;
 
+  const openSearch = () => {
+    setMenuOpen(false);
+    setShowToolbar(true);
+    requestAnimationFrame(() => searchInputRef.current?.focus());
+  };
+
   const handleSend = async () => {
-    if (isLoading || isSubmitting || (!inputText.trim() && attachedFiles.length === 0)) return;
+    if (isSubmitting || (!inputText.trim() && attachedFiles.length === 0)) return;
 
     setIsSubmitting(true);
     try {
@@ -327,7 +363,7 @@ export const DropModal: React.FC<DropModalProps> = ({
   const handleDragEnter = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     dragDepthRef.current += 1;
-    if (!isLoading && !isSubmitting && event.dataTransfer.types.includes('Files')) {
+    if (!isSubmitting && isAuthenticated && event.dataTransfer.types.includes('Files')) {
       setIsDraggingFiles(true);
     }
   };
@@ -349,7 +385,7 @@ export const DropModal: React.FC<DropModalProps> = ({
     event.preventDefault();
     dragDepthRef.current = 0;
     setIsDraggingFiles(false);
-    if (isLoading || isSubmitting) return;
+    if (isSubmitting || !isAuthenticated) return;
 
     const files = Array.from(event.dataTransfer.files) as File[];
     if (files.length > 0) {
@@ -433,15 +469,7 @@ export const DropModal: React.FC<DropModalProps> = ({
     }
   };
 
-  const handleRemoveAttachedFile = async (index: number, fileName?: string) => {
-    const confirmed = await confirmAction({
-      title: 'Remove this attachment?',
-      description: `${fileName || 'This file'} will be removed from the pending Drop.`,
-      confirmLabel: 'Remove',
-      container: panelRef.current,
-    });
-    if (!confirmed) return;
-
+  const handleRemoveAttachedFile = (index: number) => {
     setAttachedFiles((currentFiles) =>
       currentFiles.filter((_, fileIndex) => fileIndex !== index)
     );
@@ -496,43 +524,85 @@ export const DropModal: React.FC<DropModalProps> = ({
           </div>
         )}
 
-        {/* Header Bar */}
         <div className="drop-header px-4 sm:px-5 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="drop-logo p-2 rounded-xl bg-white/70 text-indigo-600 border border-white/80">
-              <Send className="w-4 h-4" />
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="drop-logo p-2 rounded-xl bg-white/70 text-indigo-600 border border-white/80 shrink-0">
+              <StickyNote className="w-4 h-4" />
             </div>
-            <div className="flex items-center gap-2">
-              <h3 id="edge-drop-title" className="text-sm font-bold text-slate-800 dark:text-slate-100 tracking-tight">Edge Drop</h3>
-              <span className="drop-status-pill text-[9px] px-2 py-0.5 rounded-full text-indigo-700 dark:text-indigo-200 font-semibold flex items-center gap-1">
-                <Database className="w-2.5 h-2.5" />
-                Cloud
-              </span>
+            <div className="min-w-0">
+              <h3
+                id="edge-drop-title"
+                className="text-sm font-bold text-slate-800 dark:text-slate-100 tracking-tight"
+              >
+                Edge Drop
+              </h3>
+              <p className="text-[10px] text-indigo-600/80 dark:text-indigo-300/80 font-medium truncate">
+                Notes & files across devices
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={onRefreshDropItems}
-              disabled={isLoading}
-              className="drop-header-action p-2 text-indigo-500 dark:text-indigo-200 hover:text-indigo-700 dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/10 rounded-xl transition-colors"
-              title="Refresh drop items"
-            >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-blue-500' : ''}`} />
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowToolbar(!showToolbar)}
-              className={`drop-header-action p-2 rounded-xl transition-colors ${
-                showToolbar
-                  ? 'bg-white/60 dark:bg-white/10 text-indigo-700 dark:text-white'
-                  : 'text-indigo-500 dark:text-indigo-200 hover:text-indigo-700 dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/10'
-              }`}
-              title="Toggle search & clear"
-            >
-              <EllipsisVertical className="w-4 h-4" />
-            </button>
+          <div className="flex items-center gap-1 shrink-0">
+            <div ref={menuRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setMenuOpen((open) => !open)}
+                className={`drop-header-action p-2 rounded-xl transition-colors ${
+                  menuOpen || showToolbar || hasSearchQuery
+                    ? 'bg-white/60 dark:bg-white/10 text-indigo-700 dark:text-white'
+                    : 'text-indigo-500 dark:text-indigo-200 hover:text-indigo-700 dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/10'
+                }`}
+                title="More actions"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+              >
+                <EllipsisVertical className="w-4 h-4" />
+              </button>
+              {menuOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 top-full mt-1.5 w-44 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl overflow-hidden z-20 py-1"
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={openSearch}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-[12px] font-medium text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
+                  >
+                    <Search className="w-3.5 h-3.5 text-indigo-500" />
+                    Search
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      void onRefreshDropItems();
+                    }}
+                    disabled={isLoading}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-[12px] font-medium text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 text-indigo-500 ${isLoading ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </button>
+                  {dropItems.length > 0 && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        void handleClearConfirm();
+                      }}
+                      disabled={isClearing}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-left text-[12px] font-medium text-rose-600 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/30 disabled:opacity-50"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Clear all
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
             <button
               type="button"
               onClick={onClose}
@@ -564,45 +634,42 @@ export const DropModal: React.FC<DropModalProps> = ({
           </div>
         )}
 
-        {/* Search Bar & Actions Bar — toggled via "..." */}
+        {/* Search stays hidden by default; open from ⋯ menu. Auto-shows while filtering. */}
         {showToolbar && (
-        <div className="drop-toolbar px-4 sm:px-5 py-3 flex items-center justify-between gap-2 text-xs">
-          <div className="relative flex-1">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Search"
-              value={searchQuery}
-              onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full text-xs pl-8 pr-8 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 shadow-sm"
-            />
-            {searchQuery && (
+          <div className="drop-toolbar px-4 sm:px-5 py-2.5 flex items-center gap-2 text-xs">
+            <div className="relative flex-1 max-w-[16rem]">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                placeholder="Search"
+                value={searchQuery}
+                onChange={(e) => onSearchChange(e.target.value)}
+                className="w-full text-xs pl-8 pr-8 py-2 rounded-xl border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 shadow-sm"
+              />
+              {hasSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => onSearchChange('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  aria-label="Clear search"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+            {!hasSearchQuery && (
               <button
                 type="button"
-                onClick={() => onSearchChange('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                onClick={() => setShowToolbar(false)}
+                className="text-[11px] font-medium text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0"
               >
-                <X className="w-3 h-3" />
+                Hide
               </button>
             )}
           </div>
-
-          {dropItems.length > 0 && (
-            <button
-              type="button"
-              onClick={handleClearConfirm}
-              disabled={isClearing}
-              className="text-[11px] text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 px-2.5 py-2 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors flex items-center gap-1.5 shrink-0"
-              title="Clear all records"
-            >
-              <Trash2 className="w-3 h-3" />
-              <span>Clear All</span>
-            </button>
-          )}
-        </div>
         )}
 
-        {/* Feed Items Container with Scroll Detection */}
         <div
           ref={scrollContainerRef}
           onScroll={handleScroll}
@@ -610,19 +677,34 @@ export const DropModal: React.FC<DropModalProps> = ({
         >
           {isLoading && dropItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-slate-400 text-xs gap-2 py-12">
-              <RefreshCw className="w-6 h-6 animate-spin text-blue-500" />
-              <span>Syncing...</span>
+              <RefreshCw className="w-6 h-6 animate-spin text-indigo-500" />
+              <span>Syncing notes…</span>
+              <span className="text-slate-400 dark:text-slate-500">You can still write below.</span>
             </div>
           ) : dropItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-slate-400 text-xs gap-3 py-12 text-center">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-950/50 dark:to-indigo-950/70 text-indigo-600 dark:text-indigo-300 flex items-center justify-center shadow-inner">
-                <FileText className="w-6 h-6" />
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-950/50 dark:to-indigo-950/70 text-indigo-600 dark:text-indigo-300 flex items-center justify-center shadow-inner">
+                {hasSearchQuery ? <Search className="w-6 h-6" /> : <StickyNote className="w-6 h-6" />}
               </div>
-              <div className="space-y-1 max-w-xs">
+              <div className="space-y-1.5 max-w-xs">
                 <p className="font-semibold text-slate-700 dark:text-slate-300">
-                  {searchQuery ? 'No matches' : 'Nothing here yet'}
+                  {hasSearchQuery ? 'No matches' : 'Nothing here yet'}
+                </p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                  {hasSearchQuery
+                    ? 'Try another keyword, or clear the search to see everything.'
+                    : 'Write a note below, paste an image, or drop a file here.'}
                 </p>
               </div>
+              {hasSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => onSearchChange('')}
+                  className="mt-1 px-3 py-1.5 rounded-xl text-[11px] font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors"
+                >
+                  Clear search
+                </button>
+              )}
             </div>
           ) : (
             <>
@@ -816,7 +898,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                   </div>
                   <button
                     type="button"
-                    onClick={() => handleRemoveAttachedFile(index, file.name)}
+                    onClick={() => handleRemoveAttachedFile(index)}
                     className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                     aria-label={`Remove ${file.name || 'attachment'}`}
                   >
@@ -834,15 +916,15 @@ export const DropModal: React.FC<DropModalProps> = ({
               ref={fileInputRef}
               onChange={handleFileUpload}
               multiple
-              disabled={isLoading || isSubmitting}
+              disabled={isSubmitting || !isAuthenticated}
               className="hidden"
             />
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              disabled={isLoading || isSubmitting}
-              className="h-9 shrink-0 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 flex items-center gap-1 px-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
-              title="Attach file or image"
+              disabled={isSubmitting || !isAuthenticated}
+              className="h-9 shrink-0 text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-300 flex items-center gap-1 px-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+              title={isAuthenticated ? 'Attach file or image' : 'Sign in to attach files'}
             >
               <Paperclip className="w-3.5 h-3.5" />
               <span className="text-[11px]">Attach</span>
@@ -854,11 +936,11 @@ export const DropModal: React.FC<DropModalProps> = ({
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
               placeholder={
-                isLoading
-                  ? 'Syncing...'
-                  : 'Drop a note or paste an image...'
+                isAuthenticated
+                  ? 'Drop a note or paste an image...'
+                  : 'Sign in to send notes…'
               }
-              disabled={isLoading}
+              disabled={!isAuthenticated || isSubmitting}
               rows={1}
               className="min-w-0 flex-1 h-9 text-[13px] leading-5 px-2 py-2 bg-slate-50/80 dark:bg-slate-800/70 rounded-lg text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none resize-none disabled:cursor-not-allowed disabled:opacity-60"
             />
@@ -868,11 +950,10 @@ export const DropModal: React.FC<DropModalProps> = ({
               onClick={handleSend}
               disabled={
                 !isAuthenticated ||
-                isLoading ||
                 isSubmitting ||
                 (!inputText.trim() && attachedFiles.length === 0)
               }
-              className="h-9 px-3 bg-gradient-to-br from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 disabled:opacity-40 text-white font-bold text-xs rounded-lg transition-all flex items-center gap-1.5 shadow-md shadow-indigo-500/20 shrink-0"
+              className="h-9 px-3 bg-gradient-to-br from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 disabled:opacity-40 text-white font-bold text-xs rounded-lg transition-all flex items-center gap-1.5 shadow-md shadow-indigo-500/20 shrink-0"
               title={isAuthenticated ? 'Send drop note' : 'Sign in before sending'}
             >
               <span>Send</span>

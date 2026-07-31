@@ -112,8 +112,11 @@ test('Drop remains a text and file transfer surface without task AI actions', ()
   assert.doesNotMatch(dropModal, /onConvertToTask|\+ Task|handleConvert/);
   assert.match(dropModal, /sm:w-\[420px\] lg:w-\[440px\]/);
   assert.match(dropModal, /rows=\{1\}/);
+  assert.match(dropModal, /Search stays hidden by default/);
+  assert.match(dropModal, /You can still write below/);
+  assert.match(dropModal, /Write a note below, paste an image/);
 
-  const attachIndex = dropModal.indexOf('title="Attach file or image"');
+  const attachIndex = dropModal.indexOf("title={isAuthenticated ? 'Attach file or image'");
   const inputIndex = dropModal.indexOf('<textarea', attachIndex);
   const sendIndex = dropModal.indexOf("title={isAuthenticated ? 'Send drop note'", inputIndex);
   assert.ok(attachIndex >= 0 && inputIndex > attachIndex && sendIndex > inputIndex);

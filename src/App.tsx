@@ -195,8 +195,6 @@ export default function App() {
   };
 
   const handleOpenDropModal = () => {
-    // Disable the composer on the first rendered frame while the opening sync starts.
-    setIsLoadingDropItems(true);
     setIsDropModalOpen(true);
   };
 
