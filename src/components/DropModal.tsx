@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import {
   Send,
   X,
@@ -199,20 +199,17 @@ export const DropModal: React.FC<DropModalProps> = ({
   const prevNewestItemIdRef = useRef<string | null>(null);
   const newestItemId = dropItems.length > 0 ? dropItems[dropItems.length - 1].id : null;
 
-  // First open: instant scroll to bottom (no animation)
-  useEffect(() => {
+  // First open: instant scroll to bottom before paint (no visible animation)
+  useLayoutEffect(() => {
     if (!isOpen) {
       prevNewestItemIdRef.current = null;
       return;
     }
 
-    const frame = requestAnimationFrame(() => {
-      const container = scrollContainerRef.current;
-      if (container) {
-        container.scrollTop = container.scrollHeight;
-      }
-    });
-    return () => cancelAnimationFrame(frame);
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
   }, [isOpen]);
 
   // New items arrive while open: smooth scroll to bottom
