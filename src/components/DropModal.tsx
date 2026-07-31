@@ -139,6 +139,54 @@ function FileTypeIcon({
   return <Icon className={`${className} ${colorClass} shrink-0`} />;
 }
 
+const DROP_TEXT_COLLAPSE_CHARS = 180;
+const DROP_TEXT_COLLAPSE_LINES = 5;
+
+function shouldCollapseDropText(content: string): boolean {
+  if (content.length > DROP_TEXT_COLLAPSE_CHARS) return true;
+  return content.split('\n').length > DROP_TEXT_COLLAPSE_LINES;
+}
+
+function CollapsibleDropText({ content }: { content: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const link = content.startsWith('http://') || content.startsWith('https://');
+  const needsCollapse = shouldCollapseDropText(content);
+  const collapsed = needsCollapse && !expanded;
+
+  return (
+    <div className="space-y-1.5">
+      <div
+        className={`text-[13px] text-slate-700 dark:text-slate-200 leading-relaxed whitespace-pre-wrap break-words font-sans ${
+          collapsed ? 'line-clamp-4' : ''
+        }`}
+      >
+        {link ? (
+          <a
+            href={content}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 inline-flex items-start gap-1 break-all font-medium"
+          >
+            <span className={collapsed ? 'line-clamp-4' : ''}>{content}</span>
+            <ExternalLink className="w-3 h-3 shrink-0 mt-0.5" />
+          </a>
+        ) : (
+          content
+        )}
+      </div>
+      {needsCollapse && (
+        <button
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
+          className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-300 hover:text-indigo-700 dark:hover:text-indigo-200 transition-colors"
+        >
+          {expanded ? 'Show less' : 'Show more'}
+        </button>
+      )}
+    </div>
+  );
+}
+
 interface DropModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -772,24 +820,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Main Content Body */}
-                  {item.content && (
-                    <div className="text-[13px] text-slate-700 dark:text-slate-200 leading-relaxed whitespace-pre-wrap break-words font-sans">
-                      {isUrl(item.content) ? (
-                        <a
-                          href={item.content}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 flex items-center gap-1 inline-flex break-all font-medium"
-                        >
-                          <span>{item.content}</span>
-                          <ExternalLink className="w-3 h-3 shrink-0" />
-                        </a>
-                      ) : (
-                        item.content
-                      )}
-                    </div>
-                  )}
+                  {item.content && <CollapsibleDropText content={item.content} />}
 
                   {/* Attachment / Image Preview */}
                   {item.url && (
