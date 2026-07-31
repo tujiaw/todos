@@ -733,6 +733,7 @@ export default function App() {
             completedTasks={completedTasksCount}
             dateStr={selectedDate}
             tasks={tasks}
+            onDateSelect={setSelectedDate}
           />
 
           <TaskInput

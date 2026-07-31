@@ -9,6 +9,7 @@ interface ProgressBarProps {
   completedTasks: number;
   dateStr: string;
   tasks: Task[];
+  onDateSelect?: (date: string) => void;
 }
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -38,6 +39,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   completedTasks,
   dateStr,
   tasks,
+  onDateSelect,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [weekOffset, setWeekOffset] = useState(0);
@@ -207,13 +209,16 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
                   const dayIndex = dow === 0 ? 6 : dow - 1;
 
                   return (
-                    <div
+                    <button
+                      type="button"
                       key={day.date}
-                      className="flex flex-col items-center gap-1 flex-1 min-w-0"
+                      onClick={() => onDateSelect?.(day.date)}
+                      className="flex flex-col items-center gap-1 flex-1 min-w-0 group cursor-pointer hover:bg-white/50 dark:hover:bg-white/5 rounded-lg py-1 -my-1 transition-colors"
+                      title={`${DAY_LABELS[dayIndex]}: ${day.total} tasks (${day.completed} done)`}
                     >
                       {/* Count label above bar */}
                       {day.total > 0 && (
-                        <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 leading-none">
+                        <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 leading-none transition-colors">
                           {day.total}
                         </span>
                       )}
@@ -223,7 +228,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
 
                       {/* Stacked Bar */}
                       <div
-                        className="w-full max-w-[24px] rounded-md overflow-hidden flex flex-col justify-end"
+                        className="w-full max-w-[24px] rounded-md overflow-hidden flex flex-col justify-end group-hover:ring-2 group-hover:ring-indigo-400/60 transition-all"
                         style={{ height: `${barHeight}px` }}
                       >
                         {/* Completed portion (top, green) */}
@@ -244,7 +249,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
 
                       {/* Day label */}
                       <span
-                        className={`text-[10px] font-medium leading-none mt-0.5 ${
+                        className={`text-[10px] font-medium leading-none mt-0.5 group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-colors ${
                           day.isToday
                             ? 'text-indigo-600 dark:text-indigo-400 font-bold'
                             : 'text-slate-400 dark:text-slate-500'
@@ -252,7 +257,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
                       >
                         {DAY_LABELS[dayIndex]}
                       </span>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
