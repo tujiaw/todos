@@ -6,12 +6,10 @@ import {
   RefreshCw,
   CheckCircle2,
   Flame,
-  HardDriveUpload,
   Sun,
   Moon,
   MoreVertical,
   X,
-  CalendarDays,
   Github,
   LogOut,
   Database,
@@ -43,6 +41,204 @@ interface HeaderProps {
   isOffline?: boolean;
 }
 
+function shiftDate(dateStr: string, days: number): string {
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + days);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function formatDateDisplay(dateStr: string, todayStr: string) {
+  const d = new Date(dateStr + 'T00:00:00');
+  if (isNaN(d.getTime())) return { full: dateStr, short: dateStr };
+
+  const todayDate = new Date(todayStr + 'T00:00:00');
+  const diffDays = Math.round((d.getTime() - todayDate.getTime()) / (1000 * 3600 * 24));
+  const formatted = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+  if (diffDays === 0) {
+    return {
+      full: `${formatted} (Today)`,
+      short: `Today (${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})`,
+    };
+  }
+
+  if (diffDays === -1) return { full: `${formatted} (Yesterday)`, short: `Yesterday` };
+  if (diffDays === 1) return { full: `${formatted} (Tomorrow)`, short: `Tomorrow` };
+
+  const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+  return {
+    full: `${dayName}, ${formatted}`,
+    short: `${dayName}, ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+  };
+}
+
+interface DateNavigatorProps {
+  selectedDate: string;
+  todayStr: string;
+  compact?: boolean;
+  onSelectDate: (date: string) => void;
+}
+
+const DateNavigator: React.FC<DateNavigatorProps> = ({
+  selectedDate,
+  todayStr,
+  compact = false,
+  onSelectDate,
+}) => {
+  const isToday = selectedDate === todayStr;
+  const formattedDate = formatDateDisplay(selectedDate, todayStr);
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    const handleScroll = () => setOpen(false);
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, [open]);
+
+  const selectAndClose = (date: string) => {
+    onSelectDate(date);
+    setOpen(false);
+  };
+
+  const navBtnClass = compact
+    ? 'p-1 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-all min-h-[30px] min-w-[30px] flex items-center justify-center'
+    : 'p-1.5 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-all min-h-[32px] min-w-[32px] flex items-center justify-center';
+
+  const dateBtnClass = compact
+    ? 'flex items-center gap-1.5 px-2 py-1 text-xs font-semibold text-slate-800 dark:text-slate-100 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-all cursor-pointer min-h-[30px]'
+    : 'flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-slate-800 dark:text-slate-100 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-all cursor-pointer min-h-[32px]';
+
+  const todayBtnClass = compact
+    ? 'ml-1 px-2 py-0.5 text-xs font-medium bg-blue-50 dark:bg-blue-950/80 text-blue-600 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/80 border border-blue-200 dark:border-blue-800 rounded-lg transition-colors flex items-center gap-1 min-h-[30px]'
+    : 'ml-1 px-2 py-1 text-xs font-medium bg-blue-50 dark:bg-blue-950/80 text-blue-600 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/80 border border-blue-200 dark:border-blue-800 rounded-lg transition-colors flex items-center gap-1 min-h-[32px]';
+
+  return (
+    <div
+      ref={rootRef}
+      className={`relative flex items-center gap-1 bg-slate-100/80 dark:bg-slate-900/80 p-1.5 rounded-2xl border border-slate-200/70 dark:border-slate-800 ${
+        compact ? 'justify-between w-full mt-2' : 'justify-center'
+      }`}
+    >
+      <button
+        type="button"
+        id={compact ? 'btn-prev-day-mobile' : 'btn-prev-day-desktop'}
+        onClick={() => onSelectDate(shiftDate(selectedDate, -1))}
+        className={navBtnClass}
+        title="Previous Day"
+      >
+        <ChevronLeft className="w-4 h-4" />
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        className={`${dateBtnClass} ${open ? 'bg-white dark:bg-slate-700' : ''}`}
+        title="Click to select date"
+        aria-expanded={open}
+        aria-haspopup="dialog"
+      >
+        <CalendarIcon className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+        <span>{compact ? formattedDate.short : formattedDate.full}</span>
+      </button>
+
+      <button
+        type="button"
+        id={compact ? 'btn-next-day-mobile' : 'btn-next-day-desktop'}
+        onClick={() => onSelectDate(shiftDate(selectedDate, 1))}
+        className={navBtnClass}
+        title="Next Day"
+      >
+        <ChevronRight className="w-4 h-4" />
+      </button>
+
+      {!isToday && (
+        <button
+          type="button"
+          onClick={() => onSelectDate(todayStr)}
+          className={todayBtnClass}
+          title="Return to Today"
+        >
+          <RefreshCw className="w-3 h-3" />
+          <span>Today</span>
+        </button>
+      )}
+
+      {open && (
+        <div
+          className={`absolute top-full z-50 mt-1.5 w-72 max-w-[calc(100vw-1.5rem)] bg-white dark:bg-slate-900 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 p-3 space-y-3 ${
+            compact ? 'left-0 right-0 mx-auto' : 'left-1/2 -translate-x-1/2'
+          }`}
+          role="dialog"
+          aria-label="Select date"
+        >
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+              <CalendarIcon className="w-3.5 h-3.5 text-blue-600" />
+              <span>Select Date</span>
+            </h3>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => {
+              if (e.target.value) selectAndClose(e.target.value);
+            }}
+            className="w-full text-sm p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            autoFocus
+          />
+
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => selectAndClose(todayStr)}
+              className="py-1.5 px-3 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-300 text-xs font-semibold rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors"
+            >
+              Today
+            </button>
+            <button
+              type="button"
+              onClick={() => selectAndClose(shiftDate(todayStr, 1))}
+              className="py-1.5 px-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+            >
+              Tomorrow
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const Header: React.FC<HeaderProps> = ({
   selectedDate,
   setSelectedDate,
@@ -61,425 +257,211 @@ export const Header: React.FC<HeaderProps> = ({
   isOffline,
 }) => {
   const todayStr = getTodayDateString();
-  const isToday = selectedDate === todayStr;
-
-  const dateInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showPwaGuideModal, setShowPwaGuideModal] = useState(false);
 
   useEffect(() => {
+    if (!showMoreMenu) return;
+
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setShowMoreMenu(false);
       }
     };
-    const handleScroll = () => {
-      if (showMoreMenu) setShowMoreMenu(false);
-    };
+    const handleScroll = () => setShowMoreMenu(false);
 
-    if (showMoreMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-      window.addEventListener('scroll', handleScroll, { passive: true });
-    }
+    document.addEventListener('mousedown', handleClickOutside);
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       window.removeEventListener('scroll', handleScroll);
     };
   }, [showMoreMenu]);
 
-  // Format date display for desktop and compact mobile
-  const formatDateDisplay = (dateStr: string) => {
-    const d = new Date(dateStr + 'T00:00:00');
-    if (isNaN(d.getTime())) return { full: dateStr, short: dateStr };
-
-    const todayDate = new Date(todayStr + 'T00:00:00');
-    const diffTime = d.getTime() - todayDate.getTime();
-    const diffDays = Math.round(diffTime / (1000 * 3600 * 24));
-
-    const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' };
-    const formatted = d.toLocaleDateString('en-US', options);
-
-    if (diffDays === 0) {
-      return {
-        full: `${formatted} (Today)`,
-        short: `Today (${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})`,
-      };
-    }
-
-    if (diffDays === -1) return { full: `${formatted} (Yesterday)`, short: `Yesterday` };
-    if (diffDays === 1) return { full: `${formatted} (Tomorrow)`, short: `Tomorrow` };
-
-    const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
-
-    return {
-      full: `${dayName}, ${formatted}`,
-      short: `${dayName}, ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
-    };
-  };
-
-  const formattedDate = formatDateDisplay(selectedDate);
-
-  const handlePrevDay = () => {
-    const d = new Date(selectedDate + 'T00:00:00');
-    d.setDate(d.getDate() - 1);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    setSelectedDate(`${y}-${m}-${day}`);
-  };
-
-  const handleNextDay = () => {
-    const d = new Date(selectedDate + 'T00:00:00');
-    d.setDate(d.getDate() + 1);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    setSelectedDate(`${y}-${m}-${day}`);
-  };
-
-  const handleTodayClick = () => {
-    setSelectedDate(todayStr);
-  };
-
-  const openNativeOrCustomPicker = () => {
-    if (dateInputRef.current && typeof dateInputRef.current.showPicker === 'function') {
-      try {
-        dateInputRef.current.showPicker();
-      } catch {
-        setShowCalendarModal(true);
-      }
-    } else {
-      setShowCalendarModal(true);
-    }
-  };
-
   return (
     <>
       <header id="app-header" className="bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl border-b border-white/70 dark:border-slate-800/80 sticky top-0 z-30 transition-colors">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
-        {/* Main Header Bar */}
-        <div className="flex items-center justify-between gap-2">
-          {/* Left: Logo & Main Title */}
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-violet-700 flex items-center justify-center text-white shadow-lg shadow-indigo-500/25 shrink-0">
-              <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.2]" />
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-violet-700 flex items-center justify-center text-white shadow-lg shadow-indigo-500/25 shrink-0">
+                <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.2]" />
+              </div>
+              <h1 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight leading-none whitespace-nowrap">
+                Daily <span className="text-indigo-600 dark:text-indigo-400">TODOs</span>
+              </h1>
             </div>
-            <h1 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight leading-none whitespace-nowrap">
-              Daily <span className="text-indigo-600 dark:text-indigo-400">TODOs</span>
-            </h1>
-          </div>
 
-          {/* Center: Date Navigator (Desktop) */}
-          <div className="hidden sm:flex items-center justify-center gap-1 bg-slate-100/80 dark:bg-slate-900/80 p-1.5 rounded-2xl border border-slate-200/70 dark:border-slate-800">
-            <button
-              id="btn-prev-day-desktop"
-              onClick={handlePrevDay}
-              className="p-1.5 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-all min-h-[32px] min-w-[32px] flex items-center justify-center"
-              title="Previous Day"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
+            <div className="hidden sm:block">
+              <DateNavigator
+                selectedDate={selectedDate}
+                todayStr={todayStr}
+                onSelectDate={setSelectedDate}
+              />
+            </div>
 
-            <button
-              type="button"
-              onClick={openNativeOrCustomPicker}
-              className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-slate-800 dark:text-slate-100 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-all cursor-pointer min-h-[32px]"
-              title="Click to select date"
-            >
-              <CalendarIcon className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
-              <span>{formattedDate.full}</span>
-            </button>
-
-            <button
-              id="btn-next-day-desktop"
-              onClick={handleNextDay}
-              className="p-1.5 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-all min-h-[32px] min-w-[32px] flex items-center justify-center"
-              title="Next Day"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-
-            {!isToday && (
-              <button
-                onClick={handleTodayClick}
-                className="ml-1 px-2 py-1 text-xs font-medium bg-blue-50 dark:bg-blue-950/80 text-blue-600 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/80 border border-blue-200 dark:border-blue-800 rounded-lg transition-colors flex items-center gap-1 min-h-[32px]"
-                title="Return to Today"
-              >
-                <RefreshCw className="w-3 h-3" />
-                <span>Today</span>
-              </button>
-            )}
-          </div>
-
-          {/* Right Header Actions (GitHub Login, Theme Toggle, Settings/More) */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            {/* GitHub User Auth Button / User Profile */}
-            {user ? (
-              <button
-                onClick={onOpenSyncModal}
-                className="flex items-center gap-1.5 p-1 sm:pr-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors min-h-[34px]"
-                title="Connected to Supabase. Click to manage sync."
-              >
-                <img
-                  src={user.user_metadata?.avatar_url || 'https://github.com/github.png'}
-                  alt="GitHub Profile"
-                  className="w-5 h-5 rounded-lg object-cover"
-                />
-                <span className="hidden sm:inline text-xs font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[90px]">
-                  {user.user_metadata?.full_name?.split(' ')[0] || 'GitHub'}
-                </span>
-                <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-              </button>
-            ) : (
-              <button
-                onClick={onGitHubLogin}
-                className="px-2.5 py-1.5 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs min-h-[34px]"
-                title="Sign in with GitHub to sync tasks via Supabase"
-              >
-                <Github className="w-3.5 h-3.5 fill-white" />
-                <span className="hidden sm:inline">Sign In</span>
-              </button>
-            )}
-
-            {/* Edge Drop Quick Access Button */}
-            <button
-              id="btn-drop-toggle"
-              onClick={onOpenDropModal}
-              className="p-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors min-h-[34px] min-w-[34px] flex items-center justify-center relative"
-              title="Edge Drop (Notes & Files)"
-            >
-              <Send className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-            </button>
-
-            {/* Dark/Light Mode Toggle Button */}
-            <button
-              id="btn-theme-toggle"
-              onClick={onToggleTheme}
-              className="p-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors min-h-[34px] min-w-[34px] flex items-center justify-center"
-              title={themeMode === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
-            >
-              {themeMode === 'light' ? (
-                <Moon className="w-4 h-4 text-slate-700" />
+            <div className="flex items-center gap-1.5 shrink-0">
+              {user ? (
+                <button
+                  onClick={onOpenSyncModal}
+                  className="flex items-center gap-1.5 p-1 sm:pr-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors min-h-[34px]"
+                  title="Connected to Supabase. Click to manage sync."
+                >
+                  <img
+                    src={user.user_metadata?.avatar_url || 'https://github.com/github.png'}
+                    alt="GitHub Profile"
+                    className="w-5 h-5 rounded-lg object-cover"
+                  />
+                  <span className="hidden sm:inline text-xs font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[90px]">
+                    {user.user_metadata?.full_name?.split(' ')[0] || 'GitHub'}
+                  </span>
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                </button>
               ) : (
-                <Sun className="w-4 h-4 text-amber-400" />
+                <button
+                  onClick={onGitHubLogin}
+                  className="px-2.5 py-1.5 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs min-h-[34px]"
+                  title="Sign in with GitHub to sync tasks via Supabase"
+                >
+                  <Github className="w-3.5 h-3.5 fill-white" />
+                  <span className="hidden sm:inline">Sign In</span>
+                </button>
               )}
-            </button>
 
-            {/* More Menu Dropdown for Secondary Features & Settings */}
-            <div ref={menuRef} className="relative">
               <button
-                id="btn-more-menu-toggle"
-                onClick={() => setShowMoreMenu(!showMoreMenu)}
-                className="p-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors min-h-[34px] min-w-[34px] flex items-center justify-center"
-                title="More Options & Settings"
+                id="btn-drop-toggle"
+                onClick={onOpenDropModal}
+                className="p-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors min-h-[34px] min-w-[34px] flex items-center justify-center relative"
+                title="Edge Drop (Notes & Files)"
               >
-                <MoreVertical className="w-4 h-4" />
+                <Send className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               </button>
 
-              {showMoreMenu && (
-                <div className="absolute right-0 mt-1 w-56 bg-white dark:bg-slate-900 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 py-1.5 z-40 space-y-0.5">
-                  <button
-                    onClick={() => {
-                      setShowMoreMenu(false);
-                      onOpenDropModal();
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
-                  >
-                    <Send className="w-3.5 h-3.5 text-blue-500" />
-                    <span>Drop (Notes & Files)</span>
-                  </button>
+              <button
+                id="btn-theme-toggle"
+                onClick={onToggleTheme}
+                className="p-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors min-h-[34px] min-w-[34px] flex items-center justify-center"
+                title={themeMode === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+              >
+                {themeMode === 'light' ? (
+                  <Moon className="w-4 h-4 text-slate-700" />
+                ) : (
+                  <Sun className="w-4 h-4 text-amber-400" />
+                )}
+              </button>
 
-                  <button
-                    onClick={() => {
-                      setShowMoreMenu(false);
-                      onOpenCategoryModal();
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
-                  >
-                    <Tag className="w-3.5 h-3.5 text-emerald-500" />
-                    <span>Manage Categories</span>
-                  </button>
+              <div ref={menuRef} className="relative">
+                <button
+                  id="btn-more-menu-toggle"
+                  onClick={() => setShowMoreMenu(!showMoreMenu)}
+                  className="p-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors min-h-[34px] min-w-[34px] flex items-center justify-center"
+                  title="More Options & Settings"
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </button>
 
-                  <button
-                    onClick={() => {
-                      setShowMoreMenu(false);
-                      onOpenSyncModal();
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
-                  >
-                    <Database className="w-3.5 h-3.5 text-indigo-500" />
-                    <span>Supabase Sync & Settings</span>
-                  </button>
-
-                  {/* PWA App Installation Item in Settings */}
-                  <button
-                    onClick={() => {
-                      setShowMoreMenu(false);
-                      if (isInstallable && installPWA) {
-                        installPWA();
-                      } else {
-                        setShowPwaGuideModal(true);
-                      }
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs text-blue-600 dark:text-blue-400 font-semibold hover:bg-blue-50 dark:hover:bg-blue-950/40 flex items-center justify-between gap-2 border-t border-slate-100 dark:border-slate-800"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Download className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                      <span>Install App (PWA)</span>
-                    </div>
-                    {isInstalled && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 font-bold">
-                        Installed
-                      </span>
-                    )}
-                  </button>
-
-                  {user && (
+                {showMoreMenu && (
+                  <div className="absolute right-0 mt-1 w-56 bg-white dark:bg-slate-900 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 py-1.5 z-40 space-y-0.5">
                     <button
                       onClick={() => {
                         setShowMoreMenu(false);
-                        onLogout();
+                        onOpenDropModal();
                       }}
-                      className="w-full text-left px-3 py-2 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 border-t border-slate-100 dark:border-slate-800 mt-1 pt-2"
+                      className="w-full text-left px-3 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
                     >
-                      <LogOut className="w-3.5 h-3.5" />
-                      <span>Sign Out</span>
+                      <Send className="w-3.5 h-3.5 text-blue-500" />
+                      <span>Drop (Notes & Files)</span>
                     </button>
-                  )}
 
-                  {completedStreak > 0 && (
-                    <div className="px-3 py-1.5 text-[11px] text-amber-700 dark:text-amber-300 bg-amber-50/50 dark:bg-amber-950/30 flex items-center gap-1.5">
-                      <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                      <span>{completedStreak} Day Streak!</span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+                    <button
+                      onClick={() => {
+                        setShowMoreMenu(false);
+                        onOpenCategoryModal();
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
+                    >
+                      <Tag className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>Manage Categories</span>
+                    </button>
 
-        {/* Center: Date Navigator (Mobile) */}
-        <div className="flex sm:hidden items-center justify-between gap-1 bg-slate-100/90 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200/70 dark:border-slate-700/70 w-full mt-2">
-          <button
-            id="btn-prev-day-mobile"
-            onClick={handlePrevDay}
-            className="p-1 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-all min-h-[30px] min-w-[30px] flex items-center justify-center"
-            title="Previous Day"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
+                    <button
+                      onClick={() => {
+                        setShowMoreMenu(false);
+                        onOpenSyncModal();
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
+                    >
+                      <Database className="w-3.5 h-3.5 text-indigo-500" />
+                      <span>Supabase Sync & Settings</span>
+                    </button>
 
-          <button
-            type="button"
-            onClick={openNativeOrCustomPicker}
-            className="flex items-center gap-1.5 px-2 py-1 text-xs font-semibold text-slate-800 dark:text-slate-100 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-all cursor-pointer min-h-[30px]"
-            title="Click to select date"
-          >
-            <CalendarIcon className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
-            <span>{formattedDate.short}</span>
-          </button>
+                    <button
+                      onClick={() => {
+                        setShowMoreMenu(false);
+                        if (isInstallable && installPWA) {
+                          installPWA();
+                        } else {
+                          setShowPwaGuideModal(true);
+                        }
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs text-blue-600 dark:text-blue-400 font-semibold hover:bg-blue-50 dark:hover:bg-blue-950/40 flex items-center justify-between gap-2 border-t border-slate-100 dark:border-slate-800"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Download className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                        <span>Install App (PWA)</span>
+                      </div>
+                      {isInstalled && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 font-bold">
+                          Installed
+                        </span>
+                      )}
+                    </button>
 
-          <button
-            id="btn-next-day-mobile"
-            onClick={handleNextDay}
-            className="p-1 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-all min-h-[30px] min-w-[30px] flex items-center justify-center"
-            title="Next Day"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
+                    {user && (
+                      <button
+                        onClick={() => {
+                          setShowMoreMenu(false);
+                          onLogout();
+                        }}
+                        className="w-full text-left px-3 py-2 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 border-t border-slate-100 dark:border-slate-800 mt-1 pt-2"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                        <span>Sign Out</span>
+                      </button>
+                    )}
 
-          {!isToday && (
-            <button
-              onClick={handleTodayClick}
-              className="ml-1 px-2 py-0.5 text-xs font-medium bg-blue-50 dark:bg-blue-950/80 text-blue-600 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/80 border border-blue-200 dark:border-blue-800 rounded-lg transition-colors flex items-center gap-1 min-h-[30px]"
-              title="Return to Today"
-            >
-              <RefreshCw className="w-3 h-3" />
-              <span>Today</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Offline Alert Banner */}
-      {isOffline && (
-        <div className="bg-amber-500/10 dark:bg-amber-500/20 border-t border-b border-amber-500/20 px-3 py-1.5 text-center text-xs text-amber-700 dark:text-amber-300 flex items-center justify-center gap-2 font-medium">
-          <WifiOff className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
-          <span>Offline Mode: Tasks are stored locally and will sync when reconnected.</span>
-        </div>
-      )}
-      </header>
-
-      {/* Fallback Interactive Calendar Picker Modal */}
-      {showCalendarModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 max-w-sm w-full border border-slate-200 dark:border-slate-800 shadow-xl space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <CalendarIcon className="w-4 h-4 text-blue-600" />
-                <span>Select Date</span>
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowCalendarModal(false)}
-                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-300">
-                Choose a date to view or manage tasks:
-              </label>
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => {
-                  if (e.target.value) {
-                    setSelectedDate(e.target.value);
-                    setShowCalendarModal(false);
-                  }
-                }}
-                className="w-full text-sm p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-
-              <div className="grid grid-cols-2 gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedDate(todayStr);
-                    setShowCalendarModal(false);
-                  }}
-                  className="py-1.5 px-3 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-300 text-xs font-semibold rounded-xl border border-blue-200 dark:border-blue-800 hover:bg-blue-100 transition-colors"
-                >
-                  Today ({todayStr})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const d = new Date(todayStr + 'T00:00:00');
-                    d.setDate(d.getDate() + 1);
-                    const y = d.getFullYear();
-                    const m = String(d.getMonth() + 1).padStart(2, '0');
-                    const day = String(d.getDate()).padStart(2, '0');
-                    setSelectedDate(`${y}-${m}-${day}`);
-                    setShowCalendarModal(false);
-                  }}
-                  className="py-1.5 px-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-xl hover:bg-slate-200 transition-colors"
-                >
-                  Tomorrow
-                </button>
+                    {completedStreak > 0 && (
+                      <div className="px-3 py-1.5 text-[11px] text-amber-700 dark:text-amber-300 bg-amber-50/50 dark:bg-amber-950/30 flex items-center gap-1.5">
+                        <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                        <span>{completedStreak} Day Streak!</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* PWA Manual Install Instructions Modal */}
+          <div className="sm:hidden">
+            <DateNavigator
+              selectedDate={selectedDate}
+              todayStr={todayStr}
+              compact
+              onSelectDate={setSelectedDate}
+            />
+          </div>
+        </div>
+
+        {isOffline && (
+          <div className="bg-amber-500/10 dark:bg-amber-500/20 border-t border-b border-amber-500/20 px-3 py-1.5 text-center text-xs text-amber-700 dark:text-amber-300 flex items-center justify-center gap-2 font-medium">
+            <WifiOff className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+            <span>Offline Mode: Tasks are stored locally and will sync when reconnected.</span>
+          </div>
+        )}
+      </header>
+
       {showPwaGuideModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-sm w-full p-5 space-y-4">
