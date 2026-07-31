@@ -107,7 +107,7 @@ alter table public.drop_items alter column user_id set default auth.uid();
 alter table public.drop_items alter column expires_at set default (now() + interval '90 days');
 alter table public.drop_items drop constraint if exists drop_items_kind_check;
 alter table public.drop_items add constraint drop_items_kind_check
-  check (kind in ('text', 'image'));
+  check (kind in ('text', 'image', 'file'));
 
 alter table public.drop_items enable row level security;
 
@@ -180,7 +180,72 @@ create policy "Drop users can delete own files" on storage.objects
   );
 
 
--- Remove legacy database-backed AI quota objects. AI calls are now handled by
--- a same-origin Vercel Function with a lightweight in-memory safety limit.
-drop function if exists public.consume_ai_daily_quota();
-drop table if exists public.ai_daily_usage;
+-- 5. Durable AI daily quota (used by Vercel AI API routes via user JWT + RPC)
+create table if not exists public.ai_daily_usage (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  usage_date text not null,
+  count integer not null default 0,
+  primary key (user_id, usage_date)
+);
+
+alter table public.ai_daily_usage enable row level security;
+
+drop policy if exists "ai_daily_usage_select_own" on public.ai_daily_usage;
+create policy "ai_daily_usage_select_own" on public.ai_daily_usage
+  for select using (auth.uid() = user_id);
+
+create or replace function public.consume_ai_quota(p_limit integer default 50)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_date text := to_char((now() at time zone 'Asia/Shanghai'), 'YYYY-MM-DD');
+  v_count integer;
+begin
+  if v_user_id is null then
+    raise exception 'not authenticated';
+  end if;
+
+  insert into public.ai_daily_usage as u (user_id, usage_date, count)
+  values (v_user_id, v_date, 1)
+  on conflict (user_id, usage_date)
+  do update set count = u.count + 1
+  where u.count < p_limit
+  returning u.count into v_count;
+
+  if v_count is null then
+    return -1;
+  end if;
+  return v_count;
+end;
+$$;
+
+revoke all on function public.consume_ai_quota(integer) from public;
+grant execute on function public.consume_ai_quota(integer) to authenticated;
+
+-- Realtime for tasks / categories (cross-device sync)
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'todo_tasks'
+  ) then
+    alter publication supabase_realtime add table public.todo_tasks;
+  end if;
+  if not exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'todo_categories'
+  ) then
+    alter publication supabase_realtime add table public.todo_categories;
+  end if;
+end
+$$;

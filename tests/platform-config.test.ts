@@ -118,8 +118,9 @@ test('Drop remains a text and file transfer surface without task AI actions', ()
 
   const attachIndex = dropModal.indexOf("title={isAuthenticated ? 'Attach file or image'");
   const inputIndex = dropModal.indexOf('<textarea', attachIndex);
-  const sendIndex = dropModal.indexOf("title={isAuthenticated ? 'Send drop note'", inputIndex);
+  const sendIndex = dropModal.indexOf('title={sendButtonTitle}', inputIndex);
   assert.ok(attachIndex >= 0 && inputIndex > attachIndex && sendIndex > inputIndex);
+  assert.match(dropModal, /sendButtonTitle/);
 });
 
 test('task input adds on Enter and drafts with AI via modifier or button', () => {

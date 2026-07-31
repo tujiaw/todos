@@ -11,11 +11,12 @@ import {
   saveThemeMode,
   loadAiEnabled,
   saveAiEnabled,
+  clearLocalUserData,
 } from './utils/storage';
 import { getTodayDateString } from './data/initialData';
 import { Header } from './components/Header';
 import { usePWA } from './hooks/usePWA';
-import { Download, Github, LoaderCircle, LockKeyhole, X } from 'lucide-react';
+import { Github, LoaderCircle, LockKeyhole } from 'lucide-react';
 import { ProgressBar } from './components/ProgressBar';
 import { TaskInput } from './components/TaskInput';
 import { TaskList } from './components/TaskList';
@@ -26,6 +27,7 @@ import { DropModal } from './components/DropModal';
 import { AiAssistModal } from './components/AiAssistModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { useConfirm } from './components/ConfirmDialog';
+import { useToast } from './components/Toast';
 import {
   generateAiAssist,
   generateDashboardCopy,
@@ -46,6 +48,9 @@ import {
   type AiAssistResult,
 } from './utils/aiAssist';
 import { formatWeekDisplayLabel } from './utils/week';
+import { mergeCategories, mergeTasksLww } from './utils/mergeSync';
+import { clearOutbox, countPendingOps, enqueueOp, loadOutbox } from './utils/syncQueue';
+import { flushOutbox } from './utils/flushOutbox';
 import {
   supabase,
   initializeAuthSession,
@@ -53,11 +58,11 @@ import {
   logoutSupabase,
   fetchTasksFromSupabase,
   fetchCategoriesFromSupabase,
-  upsertTaskToSupabase,
-  deleteTaskFromSupabase,
-  upsertCategoryToSupabase,
+  syncAllTasksToSupabase,
+  syncAllCategoriesToSupabase,
   fetchDropItemsFromSupabase,
   subscribeToDropItems,
+  subscribeToTasks,
   addDropItemToSupabase,
   deleteDropItemFromSupabase,
   clearAllDropItemsFromSupabase,
@@ -81,6 +86,7 @@ const DEFAULT_DASHBOARD_COPY: DashboardCopy = {
 
 export default function App() {
   const confirmAction = useConfirm();
+  const { showToast } = useToast();
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString());
   const [tasks, setTasks] = useState<Task[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -95,7 +101,6 @@ export default function App() {
 
   // PWA Support Hook
   const { isInstallable, isInstalled, isOffline, installPWA } = usePWA();
-  const [dismissInstallBanner, setDismissInstallBanner] = useState(false);
 
   // Supabase User & Sync state
   const [user, setUser] = useState<User | null>(null);
@@ -103,6 +108,11 @@ export default function App() {
   const [authError, setAuthError] = useState<string | null>(null);
   const syncedUserIdRef = useRef<string | null>(null);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
+  const tasksRef = useRef<Task[]>([]);
+  const categoriesRef = useRef<Category[]>([]);
+  const realtimeSyncTimerRef = useRef<number | null>(null);
 
   // Modals state
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -272,47 +282,132 @@ export default function App() {
     }
   };
 
-  // Load initial local data
+  const refreshPendingCount = useCallback((userId?: string | null) => {
+    if (!userId) {
+      setPendingSyncCount(0);
+      return;
+    }
+    setPendingSyncCount(countPendingOps(userId));
+  }, []);
+
+  const persistTasks = useCallback(
+    (next: Task[]) => {
+      setTasks(next);
+      tasksRef.current = next;
+      const result = saveTasks(next);
+      if (result.ok === false && result.quotaExceeded) {
+        showToast('Local storage is full. Remove large task images or free space.', 'error');
+      }
+    },
+    [showToast]
+  );
+
+  const persistCategories = useCallback((next: Category[]) => {
+    setCategories(next);
+    categoriesRef.current = next;
+    saveCategories(next);
+  }, []);
+
   const refreshFromStorage = useCallback(() => {
     const loadedTasks = loadTasks();
     const loadedCats = loadCategories();
     setTasks(loadedTasks);
+    tasksRef.current = loadedTasks;
     setCategories(loadedCats);
+    categoriesRef.current = loadedCats;
     setThemeMode(loadThemeMode());
     setAiEnabled(loadAiEnabled());
   }, []);
 
-  // Fetch / Sync with Supabase
-  const handleSyncWithSupabase = useCallback(async () => {
+  const handleSyncWithSupabase = useCallback(async (options?: { quiet?: boolean }) => {
     if (!user) return;
+    const quiet = Boolean(options?.quiet);
 
     setIsSyncing(true);
+    setSyncError(null);
     try {
-      // Fetch remote tasks & categories from Supabase database
+      const flushResult = await flushOutbox(user);
+      refreshPendingCount(user.id);
+      if (flushResult.remaining > 0 && flushResult.lastError) {
+        setSyncError(flushResult.lastError);
+        if (!quiet) {
+          showToast(
+            `Could not sync ${flushResult.remaining} change(s). Will retry when online.`,
+            'error'
+          );
+        }
+      }
+
       const [remoteTasks, remoteCats] = await Promise.all([
         fetchTasksFromSupabase(),
         fetchCategoriesFromSupabase(),
       ]);
 
-      const syncedCategories =
-        remoteCats.length > 0 ? remoteCats : [createDefaultWorkCategory(user.id)];
+      const pendingOps = loadOutbox(user.id);
+      const { merged: mergedTasks, toPush: tasksToPush } = mergeTasksLww(
+        tasksRef.current,
+        remoteTasks,
+        pendingOps
+      );
+      let { merged: mergedCats, toPush: catsToPush } = mergeCategories(
+        categoriesRef.current,
+        remoteCats,
+        pendingOps
+      );
 
-      if (remoteCats.length === 0) {
-        await upsertCategoryToSupabase(syncedCategories[0], user);
+      if (mergedCats.length === 0) {
+        const fallback = createDefaultWorkCategory(user.id);
+        mergedCats = [fallback];
+        catsToPush = [fallback];
       }
 
-      setTasks(remoteTasks);
-      saveTasks(remoteTasks);
-      setCategories(syncedCategories);
-      saveCategories(syncedCategories);
+      persistTasks(mergedTasks);
+      persistCategories(mergedCats);
+
+      if (tasksToPush.length > 0) {
+        await syncAllTasksToSupabase(tasksToPush, user);
+      }
+      if (catsToPush.length > 0) {
+        await syncAllCategoriesToSupabase(catsToPush, user);
+      }
+
+      const finalFlush = await flushOutbox(user);
+      refreshPendingCount(user.id);
+      if (finalFlush.remaining > 0 && finalFlush.lastError) {
+        setSyncError(finalFlush.lastError);
+      }
     } catch (err) {
       console.error('Supabase sync error:', err);
+      const message = err instanceof Error ? err.message : 'Sync failed';
+      setSyncError(message);
+      if (!quiet) showToast(message, 'error');
     } finally {
       setIsSyncing(false);
     }
-  }, [user]);
+  }, [persistCategories, persistTasks, refreshPendingCount, showToast, user]);
 
-  // Initialize Supabase Auth Session
+  const queueAndFlush = useCallback(
+    async (
+      type: 'upsert_task' | 'delete_task' | 'upsert_category' | 'delete_category',
+      entityId: string,
+      payload?: Task | Category
+    ) => {
+      if (!user) return;
+      enqueueOp(user.id, type, entityId, payload);
+      refreshPendingCount(user.id);
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        showToast('Saved locally. Will sync when you are back online.', 'info');
+        return;
+      }
+      const result = await flushOutbox(user);
+      refreshPendingCount(user.id);
+      if (result.remaining > 0) {
+        showToast(result.lastError || 'Some changes are still pending sync.', 'error');
+      }
+    },
+    [refreshPendingCount, showToast, user]
+  );
+
   useEffect(() => {
     let isMounted = true;
 
@@ -323,13 +418,22 @@ export default function App() {
       setUser(authenticatedUser);
       setIsAuthLoading(false);
       if (!authenticatedUser) {
+        if (syncedUserIdRef.current) {
+          clearOutbox(syncedUserIdRef.current);
+        }
         syncedUserIdRef.current = null;
+        clearLocalUserData();
         setTasks([]);
+        tasksRef.current = [];
         setCategories([]);
+        categoriesRef.current = [];
+        setPendingSyncCount(0);
+        setSyncError(null);
         return;
       }
 
       setAuthError(null);
+      refreshPendingCount(authenticatedUser.id);
     };
 
     initializeAuthSession()
@@ -350,9 +454,8 @@ export default function App() {
       isMounted = false;
       authListener.subscription.unsubscribe();
     };
-  }, []);
+  }, [refreshPendingCount]);
 
-  // Start database requests only after the auth callback has completed.
   useEffect(() => {
     if (!user || syncedUserIdRef.current === user.id) return;
 
@@ -363,7 +466,6 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
 
-    // Subscribe to multi-tab / storage sync events
     const unsubscribe = subscribeToSyncEvents(() => {
       refreshFromStorage();
     });
@@ -372,6 +474,37 @@ export default function App() {
       unsubscribe();
     };
   }, [refreshFromStorage, user]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const onOnline = () => {
+      showToast('Back online. Syncing pending changes…', 'info');
+      void handleSyncWithSupabase();
+    };
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [handleSyncWithSupabase, showToast, user]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const unsubscribe = subscribeToTasks(user.id, () => {
+      if (realtimeSyncTimerRef.current) {
+        window.clearTimeout(realtimeSyncTimerRef.current);
+      }
+      realtimeSyncTimerRef.current = window.setTimeout(() => {
+        void handleSyncWithSupabase({ quiet: true });
+      }, 400);
+    });
+
+    return () => {
+      unsubscribe();
+      if (realtimeSyncTimerRef.current) {
+        window.clearTimeout(realtimeSyncTimerRef.current);
+      }
+    };
+  }, [handleSyncWithSupabase, user]);
 
   // Filter tasks for the selected date
   const selectedDateTasks = tasks.filter((t) => t.date === selectedDate);
@@ -453,14 +586,8 @@ export default function App() {
     };
 
     const updatedTasks = [newTask, ...tasks];
-    setTasks(updatedTasks);
-    saveTasks(updatedTasks);
-
-    if (user) {
-      upsertTaskToSupabase(newTask, user).catch((err) =>
-        console.error('Failed to sync new task to Supabase:', err)
-      );
-    }
+    persistTasks(updatedTasks);
+    void queueAndFlush('upsert_task', newTask.id, newTask);
   };
 
   const runAiAssist = useCallback(
@@ -618,13 +745,9 @@ export default function App() {
       return t;
     });
 
-    setTasks(updatedTasks);
-    saveTasks(updatedTasks);
-
-    if (user && updatedTask) {
-      upsertTaskToSupabase(updatedTask, user).catch((err) =>
-        console.error('Failed to sync toggle to Supabase:', err)
-      );
+    persistTasks(updatedTasks);
+    if (updatedTask) {
+      void queueAndFlush('upsert_task', updatedTask.id, updatedTask);
     }
   };
 
@@ -642,13 +765,9 @@ export default function App() {
       return t;
     });
 
-    setTasks(updatedTasks);
-    saveTasks(updatedTasks);
-
-    if (user && updatedTask) {
-      upsertTaskToSupabase(updatedTask, user).catch((err) =>
-        console.error('Failed to sync pin toggle to Supabase:', err)
-      );
+    persistTasks(updatedTasks);
+    if (updatedTask) {
+      void queueAndFlush('upsert_task', updatedTask.id, updatedTask);
     }
   };
 
@@ -664,26 +783,15 @@ export default function App() {
     if (!confirmed) return;
 
     const updatedTasks = tasks.filter((t) => t.id !== taskId);
-    setTasks(updatedTasks);
-    saveTasks(updatedTasks);
-
-    if (user) {
-      deleteTaskFromSupabase(taskId).catch((err) =>
-        console.error('Failed to delete task from Supabase:', err)
-      );
-    }
+    persistTasks(updatedTasks);
+    void queueAndFlush('delete_task', taskId);
   };
 
   const handleSaveEditedTask = (updatedTask: Task) => {
-    const updatedTasks = tasks.map((t) => (t.id === updatedTask.id ? updatedTask : t));
-    setTasks(updatedTasks);
-    saveTasks(updatedTasks);
-
-    if (user) {
-      upsertTaskToSupabase(updatedTask, user).catch((err) =>
-        console.error('Failed to sync edit to Supabase:', err)
-      );
-    }
+    const withStamp = { ...updatedTask, updatedAt: Date.now() };
+    const updatedTasks = tasks.map((t) => (t.id === withStamp.id ? withStamp : t));
+    persistTasks(updatedTasks);
+    void queueAndFlush('upsert_task', withStamp.id, withStamp);
   };
 
   const handleToggleSubtask = (taskId: string, subtaskId: string) => {
@@ -703,13 +811,9 @@ export default function App() {
       return t;
     });
 
-    setTasks(updatedTasks);
-    saveTasks(updatedTasks);
-
-    if (user && updatedTask) {
-      upsertTaskToSupabase(updatedTask, user).catch((err) =>
-        console.error('Failed to sync subtask toggle to Supabase:', err)
-      );
+    persistTasks(updatedTasks);
+    if (updatedTask) {
+      void queueAndFlush('upsert_task', updatedTask.id, updatedTask);
     }
   };
 
@@ -721,14 +825,66 @@ export default function App() {
     };
 
     const updatedCategories = [...categories, newCat];
-    setCategories(updatedCategories);
-    saveCategories(updatedCategories);
+    persistCategories(updatedCategories);
+    void queueAndFlush('upsert_category', newCat.id, newCat);
+  };
 
-    if (user) {
-      upsertCategoryToSupabase(newCat, user).catch((err) =>
-        console.error('Failed to sync category to Supabase:', err)
-      );
+  const handleUpdateCategory = (updated: Category) => {
+    const next = categories.map((cat) => (cat.id === updated.id ? updated : cat));
+    persistCategories(next);
+    void queueAndFlush('upsert_category', updated.id, updated);
+  };
+
+  const handleDeleteCategory = async (categoryId: string) => {
+    const target = categories.find((cat) => cat.id === categoryId);
+    if (!target) return;
+    if (categories.length <= 1) {
+      showToast('Keep at least one category.', 'error');
+      return;
     }
+
+    const fallback =
+      categories.find((cat) => cat.id !== categoryId && cat.isDefault) ||
+      categories.find((cat) => cat.id !== categoryId);
+    if (!fallback) return;
+
+    const confirmed = await confirmAction({
+      title: 'Delete this category?',
+      description: `Tasks in “${target.name}” will move to “${fallback.name}”.`,
+      confirmLabel: 'Delete category',
+    });
+    if (!confirmed) return;
+
+    const reassigned = tasks.map((task) => {
+      if (task.categoryId !== categoryId) return task;
+      return { ...task, categoryId: fallback.id, updatedAt: Date.now() };
+    });
+    persistTasks(reassigned);
+    for (const task of reassigned.filter((task) => task.categoryId === fallback.id)) {
+      const original = tasks.find((item) => item.id === task.id);
+      if (original && original.categoryId === categoryId) {
+        void queueAndFlush('upsert_task', task.id, task);
+      }
+    }
+
+    const nextCats = categories.filter((cat) => cat.id !== categoryId);
+    persistCategories(nextCats);
+    void queueAndFlush('delete_category', categoryId);
+  };
+
+  const handleImportData = async (tasksImported: Task[], categoriesImported: Category[]) => {
+    persistTasks(tasksImported);
+    persistCategories(categoriesImported);
+    if (!user) return;
+    for (const cat of categoriesImported) {
+      enqueueOp(user.id, 'upsert_category', cat.id, cat);
+    }
+    for (const task of tasksImported) {
+      enqueueOp(user.id, 'upsert_task', task.id, task);
+    }
+    refreshPendingCount(user.id);
+    showToast(`Imported ${tasksImported.length} tasks. Syncing to cloud…`, 'success');
+    await handleSyncWithSupabase();
   };
 
   const handleGitHubLoginClick = async () => {
@@ -742,10 +898,19 @@ export default function App() {
 
   const handleLogoutClick = async () => {
     try {
+      if (user) clearOutbox(user.id);
+      clearLocalUserData();
       await logoutSupabase();
       setUser(null);
+      setTasks([]);
+      tasksRef.current = [];
+      setCategories([]);
+      categoriesRef.current = [];
+      setPendingSyncCount(0);
+      setSyncError(null);
     } catch (err) {
       console.error('Logout error:', err);
+      showToast(err instanceof Error ? err.message : 'Logout failed', 'error');
     }
   };
 
@@ -901,6 +1066,9 @@ export default function App() {
         onLogout={handleLogoutClick}
         onSyncWithSupabase={() => user && handleSyncWithSupabase()}
         isSyncing={isSyncing}
+        syncError={syncError}
+        pendingSyncCount={pendingSyncCount}
+        onImportData={handleImportData}
         aiEnabled={aiEnabled}
         onAiEnabledChange={handleAiEnabledChange}
       />
@@ -911,6 +1079,8 @@ export default function App() {
         onClose={() => setIsCategoryModalOpen(false)}
         categories={categories}
         onAddCategory={handleAddCategory}
+        onUpdateCategory={handleUpdateCategory}
+        onDeleteCategory={handleDeleteCategory}
       />
 
       {/* Edge Drop Notepad & File Transfer Modal */}
@@ -961,7 +1131,7 @@ export default function App() {
         selectedDate={selectedDate}
         setSelectedDate={setSelectedDate}
         onOpenCategoryModal={() => setIsCategoryModalOpen(true)}
-        onOpenSyncModal={() => setIsSyncModalOpen(true)}
+        onOpenDropModal={handleOpenDropModal}
         onFocusTaskInput={handleFocusTaskInput}
       />
     </div>

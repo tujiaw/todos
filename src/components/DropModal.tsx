@@ -26,6 +26,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { DropItem } from '../types';
+import { refreshDropSignedUrl } from '../lib/supabase';
 import { useConfirm } from './ConfirmDialog';
 
 const MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024;
@@ -514,15 +515,31 @@ export const DropModal: React.FC<DropModalProps> = ({
     }
   };
 
-  const handleDownload = async (item: DropItem) => {
-    if (!item.url) return;
+  const resolveItemUrl = async (item: DropItem): Promise<string | undefined> => {
+    if (item.storage_path) {
+      const refreshed = await refreshDropSignedUrl(item.storage_path);
+      if (refreshed) return refreshed;
+    }
+    return item.url;
+  };
 
+  const handlePreviewImage = async (item: DropItem) => {
+    const url = await resolveItemUrl(item);
+    if (url) setPreviewImage(url);
+  };
+
+  const handleDownload = async (item: DropItem) => {
     setDownloadingId(item.id);
     setAttachmentError(null);
     try {
-      const response = await fetch(item.url);
-      if (!response.ok) {
-        throw new Error(`Download failed with status ${response.status}.`);
+      let url = item.url;
+      let response = url ? await fetch(url) : null;
+      if (!response?.ok && item.storage_path) {
+        url = await refreshDropSignedUrl(item.storage_path);
+        response = url ? await fetch(url) : null;
+      }
+      if (!response?.ok || !url) {
+        throw new Error(`Download failed with status ${response?.status ?? 'unknown'}.`);
       }
 
       const objectUrl = URL.createObjectURL(await response.blob());
@@ -892,7 +909,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                               src={item.url}
                               alt={item.file_name || 'Drop attachment'}
                               className="w-full h-full object-contain max-h-56 rounded-xl cursor-pointer hover:opacity-95 transition-opacity"
-                              onClick={() => setPreviewImage(item.url || null)}
+                              onClick={() => void handlePreviewImage(item)}
                               onLoad={() => {
                                 if (item.id !== newestItemId) return;
                                 // Image height changes: pin without animation.

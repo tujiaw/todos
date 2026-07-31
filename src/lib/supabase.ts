@@ -19,7 +19,9 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 
 const DROP_STORAGE_BUCKET = 'drop-files';
 const MAX_DROP_FILE_SIZE = 20 * 1024 * 1024;
-const DROP_SIGNED_URL_TTL_SECONDS = 60 * 60;
+const MAX_TASK_IMAGE_SIZE = 5 * 1024 * 1024;
+const DROP_SIGNED_URL_TTL_SECONDS = 4 * 60 * 60;
+export const STORAGE_PATH_PREFIX = 'storage:';
 
 // Explicitly exchange PKCE OAuth callbacks before rendering the application.
 export const initializeAuthSession = async (): Promise<Session | null> => {
@@ -202,6 +204,83 @@ export const syncAllTasksToSupabase = async (tasks: Task[], user: User) => {
   }
 };
 
+export const syncAllCategoriesToSupabase = async (categories: Category[], user: User) => {
+  if (categories.length === 0) return;
+  const rows = categories.map((cat) => mapCategoryToDbRow(cat, user.id));
+  const { error } = await supabase.from('todo_categories').upsert(rows);
+  if (error) {
+    console.error('Error syncing all categories to Supabase:', error);
+    throw error;
+  }
+};
+
+export const deleteCategoryFromSupabase = async (categoryId: string) => {
+  const { error } = await supabase.from('todo_categories').delete().eq('id', categoryId);
+  if (error) {
+    console.error('Error deleting category from Supabase:', error);
+    throw error;
+  }
+};
+
+export const uploadTaskImage = async (file: File): Promise<string> => {
+  const activeUser = await ensureAuthenticatedUser();
+  if (file.size > MAX_TASK_IMAGE_SIZE) {
+    throw new Error('Task images must be 5 MB or smaller.');
+  }
+  if (!file.type.startsWith('image/')) {
+    throw new Error('Only image files can be attached to tasks.');
+  }
+
+  const objectId =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+  const uploadedPath = `${activeUser.id}/tasks/${objectId}.${extension}`;
+
+  const { error } = await supabase.storage.from(DROP_STORAGE_BUCKET).upload(uploadedPath, file, {
+    cacheControl: '3600',
+    contentType: file.type || 'image/jpeg',
+    upsert: false,
+  });
+  if (error) throw error;
+  return toStorageRef(uploadedPath);
+};
+
+export const subscribeToTasks = (userId: string, onUpdate: () => void) => {
+  const channel = supabase
+    .channel(`todo_tasks_changes_${userId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'todo_tasks',
+        filter: `user_id=eq.${userId}`,
+      },
+      () => {
+        onUpdate();
+      }
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'todo_categories',
+        filter: `user_id=eq.${userId}`,
+      },
+      () => {
+        onUpdate();
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+};
+
 // Fetch categories from Supabase
 export const fetchCategoriesFromSupabase = async (): Promise<Category[]> => {
   const { data, error } = await supabase.from('todo_categories').select('*');
@@ -249,6 +328,53 @@ const inferDropItemType = (kind?: string, path?: string, mimeType?: string): Dro
 const isDropStoragePath = (path?: string) =>
   Boolean(path && /^[0-9a-f]{8}-[0-9a-f-]{27}\//i.test(path));
 
+export const stripStoragePrefix = (value?: string): string | undefined => {
+  if (!value) return undefined;
+  if (value.startsWith(STORAGE_PATH_PREFIX)) {
+    return value.slice(STORAGE_PATH_PREFIX.length);
+  }
+  return value;
+};
+
+export const toStorageRef = (path: string): string => `${STORAGE_PATH_PREFIX}${path}`;
+
+export const isTaskStorageRef = (value?: string): boolean => {
+  if (!value) return false;
+  if (value.startsWith(STORAGE_PATH_PREFIX)) return true;
+  if (value.startsWith('data:') || value.startsWith('http://') || value.startsWith('https://')) {
+    return false;
+  }
+  return isDropStoragePath(value);
+};
+
+export const createSignedStorageUrl = async (
+  path: string,
+  ttlSeconds = DROP_SIGNED_URL_TTL_SECONDS
+): Promise<string | undefined> => {
+  const { data, error } = await supabase.storage
+    .from(DROP_STORAGE_BUCKET)
+    .createSignedUrl(path, ttlSeconds);
+  if (error) {
+    console.warn('Could not create signed URL:', error.message || error);
+    return undefined;
+  }
+  return data.signedUrl;
+};
+
+export const refreshDropSignedUrl = async (
+  storagePath: string
+): Promise<string | undefined> => createSignedStorageUrl(storagePath);
+
+export const resolveMediaUrl = async (value?: string): Promise<string | undefined> => {
+  if (!value) return undefined;
+  if (value.startsWith('data:') || value.startsWith('http://') || value.startsWith('https://')) {
+    return value;
+  }
+  const path = stripStoragePrefix(value);
+  if (!path || !isDropStoragePath(path)) return value;
+  return createSignedStorageUrl(path);
+};
+
 const mapDbRowToDropItem = async (row: any): Promise<DropItem> => {
   const path = row.file_path || row.url || row.file_url || row.image_url || undefined;
   const fileName = row.file_name || row.filename || undefined;
@@ -257,16 +383,7 @@ const mapDbRowToDropItem = async (row: any): Promise<DropItem> => {
   let resolvedUrl: string | undefined;
 
   if (isDropStoragePath(path)) {
-    const { data, error } = await supabase.storage
-      .from(DROP_STORAGE_BUCKET)
-      .createSignedUrl(path, DROP_SIGNED_URL_TTL_SECONDS);
-
-    if (error) {
-      console.warn('Could not create signed URL for Drop attachment:', error.message || error);
-      resolvedUrl = undefined;
-    } else {
-      resolvedUrl = data.signedUrl;
-    }
+    resolvedUrl = await createSignedStorageUrl(path);
   }
 
   return {
@@ -378,10 +495,10 @@ export const addDropItemToSupabase = async (
     if (error) throw error;
   }
 
-  // The deployed constraint accepts "text" and "image". Non-image
-  // attachments are distinguished by mime_type in the UI, while using the
-  // attachment-compatible database kind.
-  const kind = attachment ? 'image' : 'text';
+  let kind: 'text' | 'image' | 'file' = 'text';
+  if (attachment) {
+    kind = attachment.type.startsWith('image/') ? 'image' : 'file';
+  }
 
   const payload = {
     user_id: activeUser.id,

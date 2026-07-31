@@ -8,10 +8,6 @@ import {
 } from '../server/rate-limit.ts';
 
 const schema = readFileSync(new URL('../supabase_schema.sql', import.meta.url), 'utf8');
-const syncModal = readFileSync(
-  new URL('../src/components/SyncModal.tsx', import.meta.url),
-  'utf8'
-);
 
 test('lightweight limiter allows 50 requests and rejects the next one', () => {
   const limiter = new InMemoryDailyRateLimiter();
@@ -28,11 +24,8 @@ test('lightweight limiter resets for a new Shanghai calendar day', () => {
   assert.equal(getShanghaiDate(new Date('2026-07-30T16:30:00Z')), '2026-07-31');
 });
 
-test('Supabase setup removes the legacy database quota objects', () => {
-  for (const source of [schema, syncModal]) {
-    assert.doesNotMatch(source, /create table if not exists public\.ai_daily_usage/);
-    assert.doesNotMatch(source, /create or replace function public\.consume_ai_daily_quota/);
-    assert.match(source, /drop function if exists public\.consume_ai_daily_quota/);
-    assert.match(source, /drop table if exists public\.ai_daily_usage/);
-  }
+test('Supabase schema defines durable AI quota RPC', () => {
+  assert.match(schema, /create table if not exists public\.ai_daily_usage/);
+  assert.match(schema, /create or replace function public\.consume_ai_quota/);
+  assert.match(schema, /grant execute on function public\.consume_ai_quota/);
 });

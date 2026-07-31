@@ -9,6 +9,12 @@
       "purpose": "any"
     },
     {
+      "src": "/apple-touch-icon.png",
+      "type": "image/png",
+      "sizes": "180x180",
+      "purpose": "any"
+    },
+    {
       "src": "/icon.svg",
       "type": "image/svg+xml",
       "sizes": "192x192 512x512",
@@ -19,7 +25,7 @@
   "background_color": "#0f172a",
   "theme_color": "#2563eb",
   "display": "standalone",
-  "orientation": "portrait",
-  "description": "Minimalist and efficient daily task planner with offline PWA support.",
+  "orientation": "any",
+  "description": "Minimalist daily task planner. Edit offline; sync when online.",
   "categories": ["productivity", "utilities"]
 }

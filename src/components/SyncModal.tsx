@@ -14,6 +14,7 @@ import {
   CalendarDays,
 } from 'lucide-react';
 import { User } from '@supabase/supabase-js';
+import type { Category, Task } from '../types';
 import { exportDataAsJSON, importDataFromJSON } from '../utils/storage';
 import { getTodayDateString } from '../data/initialData';
 
@@ -26,6 +27,9 @@ interface SyncModalProps {
   onLogout: () => void;
   onSyncWithSupabase: () => void;
   isSyncing: boolean;
+  syncError?: string | null;
+  pendingSyncCount?: number;
+  onImportData?: (tasks: Task[], categories: Category[]) => void | Promise<void>;
   aiEnabled: boolean;
   onAiEnabledChange: (enabled: boolean) => void;
 }
@@ -39,6 +43,9 @@ export const SyncModal: React.FC<SyncModalProps> = ({
   onLogout,
   onSyncWithSupabase,
   isSyncing,
+  syncError = null,
+  pendingSyncCount = 0,
+  onImportData,
   aiEnabled,
   onAiEnabledChange,
 }) => {
@@ -64,18 +71,34 @@ export const SyncModal: React.FC<SyncModalProps> = ({
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       const content = event.target?.result as string;
-      if (content) {
-        const result = importDataFromJSON(content);
-        setFeedback(result);
-        if (result.success) {
+      if (!content) return;
+      const result = importDataFromJSON(content);
+      setFeedback({ success: result.success, message: result.message });
+      if (result.success && result.tasks && result.categories) {
+        if (onImportData) {
+          await onImportData(result.tasks, result.categories);
+        } else {
           onRefreshData();
         }
       }
     };
     reader.readAsText(file);
   };
+
+  let syncStatusLabel = 'Supabase Cloud Connected';
+  let syncDotClass = 'bg-emerald-400 animate-pulse';
+  if (isSyncing) {
+    syncStatusLabel = 'Syncing with Supabase…';
+    syncDotClass = 'bg-amber-400 animate-pulse';
+  } else if (syncError) {
+    syncStatusLabel = 'Sync error — retry recommended';
+    syncDotClass = 'bg-rose-400';
+  } else if (pendingSyncCount > 0) {
+    syncStatusLabel = `Pending ${pendingSyncCount} local change(s)`;
+    syncDotClass = 'bg-amber-400';
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
@@ -133,9 +156,9 @@ export const SyncModal: React.FC<SyncModalProps> = ({
           {/* Supabase Cloud Storage Status Card */}
           <div className="p-4 rounded-xl bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-md space-y-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="font-bold text-sm">Supabase Cloud Connected</span>
+              <div className="flex items-center gap-2 min-w-0">
+                <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${syncDotClass}`} />
+                <span className="font-bold text-sm truncate">{syncStatusLabel}</span>
               </div>
               <a
                 href="https://supabase.com/dashboard/project/cywbnbvverbdjbbpvsid"

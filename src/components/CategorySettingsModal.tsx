@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, FolderPlus, Tag, Check, Folder, Sparkles } from 'lucide-react';
+import { X, FolderPlus, Tag, Check, Pencil, Trash2 } from 'lucide-react';
 import { Category } from '../types';
 
 interface CategorySettingsModalProps {
@@ -7,6 +7,8 @@ interface CategorySettingsModalProps {
   onClose: () => void;
   categories: Category[];
   onAddCategory: (newCategory: Omit<Category, 'id'>) => void;
+  onUpdateCategory: (category: Category) => void;
+  onDeleteCategory: (categoryId: string) => void;
 }
 
 const PRESET_COLORS = [
@@ -20,17 +22,26 @@ const PRESET_COLORS = [
   { hex: '#64748b', name: 'Slate', bg: 'bg-slate-100 dark:bg-slate-800/80', text: 'text-slate-700 dark:text-slate-300', border: 'border-slate-300 dark:border-slate-700' },
 ];
 
+function colorFromCategory(cat: Category) {
+  return PRESET_COLORS.find((item) => item.hex === cat.color) || PRESET_COLORS[0];
+}
+
 export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({
   isOpen,
   onClose,
   categories,
   onAddCategory,
+  onUpdateCategory,
+  onDeleteCategory,
 }) => {
-  if (!isOpen) return null;
-
   const [newCatName, setNewCatName] = useState('');
   const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[0]);
   const [successMessage, setSuccessMessage] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editColor, setEditColor] = useState(PRESET_COLORS[0]);
+
+  if (!isOpen) return null;
 
   const handleCreateCategory = (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,23 +55,46 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({
       borderClass: selectedColor.border,
     });
 
-    setSuccessMessage(`Successfully created category "${newCatName.trim()}"`);
+    setSuccessMessage(`Created “${newCatName.trim()}”`);
     setNewCatName('');
     setTimeout(() => setSuccessMessage(''), 3000);
+  };
+
+  const startEdit = (cat: Category) => {
+    setEditingId(cat.id);
+    setEditName(cat.name);
+    setEditColor(colorFromCategory(cat));
+  };
+
+  const saveEdit = () => {
+    if (!editingId || !editName.trim()) return;
+    const existing = categories.find((cat) => cat.id === editingId);
+    if (!existing) return;
+    onUpdateCategory({
+      ...existing,
+      name: editName.trim(),
+      color: editColor.hex,
+      bgClass: editColor.bg,
+      textClass: editColor.text,
+      borderClass: editColor.border,
+    });
+    setEditingId(null);
+    setSuccessMessage('Category updated');
+    setTimeout(() => setSuccessMessage(''), 2500);
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
       <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col transition-colors my-auto">
-        {/* Modal Header */}
         <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/40">
           <div className="flex items-center gap-2">
             <div className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
               <Tag className="w-4 h-4" />
             </div>
-            <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">Category Management & Settings</h3>
+            <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">Category Management</h3>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
@@ -68,23 +102,90 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({
           </button>
         </div>
 
-        {/* Modal Body */}
         <div className="p-5 space-y-4 text-xs">
-          {/* Current Existing Categories */}
+          {successMessage && (
+            <div className="flex items-center gap-2 rounded-xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-2 text-emerald-700 dark:text-emerald-300">
+              <Check className="w-3.5 h-3.5" />
+              <span>{successMessage}</span>
+            </div>
+          )}
+
           <div>
             <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-2">
-              Existing Task Categories ({categories.length})
+              Existing Categories ({categories.length})
             </label>
-            <div className="flex flex-wrap gap-2 max-h-36 overflow-y-auto p-1">
+            <div className="space-y-2 max-h-52 overflow-y-auto">
               {categories.map((cat) => (
                 <div
                   key={cat.id}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 border ${cat.bgClass} ${cat.textClass} ${cat.borderClass}`}
+                  className={`rounded-xl border p-2.5 ${cat.bgClass} ${cat.borderClass}`}
                 >
-                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
-                  <span>{cat.name}</span>
-                  {cat.isDefault && (
-                    <span className="text-[10px] opacity-70 border border-current px-1 rounded">Default</span>
+                  {editingId === cat.id ? (
+                    <div className="space-y-2">
+                      <input
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs"
+                      />
+                      <div className="flex flex-wrap gap-1.5">
+                        {PRESET_COLORS.map((color) => (
+                          <button
+                            key={color.hex}
+                            type="button"
+                            onClick={() => setEditColor(color)}
+                            className={`w-5 h-5 rounded-full border-2 ${
+                              editColor.hex === color.hex ? 'border-slate-800 dark:border-white' : 'border-transparent'
+                            }`}
+                            style={{ backgroundColor: color.hex }}
+                            title={color.name}
+                          />
+                        ))}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={saveEdit}
+                          className="px-2.5 py-1 rounded-lg bg-indigo-600 text-white font-semibold"
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingId(null)}
+                          className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between gap-2">
+                      <div className={`flex items-center gap-1.5 font-medium ${cat.textClass}`}>
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+                        <span>{cat.name}</span>
+                        {cat.isDefault && (
+                          <span className="text-[10px] opacity-70 border border-current px-1 rounded">Default</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => startEdit(cat)}
+                          className="p-1.5 rounded-lg hover:bg-white/70 dark:hover:bg-slate-900/50"
+                          aria-label={`Edit ${cat.name}`}
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onDeleteCategory(cat.id)}
+                          className="p-1.5 rounded-lg hover:bg-white/70 dark:hover:bg-slate-900/50 text-rose-600"
+                          aria-label={`Delete ${cat.name}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
                   )}
                 </div>
               ))}
@@ -93,61 +194,38 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({
 
           <hr className="border-slate-100 dark:border-slate-800" />
 
-          {/* Add New Category Form */}
           <form onSubmit={handleCreateCategory} className="space-y-3">
             <label className="block font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
               <FolderPlus className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               <span>Add New Category</span>
             </label>
-
-            <div>
-              <label className="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">Category Name</label>
-              <input
-                type="text"
-                placeholder="e.g. Learning, Side Projects, Fitness..."
-                value={newCatName}
-                onChange={(e) => setNewCatName(e.target.value)}
-                className="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                maxLength={20}
-                required
-              />
+            <input
+              value={newCatName}
+              onChange={(e) => setNewCatName(e.target.value)}
+              placeholder="Category name"
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-xs"
+            />
+            <div className="flex flex-wrap gap-1.5">
+              {PRESET_COLORS.map((color) => (
+                <button
+                  key={color.hex}
+                  type="button"
+                  onClick={() => setSelectedColor(color)}
+                  className={`w-6 h-6 rounded-full border-2 ${
+                    selectedColor.hex === color.hex ? 'border-slate-800 dark:border-white' : 'border-transparent'
+                  }`}
+                  style={{ backgroundColor: color.hex }}
+                  title={color.name}
+                />
+              ))}
             </div>
-
-            <div>
-              <label className="block text-[11px] text-slate-500 dark:text-slate-400 mb-1.5">Select Color</label>
-              <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                {PRESET_COLORS.map((c) => (
-                  <button
-                    key={c.name}
-                    type="button"
-                    onClick={() => setSelectedColor(c)}
-                    className="w-7 h-7 rounded-full flex items-center justify-center transition-transform hover:scale-110 shrink-0 border border-white dark:border-slate-800 shadow-2xs"
-                    style={{ backgroundColor: c.hex }}
-                    title={c.name}
-                  >
-                    {selectedColor.hex === c.hex && <Check className="w-4 h-4 text-white stroke-[3]" />}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Success alert message */}
-            {successMessage && (
-              <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>{successMessage}</span>
-              </div>
-            )}
-
-            <div className="pt-2">
-              <button
-                type="submit"
-                disabled={!newCatName.trim()}
-                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold rounded-xl shadow-xs transition-colors min-h-[38px]"
-              >
-                Save New Category
-              </button>
-            </div>
+            <button
+              type="submit"
+              disabled={!newCatName.trim()}
+              className="w-full min-h-10 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-bold"
+            >
+              Create category
+            </button>
           </form>
         </div>
       </div>

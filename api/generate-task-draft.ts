@@ -5,8 +5,8 @@ import {
 import {
   DAILY_AI_LIMIT,
   DAILY_LIMIT_MESSAGE,
-  getShanghaiDate,
   InMemoryDailyRateLimiter,
+  consumeAiQuota,
 } from '../server/rate-limit.js';
 import {
   validateTaskDraft,
@@ -145,9 +145,17 @@ export default async function handler(request: ApiRequest, response: ApiResponse
       config.supabaseUrl,
       config.supabaseAnonKey
     );
+    const authorization = getHeader(request, 'authorization') || '';
+    const accessToken = authorization.replace(/^Bearer\s+/i, '');
     const provider = createProvider(config.deepSeekApiKey);
-    const dailyUsage = dailyLimiter.consume(user.id, getShanghaiDate());
-    if (dailyUsage < 0) throw new Error(DAILY_LIMIT_MESSAGE);
+    const quota = await consumeAiQuota({
+      supabaseUrl: config.supabaseUrl,
+      supabaseAnonKey: config.supabaseAnonKey,
+      accessToken,
+      userId: user.id,
+      memoryLimiter: dailyLimiter,
+    });
+    if (quota.count < 0) throw new Error(DAILY_LIMIT_MESSAGE);
 
     const draft = await generateValidatedDraft(provider, input);
     response.status(200).json({
@@ -155,9 +163,9 @@ export default async function handler(request: ApiRequest, response: ApiResponse
       meta: {
         provider: provider.name,
         model: provider.model,
-        dailyUsage,
+        dailyUsage: quota.count,
         dailyLimit: DAILY_AI_LIMIT,
-        limitScope: 'vercel-instance',
+        limitScope: quota.limitScope,
       },
     });
   } catch (error) {

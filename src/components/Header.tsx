@@ -443,7 +443,9 @@ export const Header: React.FC<HeaderProps> = ({
         {isOffline && (
           <div className="bg-amber-500/10 dark:bg-amber-500/20 border-t border-b border-amber-500/20 px-3 py-1.5 text-center text-xs text-amber-700 dark:text-amber-300 flex items-center justify-center gap-2 font-medium">
             <WifiOff className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
-            <span>Offline Mode: Tasks are stored locally and will sync when reconnected.</span>
+            <span>
+              Offline: edits stay on this device. Pending changes retry when you are back online. Drop and AI need a connection.
+            </span>
           </div>
         )}
       </header>
@@ -458,7 +460,7 @@ export const Header: React.FC<HeaderProps> = ({
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">Install Daily TODOs</h4>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Standalone app with offline & native experience</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Installable app — edit tasks offline, sync when online</p>
                 </div>
               </div>
               <button

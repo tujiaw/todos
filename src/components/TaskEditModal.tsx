@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { X, Calendar, Clock, Flag, Tag, Plus, Trash2, Save, Image as ImageIcon, Upload, Link, Sparkles } from 'lucide-react';
+import { X, Calendar, Clock, Flag, Tag, Plus, Trash2, Save, Image as ImageIcon, Upload, Link, Sparkles, LoaderCircle } from 'lucide-react';
 import { Category, Priority, Task } from '../types';
+import { resolveMediaUrl, uploadTaskImage } from '../lib/supabase';
 import { useConfirm } from './ConfirmDialog';
+import { useToast } from './Toast';
 
 interface TaskEditModalProps {
   task: Task | null;
@@ -21,6 +23,7 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
   mode = 'edit',
 }) => {
   const confirmAction = useConfirm();
+  const { showToast } = useToast();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [categoryId, setCategoryId] = useState('');
@@ -33,6 +36,8 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
   const [subtasks, setSubtasks] = useState<Task['subtasks']>([]);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  const [imagePreview, setImagePreview] = useState('');
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [showImageInput, setShowImageInput] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -50,6 +55,12 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
     setNewSubtaskTitle('');
     setImageUrl(task.imageUrl || '');
     setShowImageInput(!!task.imageUrl);
+    setImagePreview('');
+    if (task.imageUrl) {
+      void resolveMediaUrl(task.imageUrl).then((url) => {
+        setImagePreview(url || task.imageUrl || '');
+      });
+    }
   }, [isOpen, task]);
 
   if (!isOpen || !task) return null;
@@ -75,16 +86,24 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
     onClose();
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setImageUrl(event.target.result as string);
-        }
-      };
-      reader.readAsDataURL(file);
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('Image file size cannot exceed 5MB', 'error');
+      return;
+    }
+    setIsUploadingImage(true);
+    try {
+      const storageRef = await uploadTaskImage(file);
+      setImageUrl(storageRef);
+      const preview = await resolveMediaUrl(storageRef);
+      setImagePreview(preview || URL.createObjectURL(file));
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to upload image', 'error');
+    } finally {
+      setIsUploadingImage(false);
     }
   };
 
@@ -126,6 +145,7 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
     });
     if (!confirmed) return;
     setImageUrl('');
+    setImagePreview('');
   };
 
   return (
@@ -281,8 +301,11 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
                     <input
                       type="url"
                       placeholder="Image URL..."
-                      value={imageUrl}
-                      onChange={(e) => setImageUrl(e.target.value)}
+                      value={imageUrl.startsWith('storage:') ? '' : imageUrl}
+                      onChange={(e) => {
+                        setImageUrl(e.target.value);
+                        setImagePreview(e.target.value);
+                      }}
                       className="w-full text-xs pl-8 pr-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                     />
                   </div>
@@ -297,9 +320,14 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="px-2.5 py-1.5 bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-medium flex items-center gap-1 shrink-0"
+                    disabled={isUploadingImage}
+                    className="px-2.5 py-1.5 bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-medium flex items-center gap-1 shrink-0 disabled:opacity-50"
                   >
-                    <Upload className="w-3.5 h-3.5" />
+                    {isUploadingImage ? (
+                      <LoaderCircle className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Upload className="w-3.5 h-3.5" />
+                    )}
                     Upload
                   </button>
 
@@ -315,9 +343,13 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
                   )}
                 </div>
 
-                {imageUrl && (
+                {(imagePreview || imageUrl) && (
                   <div className="relative rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 max-h-32 bg-slate-100 dark:bg-slate-900">
-                    <img src={imageUrl} alt="Preview" className="h-28 w-full object-cover" />
+                    <img
+                      src={imagePreview || imageUrl}
+                      alt="Preview"
+                      className="h-28 w-full object-cover"
+                    />
                   </div>
                 )}
               </div>

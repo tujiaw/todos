@@ -2,8 +2,8 @@ import { DeepSeekJsonProvider } from '../server/providers.js';
 import {
   DAILY_AI_LIMIT,
   DAILY_LIMIT_MESSAGE,
-  getShanghaiDate,
   InMemoryDailyRateLimiter,
+  consumeAiQuota,
 } from '../server/rate-limit.js';
 import {
   buildWeeklySummaryPrompt,
@@ -88,8 +88,16 @@ export default async function handler(request: ApiRequest, response: ApiResponse
       typeof request.body === 'string' ? JSON.parse(request.body) : request.body
     );
     const user = await authenticate(request, config.supabaseUrl, config.supabaseAnonKey);
-    const dailyUsage = dailyLimiter.consume(user.id, getShanghaiDate());
-    if (dailyUsage < 0) throw new Error(DAILY_LIMIT_MESSAGE);
+    const authorization = getHeader(request, 'authorization') || '';
+    const accessToken = authorization.replace(/^Bearer\s+/i, '');
+    const quota = await consumeAiQuota({
+      supabaseUrl: config.supabaseUrl,
+      supabaseAnonKey: config.supabaseAnonKey,
+      accessToken,
+      userId: user.id,
+      memoryLimiter: dailyLimiter,
+    });
+    if (quota.count < 0) throw new Error(DAILY_LIMIT_MESSAGE);
 
     const provider = new DeepSeekJsonProvider({
       apiKey: config.apiKey,
@@ -141,8 +149,9 @@ export default async function handler(request: ApiRequest, response: ApiResponse
       meta: {
         provider: provider.name,
         model: provider.model,
-        dailyUsage,
+        dailyUsage: quota.count,
         dailyLimit: DAILY_AI_LIMIT,
+        limitScope: quota.limitScope,
       },
     });
   } catch (error) {

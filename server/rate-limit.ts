@@ -29,3 +29,54 @@ export function getShanghaiDate(now = new Date()): string {
     day: '2-digit',
   }).format(now);
 }
+
+export type QuotaConsumeResult = {
+  count: number;
+  limitScope: 'supabase' | 'vercel-instance';
+};
+
+/**
+ * Prefer durable Supabase RPC. Falls back to in-memory limiter when RPC is unavailable.
+ */
+export async function consumeAiQuota(options: {
+  supabaseUrl: string;
+  supabaseAnonKey: string;
+  accessToken: string;
+  userId: string;
+  memoryLimiter: InMemoryDailyRateLimiter;
+  limit?: number;
+}): Promise<QuotaConsumeResult> {
+  const limit = options.limit ?? DAILY_AI_LIMIT;
+  const date = getShanghaiDate();
+
+  try {
+    const response = await fetch(`${options.supabaseUrl}/rest/v1/rpc/consume_ai_quota`, {
+      method: 'POST',
+      headers: {
+        apikey: options.supabaseAnonKey,
+        Authorization: `Bearer ${options.accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ p_limit: limit }),
+    });
+
+    if (response.ok) {
+      const count = Number(await response.json());
+      if (!Number.isFinite(count)) {
+        throw new Error('Invalid quota response');
+      }
+      return { count, limitScope: 'supabase' };
+    }
+
+    // Missing RPC / table → soft fallback for local/dev
+    if (response.status === 404 || response.status === 400) {
+      const count = options.memoryLimiter.consume(options.userId, date);
+      return { count, limitScope: 'vercel-instance' };
+    }
+
+    throw new Error(`Quota RPC failed (${response.status})`);
+  } catch {
+    const count = options.memoryLimiter.consume(options.userId, date);
+    return { count, limitScope: 'vercel-instance' };
+  }
+}

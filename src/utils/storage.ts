@@ -43,13 +43,20 @@ export const loadTasks = (): Task[] => {
   return [];
 };
 
+export type SaveStorageResult = { ok: true } | { ok: false; quotaExceeded: boolean };
+
 // Save tasks to localStorage
-export const saveTasks = (tasks: Task[]): void => {
+export const saveTasks = (tasks: Task[]): SaveStorageResult => {
   try {
     localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(tasks));
     notifySyncChannel('tasks_updated');
+    return { ok: true };
   } catch (err) {
     console.error('Failed to save tasks to storage', err);
+    const quotaExceeded =
+      err instanceof DOMException &&
+      (err.name === 'QuotaExceededError' || err.code === 22);
+    return { ok: false, quotaExceeded };
   }
 };
 
@@ -180,19 +187,45 @@ export const exportDataAsJSON = (filter?: { startDate?: string; endDate?: string
   URL.revokeObjectURL(url);
 };
 
+export interface ImportDataResult {
+  success: boolean;
+  message: string;
+  tasks?: Task[];
+  categories?: Category[];
+}
+
 // Import data from JSON string
-export const importDataFromJSON = (jsonText: string): { success: boolean; message: string } => {
+export const importDataFromJSON = (jsonText: string): ImportDataResult => {
   try {
     const data = JSON.parse(jsonText);
     if (!data.tasks || !Array.isArray(data.tasks)) {
       return { success: false, message: 'Invalid backup file: Missing tasks array.' };
     }
-    saveTasks(data.tasks);
-    if (data.categories && Array.isArray(data.categories)) {
-      saveCategories(data.categories);
-    }
-    return { success: true, message: `Successfully imported ${data.tasks.length} todo items!` };
-  } catch (err) {
+    const tasks = data.tasks as Task[];
+    const categories = Array.isArray(data.categories)
+      ? (data.categories as Category[])
+      : loadCategories();
+    saveTasks(tasks);
+    saveCategories(categories);
+    return {
+      success: true,
+      message: `Imported ${tasks.length} tasks locally. Syncing to cloud…`,
+      tasks,
+      categories,
+    };
+  } catch {
     return { success: false, message: 'Failed to parse JSON file. Please verify file format.' };
+  }
+};
+
+/** Clear task/category local cache (used on logout to avoid account bleed). */
+export const clearLocalUserData = (): void => {
+  try {
+    localStorage.removeItem(TASKS_STORAGE_KEY);
+    localStorage.removeItem(CATEGORIES_STORAGE_KEY);
+    notifySyncChannel('tasks_updated');
+    notifySyncChannel('categories_updated');
+  } catch (err) {
+    console.error('Failed to clear local user data', err);
   }
 };

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Search, ArrowUpDown, X, RotateCcw, Inbox, CheckCircle2 } from 'lucide-react';
 import { Category, SortByOption, Task, TaskFilterStatus } from '../types';
+import { getTodayDateString } from '../data/initialData';
 import { TaskItem } from './TaskItem';
 
 interface TaskListProps {
@@ -27,6 +28,7 @@ export const TaskList: React.FC<TaskListProps> = ({
   onDeleteTask,
   onEditTask,
   onToggleSubtask,
+  selectedDate,
 }) => {
   const [filterStatus, setFilterStatus] = useState<TaskFilterStatus>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -108,8 +110,13 @@ export const TaskList: React.FC<TaskListProps> = ({
     emptyDescription = 'Try searching with a different keyword or clear the search.';
   } else if (tasks.length === 0) {
     emptyIcon = <Inbox className="w-6 h-6" />;
-    emptyTitle = 'No tasks for today';
-    emptyDescription = 'Type your first task above to get started!';
+    if (selectedDate === getTodayDateString()) {
+      emptyTitle = 'No tasks for today';
+      emptyDescription = 'Type your first task above to get started!';
+    } else {
+      emptyTitle = `No tasks for ${selectedDate}`;
+      emptyDescription = 'Add a task for this day, or jump back to Today.';
+    }
   }
 
   return (

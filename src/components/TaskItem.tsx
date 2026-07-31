@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Check,
@@ -15,6 +15,7 @@ import {
   X,
 } from 'lucide-react';
 import { Category, Task } from '../types';
+import { resolveMediaUrl } from '../lib/supabase';
 
 interface TaskItemProps {
   task: Task;
@@ -37,6 +38,21 @@ export const TaskItem: React.FC<TaskItemProps> = ({
 }) => {
   const [showSubtasks, setShowSubtasks] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
+  const [resolvedImageUrl, setResolvedImageUrl] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!task.imageUrl) {
+      setResolvedImageUrl(undefined);
+      return;
+    }
+    void resolveMediaUrl(task.imageUrl).then((url) => {
+      if (!cancelled) setResolvedImageUrl(url || task.imageUrl);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [task.imageUrl]);
 
   const completedSubtasksCount = task.subtasks.filter((st) => st.completed).length;
   const totalSubtasksCount = task.subtasks.length;
@@ -159,14 +175,14 @@ export const TaskItem: React.FC<TaskItemProps> = ({
             )}
 
             {/* Attached Image Thumbnail */}
-            {task.imageUrl && (
+            {resolvedImageUrl && (
               <div className="mt-2">
                 <div
                   onClick={() => setShowImageModal(true)}
                   className="relative group/img inline-block cursor-pointer rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 max-w-xs max-h-36 bg-slate-100 dark:bg-slate-800 shadow-2xs"
                 >
                   <img
-                    src={task.imageUrl}
+                    src={resolvedImageUrl}
                     alt="Task attachment"
                     className="object-cover max-h-36 w-full transition-transform duration-300 group-hover/img:scale-105"
                   />
@@ -274,7 +290,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
 
       {/* Image Modal Lightbox */}
       <AnimatePresence>
-        {showImageModal && task.imageUrl && (
+        {showImageModal && resolvedImageUrl && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -295,7 +311,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                 <X className="w-5 h-5" />
               </button>
               <img
-                src={task.imageUrl}
+                src={resolvedImageUrl}
                 alt="Enlarged attachment"
                 className="max-h-[85vh] max-w-full object-contain rounded-xl mx-auto"
               />

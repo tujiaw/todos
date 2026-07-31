@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Plus, Clock, Flag, Tag, ChevronDown, ListPlus, Image, X, Upload, Sparkles, LoaderCircle } from 'lucide-react';
 import { Category, Priority, Task } from '../types';
+import { resolveMediaUrl, uploadTaskImage } from '../lib/supabase';
 import { useConfirm } from './ConfirmDialog';
+import { useToast } from './Toast';
 
 interface TaskInputProps {
   categories: Category[];
@@ -21,6 +23,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({
   resetKey = 0,
 }) => {
   const confirmAction = useConfirm();
+  const { showToast } = useToast();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [categoryId, setCategoryId] = useState<string>(categories[0]?.id || '');
@@ -28,6 +31,8 @@ export const TaskInput: React.FC<TaskInputProps> = ({
   const [dueTime, setDueTime] = useState<string>('');
   const [estimatedMinutes, setEstimatedMinutes] = useState<number | ''>('');
   const [imageUrl, setImageUrl] = useState<string>('');
+  const [imagePreview, setImagePreview] = useState<string>('');
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [showImageInput, setShowImageInput] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [subtasks, setSubtasks] = useState<string[]>([]);
@@ -66,6 +71,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({
     setDueTime('');
     setEstimatedMinutes('');
     setImageUrl('');
+    setImagePreview('');
     setShowImageInput(false);
     setSubtasks([]);
     setNewSubtaskTitle('');
@@ -77,20 +83,25 @@ export const TaskInput: React.FC<TaskInputProps> = ({
     if (!aiEnabled) setAiError(null);
   }, [aiEnabled]);
 
-  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
-      alert('Image file size cannot exceed 5MB');
+      showToast('Image file size cannot exceed 5MB', 'error');
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target?.result) {
-        setImageUrl(event.target.result as string);
-      }
-    };
-    reader.readAsDataURL(file);
+    setIsUploadingImage(true);
+    try {
+      const storageRef = await uploadTaskImage(file);
+      setImageUrl(storageRef);
+      const preview = await resolveMediaUrl(storageRef);
+      setImagePreview(preview || URL.createObjectURL(file));
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to upload image', 'error');
+    } finally {
+      setIsUploadingImage(false);
+    }
   };
 
   const handleAddTask = () => {
@@ -119,6 +130,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({
     setDueTime('');
     setEstimatedMinutes('');
     setImageUrl('');
+    setImagePreview('');
     setShowImageInput(false);
     setSubtasks([]);
     setNewSubtaskTitle('');
@@ -183,6 +195,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({
     });
     if (!confirmed) return;
     setImageUrl('');
+    setImagePreview('');
   };
 
   return (
@@ -461,8 +474,11 @@ export const TaskInput: React.FC<TaskInputProps> = ({
                 <input
                   type="url"
                   placeholder="Paste image URL (https://...)"
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
+                  value={imageUrl.startsWith('storage:') ? '' : imageUrl}
+                  onChange={(e) => {
+                    setImageUrl(e.target.value);
+                    setImagePreview(e.target.value);
+                  }}
                   className="flex-1 text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100"
                 />
                 <input
@@ -475,16 +491,25 @@ export const TaskInput: React.FC<TaskInputProps> = ({
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 text-xs font-medium rounded-lg flex items-center justify-center gap-1 shrink-0"
+                  disabled={isUploadingImage}
+                  className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 text-xs font-medium rounded-lg flex items-center justify-center gap-1 shrink-0 disabled:opacity-50"
                 >
-                  <Upload className="w-3.5 h-3.5" />
+                  {isUploadingImage ? (
+                    <LoaderCircle className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Upload className="w-3.5 h-3.5" />
+                  )}
                   Browse
                 </button>
               </div>
 
-              {imageUrl && (
+              {(imagePreview || imageUrl) && (
                 <div className="mt-2 relative rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 max-h-40 bg-black/5 flex items-center justify-center">
-                  <img src={imageUrl} alt="Preview" className="max-h-40 object-contain rounded-lg" />
+                  <img
+                    src={imagePreview || imageUrl}
+                    alt="Preview"
+                    className="max-h-40 object-contain rounded-lg"
+                  />
                 </div>
               )}
             </div>

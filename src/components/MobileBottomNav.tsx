@@ -1,12 +1,12 @@
 import React from 'react';
-import { Calendar, Plus, Tag, Settings, CheckSquare } from 'lucide-react';
+import { Calendar, Plus, Tag, Send, CheckSquare } from 'lucide-react';
 import { getTodayDateString } from '../data/initialData';
 
 interface MobileBottomNavProps {
   selectedDate: string;
   setSelectedDate: (date: string) => void;
   onOpenCategoryModal: () => void;
-  onOpenSyncModal: () => void;
+  onOpenDropModal: () => void;
   onFocusTaskInput: () => void;
 }
 
@@ -14,7 +14,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   selectedDate,
   setSelectedDate,
   onOpenCategoryModal,
-  onOpenSyncModal,
+  onOpenDropModal,
   onFocusTaskInput,
 }) => {
   const todayStr = getTodayDateString();
@@ -30,7 +30,6 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   return (
     <nav className="fixed bottom-3 left-3 right-3 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-white dark:border-slate-800 px-3 pt-1.5 pb-[calc(0.5rem+env(safe-area-inset-bottom))] sm:hidden transition-colors shadow-2xl rounded-2xl">
       <div className="max-w-md mx-auto flex items-center justify-around relative">
-        {/* Today Jump Button */}
         <button
           type="button"
           onClick={() => setSelectedDate(todayStr)}
@@ -44,7 +43,6 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           <span className="text-[10px] mt-0.5">Today</span>
         </button>
 
-        {/* Scroll to Task List Button */}
         <button
           type="button"
           onClick={scrollToTasks}
@@ -54,7 +52,6 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           <span className="text-[10px] mt-0.5">Tasks</span>
         </button>
 
-        {/* Center Floating Quick Add Button (FAB) */}
         <div className="-mt-5 relative">
           <button
             type="button"
@@ -66,7 +63,6 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           </button>
         </div>
 
-        {/* Categories Button */}
         <button
           type="button"
           onClick={onOpenCategoryModal}
@@ -76,14 +72,13 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           <span className="text-[10px] mt-0.5">Categories</span>
         </button>
 
-        {/* Settings & Sync Button */}
         <button
           type="button"
-          onClick={onOpenSyncModal}
+          onClick={onOpenDropModal}
           className="flex flex-col items-center justify-center py-1 px-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-all min-w-[56px] min-h-[44px] active:scale-95"
         >
-          <Settings className="w-5 h-5 stroke-[2.2]" />
-          <span className="text-[10px] mt-0.5">Sync & Cloud</span>
+          <Send className="w-5 h-5 stroke-[2.2]" />
+          <span className="text-[10px] mt-0.5">Drop</span>
         </button>
       </div>
     </nav>

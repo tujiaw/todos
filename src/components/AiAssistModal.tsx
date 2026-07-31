@@ -14,6 +14,7 @@ import {
   type AiAssistMode,
   type AiAssistResult,
 } from '../utils/aiAssist';
+import { useToast } from './Toast';
 
 interface AiAssistModalProps {
   isOpen: boolean;
@@ -38,6 +39,7 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
   usedFallback,
   onGenerate,
 }) => {
+  const { showToast } = useToast();
   const [copied, setCopied] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const copyTimerRef = useRef<number | null>(null);
@@ -69,6 +71,7 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
       copyTimerRef.current = window.setTimeout(() => setCopied(false), 1800);
     } catch {
       setCopied(false);
+      showToast('Clipboard access was denied. Copy the text manually.', 'error');
     }
   };
 
