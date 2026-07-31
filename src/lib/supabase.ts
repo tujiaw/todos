@@ -430,8 +430,17 @@ export const fetchDropItemsFromSupabase = async (
   };
 };
 
-// Subscribe to real-time changes on drop_items table for instant cross-device updates
-export const subscribeToDropItems = (userId: string, onUpdate: () => void) => {
+export type DropRealtimeChange = {
+  eventType: 'INSERT' | 'UPDATE' | 'DELETE';
+  id: string | null;
+};
+
+// Subscribe to real-time changes on drop_items table for instant cross-device updates.
+// DELETE needs REPLICA IDENTITY FULL on drop_items so user_id filters / RLS see old rows.
+export const subscribeToDropItems = (
+  userId: string,
+  onUpdate: (change: DropRealtimeChange) => void
+) => {
   const channel = supabase
     .channel(`drop_items_changes_${userId}`)
     .on(
@@ -442,8 +451,14 @@ export const subscribeToDropItems = (userId: string, onUpdate: () => void) => {
         table: 'drop_items',
         filter: `user_id=eq.${userId}`,
       },
-      () => {
-        onUpdate();
+      (payload) => {
+        const row = (payload.eventType === 'DELETE' ? payload.old : payload.new) as
+          | { id?: string }
+          | null;
+        onUpdate({
+          eventType: payload.eventType as DropRealtimeChange['eventType'],
+          id: row?.id ?? null,
+        });
       }
     )
     .subscribe();

@@ -146,6 +146,9 @@ begin
 end
 $$;
 
+-- DELETE events only include PK by default; filters/RLS on user_id need the full old row.
+alter table public.drop_items replica identity full;
+
 
 -- 4. Private Storage bucket for Drop attachments (20 MB per object)
 insert into storage.buckets (id, name, public, file_size_limit)

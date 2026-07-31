@@ -195,7 +195,15 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
 
-    const unsubscribe = subscribeToDropItems(user.id, () => {
+    const unsubscribe = subscribeToDropItems(user.id, (change) => {
+      // Apply DELETE locally so the other device updates without waiting on a refetch.
+      if (change.eventType === 'DELETE') {
+        if (change.id) {
+          setDropItems((prev) => prev.filter((item) => item.id !== change.id));
+          return;
+        }
+        // Bulk/clear without row id in payload — reload from server.
+      }
       loadDropItems(dropSearchQuery, 0, false);
     });
     return () => {

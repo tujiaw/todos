@@ -239,7 +239,6 @@ export const DropModal: React.FC<DropModalProps> = ({
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [sendingLabel, setSendingLabel] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [isClearing, setIsClearing] = useState(false);
@@ -377,19 +376,6 @@ export const DropModal: React.FC<DropModalProps> = ({
     });
   };
 
-  const buildSendingLabel = (content: string, files: File[]) => {
-    if (files.length === 1) {
-      return `Sending ${files[0].name}…`;
-    }
-    if (files.length > 1) {
-      return `Sending ${files.length} files…`;
-    }
-    if (content) {
-      return 'Sending note…';
-    }
-    return 'Sending…';
-  };
-
   const handleSend = async () => {
     if (isSubmitting || (!inputText.trim() && attachedFiles.length === 0)) return;
 
@@ -399,7 +385,6 @@ export const DropModal: React.FC<DropModalProps> = ({
     setAttachedFiles([]);
     setAttachmentError(null);
     setIsSubmitting(true);
-    setSendingLabel(buildSendingLabel(content, files));
     focusComposer();
 
     try {
@@ -410,7 +395,6 @@ export const DropModal: React.FC<DropModalProps> = ({
       setAttachedFiles((current) => (current.length > 0 ? current : files));
     } finally {
       setIsSubmitting(false);
-      setSendingLabel(null);
       focusComposer();
     }
   };
@@ -1012,17 +996,6 @@ export const DropModal: React.FC<DropModalProps> = ({
                   </button>
                 </div>
               ))}
-            </div>
-          )}
-
-          {isSubmitting && sendingLabel && (
-            <div
-              className="flex items-center gap-2 px-2.5 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900 text-xs text-indigo-700 dark:text-indigo-300"
-              role="status"
-              aria-live="polite"
-            >
-              <LoaderCircle className="w-3.5 h-3.5 animate-spin shrink-0" />
-              <span className="truncate font-medium">{sendingLabel}</span>
             </div>
           )}
 
