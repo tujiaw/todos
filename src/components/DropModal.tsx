@@ -217,10 +217,14 @@ export const DropModal: React.FC<DropModalProps> = ({
     const frame = requestAnimationFrame(() => {
       const container = scrollContainerRef.current;
       if (container) {
-        container.scrollTo({
-          top: container.scrollHeight,
-          behavior: isOpening ? 'auto' : 'smooth',
-        });
+        if (isOpening) {
+          container.scrollTop = container.scrollHeight;
+        } else {
+          container.scrollTo({
+            top: container.scrollHeight,
+            behavior: 'smooth',
+          });
+        }
       }
     });
 
@@ -721,7 +725,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                               onLoad={() => {
                                 if (item.id === newestItemId) {
                                   const container = scrollContainerRef.current;
-                                  container?.scrollTo({ top: container.scrollHeight });
+                                  container?.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
                                 }
                               }}
                             />
