@@ -177,16 +177,18 @@ function CollapsibleDropText({ content }: { content: string }) {
         )}
       </div>
       {needsCollapse && (
-        <button
-          type="button"
-          onClick={() => setExpanded((value) => !value)}
-          className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-indigo-600 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
-          title={expanded ? 'Show less' : 'Show more'}
-          aria-label={expanded ? 'Show less' : 'Show more'}
-          aria-expanded={expanded}
-        >
-          {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        </button>
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => setExpanded((value) => !value)}
+            className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-indigo-600 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
+            title={expanded ? 'Show less' : 'Show more'}
+            aria-label={expanded ? 'Show less' : 'Show more'}
+            aria-expanded={expanded}
+          >
+            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+        </div>
       )}
     </div>
   );
