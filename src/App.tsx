@@ -737,6 +737,7 @@ export default function App() {
             completedTasks={completedTasksCount}
             totalEstimatedMinutes={totalEstimatedMinutes}
             dateStr={selectedDate}
+            tasks={tasks}
           />
 
           <TaskInput
