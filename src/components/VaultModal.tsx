@@ -512,8 +512,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     }
   };
 
-  const handleDeleteDraft = async () => {
-    if (!draft || isNewDraft) return;
+  const handleDeleteItem = async (item: VaultItemPlain) => {
     const confirmed = await confirmAction({
       title: '删除这条保险箱记录？',
       description: '删除后无法恢复。',
@@ -523,9 +522,8 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     if (!confirmed) return;
     setBusy(true);
     try {
-      await deleteVaultItemFromSupabase(draft.id);
-      setItems((current) => current.filter((item) => item.id !== draft.id));
-      setDraft(null);
+      await deleteVaultItemFromSupabase(item.id);
+      setItems((current) => current.filter((entry) => entry.id !== item.id));
       setSelectedId(null);
       setView('list');
       showNotice('已删除', 'success');
@@ -1292,6 +1290,14 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
               <div className="flex-1" />
               <button
                 type="button"
+                onClick={() => void handleDeleteItem(selectedItem)}
+                disabled={busy}
+                className="px-2.5 py-2 sm:py-1.5 rounded-lg text-sm font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+              >
+                删除
+              </button>
+              <button
+                type="button"
                 onClick={() => openEdit(selectedItem)}
                 className="px-3.5 py-2 sm:py-1.5 rounded-lg text-sm font-semibold text-white bg-amber-600 hover:bg-amber-500 flex items-center gap-1.5"
               >
@@ -1562,16 +1568,6 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
 
             <div className="shrink-0 px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] sm:pb-2 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90 flex items-center gap-1.5">
               <div className="flex-1" />
-              {!isNewDraft && (
-                <button
-                  type="button"
-                  onClick={() => void handleDeleteDraft()}
-                  disabled={busy}
-                  className="px-2.5 py-2 sm:py-1.5 rounded-lg text-sm font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
-                >
-                  删除
-                </button>
-              )}
               <button
                 type="button"
                 onClick={() => void handleSaveDraft()}
