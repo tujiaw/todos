@@ -357,6 +357,25 @@ export const DropModal: React.FC<DropModalProps> = ({
     return () => document.removeEventListener('mousedown', onPointerDown);
   }, [menuOpen]);
 
+  // Preserve viewport when older pages are prepended above the current list.
+  // Must stay above the early return so hook order never changes with isOpen.
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    if (isLoadingMore) {
+      wasLoadingMoreRef.current = true;
+      return;
+    }
+    if (!wasLoadingMoreRef.current) return;
+    wasLoadingMoreRef.current = false;
+
+    const container = scrollContainerRef.current;
+    const previousHeight = pendingScrollRestoreRef.current;
+    pendingScrollRestoreRef.current = null;
+    if (!container || previousHeight == null) return;
+
+    container.scrollTop = container.scrollHeight - previousHeight + container.scrollTop;
+  }, [dropItems, isLoadingMore, isOpen]);
+
   if (!isOpen) return null;
 
   let sendButtonTitle = 'Sign in before sending';
@@ -418,23 +437,6 @@ export const DropModal: React.FC<DropModalProps> = ({
       onLoadMore();
     }
   };
-
-  // Preserve viewport when older pages are prepended above the current list.
-  useLayoutEffect(() => {
-    if (isLoadingMore) {
-      wasLoadingMoreRef.current = true;
-      return;
-    }
-    if (!wasLoadingMoreRef.current) return;
-    wasLoadingMoreRef.current = false;
-
-    const container = scrollContainerRef.current;
-    const previousHeight = pendingScrollRestoreRef.current;
-    pendingScrollRestoreRef.current = null;
-    if (!container || previousHeight == null) return;
-
-    container.scrollTop = container.scrollHeight - previousHeight + container.scrollTop;
-  }, [dropItems, isLoadingMore]);
 
   const attachFiles = (files: File[]) => {
     setAttachmentError(null);
