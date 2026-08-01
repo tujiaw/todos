@@ -66,6 +66,8 @@ import { flushOutbox } from './utils/flushOutbox';
 import {
   supabase,
   initializeAuthSession,
+  isOAuthCallbackPending,
+  clearOAuthLoginPending,
   loginWithGitHub,
   signInWithEmail,
   signUpWithEmail,
@@ -130,9 +132,13 @@ export default function App() {
   // Supabase User & Sync state
   const [user, setUser] = useState<User | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
+  const [isCompletingSignIn, setIsCompletingSignIn] = useState<boolean>(() =>
+    isOAuthCallbackPending()
+  );
   const [authError, setAuthError] = useState<string | null>(null);
   const [authInfo, setAuthInfo] = useState<string | null>(null);
   const [isEmailAuthSubmitting, setIsEmailAuthSubmitting] = useState(false);
+  const oauthPendingRef = useRef<boolean>(isOAuthCallbackPending());
   const syncedUserIdRef = useRef<string | null>(null);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [syncError, setSyncError] = useState<string | null>(null);
@@ -522,11 +528,35 @@ export default function App() {
 
   useEffect(() => {
     let isMounted = true;
+    oauthPendingRef.current = isOAuthCallbackPending();
+    if (oauthPendingRef.current) {
+      setIsCompletingSignIn(true);
+      setIsAuthLoading(true);
+    }
 
-    const applyUser = (nextUser: User | null) => {
+    const finishOAuthPending = () => {
+      oauthPendingRef.current = false;
+      clearOAuthLoginPending();
+      setIsCompletingSignIn(false);
+    };
+
+    const applyUser = (nextUser: User | null, options?: { fromBootstrap?: boolean }) => {
       if (!isMounted) return;
 
       const authenticatedUser = nextUser?.is_anonymous ? null : nextUser;
+
+      // While exchanging the OAuth/email confirm code, ignore empty sessions so
+      // the login gate does not flash before the real session arrives.
+      if (!authenticatedUser && oauthPendingRef.current && !options?.fromBootstrap) {
+        setIsAuthLoading(true);
+        setIsCompletingSignIn(true);
+        return;
+      }
+
+      if (options?.fromBootstrap || authenticatedUser) {
+        finishOAuthPending();
+      }
+
       setUser(authenticatedUser);
       setIsAuthLoading(false);
       if (!authenticatedUser) {
@@ -550,10 +580,12 @@ export default function App() {
 
     initializeAuthSession()
       .then((session) => {
-        applyUser(session?.user || null);
+        if (!isMounted) return;
+        applyUser(session?.user || null, { fromBootstrap: true });
       })
       .catch((error) => {
         if (!isMounted) return;
+        finishOAuthPending();
         setAuthError(error instanceof Error ? error.message : '无法恢复登录会话');
         setIsAuthLoading(false);
       });
@@ -1126,12 +1158,23 @@ export default function App() {
     }
   };
 
-  if (isAuthLoading) {
+  if (isAuthLoading || isCompletingSignIn) {
     return (
-      <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-200 flex items-center justify-center">
-        <div className="flex items-center gap-2 text-sm">
-          <LoaderCircle className="w-5 h-5 animate-spin text-blue-600" />
-          <span>正在检查登录状态...</span>
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-700 dark:text-slate-200 flex items-center justify-center p-4">
+        <div className="w-full max-w-sm rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 shadow-xl text-center space-y-4">
+          <div className="mx-auto w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+            <LoaderCircle className="w-6 h-6 animate-spin" />
+          </div>
+          <div className="space-y-1.5">
+            <h1 className="text-base font-bold text-slate-800 dark:text-slate-100">
+              {isCompletingSignIn ? 'Completing sign-in' : 'Checking session'}
+            </h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {isCompletingSignIn
+                ? 'Finishing authorization. This usually takes a moment…'
+                : 'Restoring your account…'}
+            </p>
+          </div>
         </div>
       </div>
     );

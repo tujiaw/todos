@@ -22,6 +22,47 @@ const MAX_DROP_FILE_SIZE = 20 * 1024 * 1024;
 const MAX_TASK_IMAGE_SIZE = 5 * 1024 * 1024;
 const DROP_SIGNED_URL_TTL_SECONDS = 4 * 60 * 60;
 export const STORAGE_PATH_PREFIX = 'storage:';
+const OAUTH_PENDING_KEY = 'auth_oauth_pending';
+
+/** Mark that we are leaving for an OAuth provider (survives the redirect). */
+export const markOAuthLoginPending = () => {
+  try {
+    sessionStorage.setItem(OAUTH_PENDING_KEY, '1');
+  } catch {
+    // ignore
+  }
+};
+
+export const clearOAuthLoginPending = () => {
+  try {
+    sessionStorage.removeItem(OAUTH_PENDING_KEY);
+  } catch {
+    // ignore
+  }
+};
+
+/** True while returning from OAuth / email confirm with a code still being exchanged. */
+export const isOAuthCallbackPending = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const queryParams = new URLSearchParams(window.location.search);
+  const hashParams = new URLSearchParams(window.location.hash.slice(1));
+  if (
+    queryParams.has('code') ||
+    queryParams.has('error') ||
+    queryParams.has('error_description') ||
+    hashParams.has('access_token') ||
+    hashParams.has('refresh_token') ||
+    hashParams.has('error') ||
+    hashParams.has('error_description')
+  ) {
+    return true;
+  }
+  try {
+    return sessionStorage.getItem(OAUTH_PENDING_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
 
 // Explicitly exchange PKCE OAuth callbacks before rendering the application.
 export const initializeAuthSession = async (): Promise<Session | null> => {
@@ -129,6 +170,7 @@ export const signUpWithEmail = async (
 
 // GitHub OAuth Login
 export const loginWithGitHub = async () => {
+  markOAuthLoginPending();
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'github',
     options: {
@@ -137,6 +179,7 @@ export const loginWithGitHub = async () => {
   });
 
   if (error) {
+    clearOAuthLoginPending();
     console.error('GitHub auth error:', error);
     throw error;
   }
