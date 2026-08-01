@@ -40,10 +40,18 @@ import {
   vaultItemTypeLabel,
 } from '../utils/bitwardenImport';
 import { formatVaultItemForCopy, normalizeVaultUrl } from '../utils/vaultClipboard';
+import {
+  clearVaultSession,
+  getVaultSession,
+  getVaultSessionRemainingMs,
+  loadPreferredVaultTtlMs,
+  savePreferredVaultTtlMs,
+  setVaultSession,
+  touchVaultSession,
+  VAULT_TTL_OPTIONS,
+} from '../lib/vaultSession';
 import { useConfirm } from './ConfirmDialog';
 import { useToast } from './Toast';
-
-const AUTO_LOCK_MS = 5 * 60 * 1000;
 
 type VaultView = 'gate' | 'list' | 'editor' | 'importPreview';
 
@@ -86,7 +94,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
   const confirmAction = useConfirm();
   const { showToast } = useToast();
   const importInputRef = useRef<HTMLInputElement>(null);
-  const idleTimerRef = useRef<number | null>(null);
+  const expiryTimerRef = useRef<number | null>(null);
 
   const [view, setView] = useState<VaultView>('gate');
   const [hasMeta, setHasMeta] = useState<boolean | null>(null);
@@ -97,6 +105,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [sessionTtlMs, setSessionTtlMs] = useState(loadPreferredVaultTtlMs);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<VaultItemType | 'all'>('all');
   const [draft, setDraft] = useState<VaultItemPlain | null>(null);
@@ -105,7 +114,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [mergePlan, setMergePlan] = useState<VaultMergePlan | null>(null);
 
-  const lockVault = () => {
+  const resetUiToGate = () => {
     setVaultKey(null);
     setItems([]);
     setDraft(null);
@@ -119,29 +128,72 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     setError(null);
   };
 
+  const lockVault = (announce = false) => {
+    clearVaultSession();
+    if (expiryTimerRef.current) {
+      window.clearTimeout(expiryTimerRef.current);
+      expiryTimerRef.current = null;
+    }
+    resetUiToGate();
+    if (announce) showToast('保险箱已锁定', 'info');
+  };
+
+  const scheduleSessionExpiry = () => {
+    if (expiryTimerRef.current) window.clearTimeout(expiryTimerRef.current);
+    const remaining = getVaultSessionRemainingMs();
+    if (remaining <= 0) {
+      lockVault(true);
+      return;
+    }
+    expiryTimerRef.current = window.setTimeout(() => {
+      lockVault(true);
+    }, remaining);
+  };
+
   const touchActivity = () => {
     if (!vaultKey) return;
-    if (idleTimerRef.current) window.clearTimeout(idleTimerRef.current);
-    idleTimerRef.current = window.setTimeout(() => {
-      lockVault();
-      showToast('保险箱已自动锁定', 'info');
-    }, AUTO_LOCK_MS);
+    if (!touchVaultSession()) {
+      lockVault(true);
+      return;
+    }
+    scheduleSessionExpiry();
+  };
+
+  const loadItems = async (key: CryptoKey) => {
+    const rows = await fetchVaultItemRows();
+    const decrypted = await decryptVaultItems(key, rows);
+    setItems(decrypted);
   };
 
   useEffect(() => {
-    if (!isOpen) {
-      lockVault();
-      setHasMeta(null);
-      if (idleTimerRef.current) window.clearTimeout(idleTimerRef.current);
-      return;
-    }
+    if (!isOpen) return;
 
     let cancelled = false;
     (async () => {
       try {
         const meta = await fetchVaultMeta();
-        if (!cancelled) {
-          setHasMeta(Boolean(meta));
+        if (cancelled) return;
+        setHasMeta(Boolean(meta));
+
+        const sessionKey = getVaultSession();
+        if (sessionKey) {
+          setVaultKey(sessionKey);
+          setBusy(true);
+          try {
+            await loadItems(sessionKey);
+            if (!cancelled) {
+              setView('list');
+              touchVaultSession();
+              scheduleSessionExpiry();
+            }
+          } finally {
+            if (!cancelled) setBusy(false);
+          }
+        } else {
+          setVaultKey(null);
+          setItems([]);
+          setDraft(null);
+          setMergePlan(null);
           setView('gate');
         }
       } catch (err) {
@@ -155,11 +207,11 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- lock on open/close only
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   useEffect(() => {
-    if (lockToken > 0) lockVault();
+    if (lockToken > 0) lockVault(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lockToken]);
 
@@ -185,15 +237,6 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     };
   }, [isOpen, onClose, view]);
 
-  useEffect(() => {
-    if (!vaultKey) return;
-    touchActivity();
-    return () => {
-      if (idleTimerRef.current) window.clearTimeout(idleTimerRef.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vaultKey]);
-
   const filteredItems = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return items
@@ -218,12 +261,6 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
       .sort((a, b) => b.updatedAt - a.updatedAt);
   }, [items, searchQuery, typeFilter]);
 
-  const loadItems = async (key: CryptoKey) => {
-    const rows = await fetchVaultItemRows();
-    const decrypted = await decryptVaultItems(key, rows);
-    setItems(decrypted);
-  };
-
   const handleSetupOrUnlock = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
@@ -245,12 +282,15 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
       const key = hasMeta
         ? await unlockVaultWithPassword(password)
         : await initializeVaultMeta(password);
+      savePreferredVaultTtlMs(sessionTtlMs);
+      setVaultSession(key, sessionTtlMs);
       setVaultKey(key);
       await loadItems(key);
       setPassword('');
       setPasswordConfirm('');
       setHasMeta(true);
       setView('list');
+      scheduleSessionExpiry();
       showToast(hasMeta ? '保险箱已解锁' : '主密码已设置', 'success');
     } catch (err) {
       setError(err instanceof Error ? err.message : '操作失败');
@@ -512,10 +552,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    lockVault();
-                    showToast('已锁定', 'info');
-                  }}
+                  onClick={() => lockVault(true)}
                   className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-white/10"
                   title="锁定"
                 >
@@ -545,7 +582,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
             <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2.5">
               <p className="text-[11px] leading-snug text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/50 rounded-lg px-2.5 py-2">
                 {hasMeta
-                  ? '输入主密码解锁。内容仅在本地解密。'
+                  ? '解锁后在有效时间内无需重复输入；关闭窗口不会锁定。'
                   : '设置主密码后启用。主密码不可找回。'}
               </p>
               {hasMeta === null ? (
@@ -571,6 +608,27 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                       onChange={setPasswordConfirm}
                     />
                   )}
+                  <div>
+                    <span className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                      解锁有效期
+                    </span>
+                    <div className="grid grid-cols-4 gap-1">
+                      {VAULT_TTL_OPTIONS.map((option) => (
+                        <button
+                          key={option.ms}
+                          type="button"
+                          onClick={() => setSessionTtlMs(option.ms)}
+                          className={`px-1 py-1.5 rounded-md text-[10px] font-semibold border transition-colors ${
+                            sessionTtlMs === option.ms
+                              ? 'bg-amber-100 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200'
+                              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </FieldGroup>
               )}
             </div>
@@ -881,9 +939,9 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                 <textarea
                   value={draft.notes || ''}
                   onChange={(event) => updateDraft({ notes: event.target.value })}
-                  rows={2}
+                  rows={6}
                   placeholder="备注（可选）"
-                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-[13px] resize-none"
+                  className="w-full min-h-[9rem] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-2 text-[13px] resize-y"
                   autoComplete="off"
                 />
 
