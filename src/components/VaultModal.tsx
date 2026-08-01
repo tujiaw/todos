@@ -533,7 +533,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
       />
 
       <div
-        className="vault-panel absolute right-0 top-0 bottom-0 w-full sm:w-[360px] bg-slate-50 dark:bg-slate-950 shadow-2xl border-l border-white/80 dark:border-slate-800 flex flex-col h-full z-10 transition-transform animate-in slide-in-from-right duration-300 ease-out"
+        className="vault-panel absolute right-0 top-0 bottom-0 w-full sm:w-[400px] bg-slate-50 dark:bg-slate-950 shadow-2xl border-l border-white/80 dark:border-slate-800 flex flex-col h-full z-10 transition-transform animate-in slide-in-from-right duration-300 ease-out"
         role="dialog"
         aria-modal="true"
         aria-labelledby="vault-title"
@@ -784,7 +784,6 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
 
             <div className="shrink-0 px-3 py-2 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90">
               <div className="flex items-center gap-1">
-                <span className="text-sm font-semibold text-slate-400 shrink-0 mr-0.5">新建</span>
                 {createTypes.map((type) => (
                   <button
                     key={type}
