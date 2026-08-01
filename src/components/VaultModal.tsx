@@ -18,6 +18,10 @@ import {
   SlidersHorizontal,
   Upload,
   LoaderCircle,
+  ExternalLink,
+  ClipboardCopy,
+  UserRound,
+  type LucideIcon,
 } from 'lucide-react';
 import type { VaultCustomField, VaultItemPlain, VaultItemType, VaultMergePlan } from '../types';
 import {
@@ -35,6 +39,7 @@ import {
   parseBitwardenExport,
   vaultItemTypeLabel,
 } from '../utils/bitwardenImport';
+import { formatVaultItemForCopy, normalizeVaultUrl } from '../utils/vaultClipboard';
 import { useConfirm } from './ConfirmDialog';
 import { useToast } from './Toast';
 
@@ -321,16 +326,35 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     }
   };
 
-  const handleCopy = async (field: string, value?: string) => {
+  const handleCopy = async (field: string, value?: string, successText = '已复制') => {
     if (!value) return;
     const ok = await copyText(value);
     if (ok) {
       setCopiedField(field);
-      showToast('已复制', 'success');
+      showToast(successText, 'success');
       window.setTimeout(() => setCopiedField(null), 1500);
     } else {
       showToast('复制失败', 'error');
     }
+    touchActivity();
+  };
+
+  const handleCopyAll = async (item: VaultItemPlain) => {
+    const text = formatVaultItemForCopy(item);
+    if (!text) {
+      showToast('暂无可复制内容', 'info');
+      return;
+    }
+    await handleCopy('all', text, '已复制全部信息');
+  };
+
+  const handleOpenUrl = (rawUrl?: string) => {
+    const url = normalizeVaultUrl(rawUrl);
+    if (!url) {
+      showToast('没有可打开的网址', 'info');
+      return;
+    }
+    window.open(url, '_blank', 'noopener,noreferrer');
     touchActivity();
   };
 
@@ -587,25 +611,50 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
               ) : (
                 filteredItems.map((item) => {
                   const Icon = typeIcon(item.type);
+                  const canOpen = item.type === 'login' && Boolean(item.url?.trim());
                   return (
-                    <button
+                    <div
                       key={item.id}
-                      type="button"
-                      onClick={() => openEdit(item)}
-                      className="w-full text-left px-3 py-2 hover:bg-white/80 dark:hover:bg-slate-900/70 flex items-center gap-2.5 border-b border-slate-100/80 dark:border-slate-800/80"
+                      className="flex items-center gap-1 border-b border-slate-100/80 dark:border-slate-800/80 hover:bg-white/80 dark:hover:bg-slate-900/70"
                     >
-                      <Icon className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <div className="text-[13px] font-semibold text-slate-900 dark:text-white truncate leading-tight">
-                          {item.title}
+                      <button
+                        type="button"
+                        onClick={() => openEdit(item)}
+                        className="min-w-0 flex-1 text-left px-3 py-2 flex items-center gap-2.5"
+                      >
+                        <Icon className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[13px] font-semibold text-slate-900 dark:text-white truncate leading-tight">
+                            {item.title}
+                          </div>
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate leading-tight mt-0.5">
+                            {vaultItemTypeLabel(item.type)}
+                            {item.username ? ` · ${item.username}` : ''}
+                            {item.folder ? ` · ${item.folder}` : ''}
+                          </div>
                         </div>
-                        <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate leading-tight mt-0.5">
-                          {vaultItemTypeLabel(item.type)}
-                          {item.username ? ` · ${item.username}` : ''}
-                          {item.folder ? ` · ${item.folder}` : ''}
-                        </div>
+                      </button>
+                      <div className="shrink-0 pr-2 flex items-center gap-0.5">
+                        {canOpen && (
+                          <button
+                            type="button"
+                            title="打开网址"
+                            onClick={() => handleOpenUrl(item.url)}
+                            className="p-1.5 rounded-md text-slate-500 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          title="复制全部"
+                          onClick={() => void handleCopyAll(item)}
+                          className="p-1.5 rounded-md text-slate-500 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                        >
+                          <ClipboardCopy className="w-3.5 h-3.5" />
+                        </button>
                       </div>
-                    </button>
+                    </div>
                   );
                 })
               )}
@@ -688,11 +737,27 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                       copied={copiedField === 'password'}
                     />
                   </FieldGroup>
-                  <FieldGroup title="网站">
+                  <FieldGroup
+                    title="网站"
+                    action={
+                      draft.url?.trim() ? (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenUrl(draft.url)}
+                          className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 dark:text-amber-300"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          打开
+                        </button>
+                      ) : undefined
+                    }
+                  >
                     <Field
                       label="网址"
                       value={draft.url || ''}
                       onChange={(value) => updateDraft({ url: value })}
+                      onCopy={() => handleCopy('url', draft.url)}
+                      copied={copiedField === 'url'}
                     />
                     <Field
                       label="TOTP 密钥"
@@ -866,26 +931,59 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
               </FieldGroup>
             </div>
 
-            <div className="shrink-0 px-3 py-2 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90 flex gap-1.5">
-              {!isNewDraft && (
+            <div className="shrink-0 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90">
+              <div className="px-3 pt-2 flex flex-wrap gap-1">
+                {draft.type === 'login' && draft.url?.trim() && (
+                  <ActionChip
+                    icon={ExternalLink}
+                    label="打开网址"
+                    onClick={() => handleOpenUrl(draft.url)}
+                  />
+                )}
+                {draft.type === 'login' && draft.username?.trim() && (
+                  <ActionChip
+                    icon={UserRound}
+                    label={copiedField === 'username' ? '已复制' : '复制用户名'}
+                    onClick={() => void handleCopy('username', draft.username, '已复制用户名')}
+                    active={copiedField === 'username'}
+                  />
+                )}
+                {draft.type === 'login' && draft.password?.trim() && (
+                  <ActionChip
+                    icon={KeyRound}
+                    label={copiedField === 'password' ? '已复制' : '复制密码'}
+                    onClick={() => void handleCopy('password', draft.password, '已复制密码')}
+                    active={copiedField === 'password'}
+                  />
+                )}
+                <ActionChip
+                  icon={ClipboardCopy}
+                  label={copiedField === 'all' ? '已复制' : '复制全部'}
+                  onClick={() => void handleCopyAll(draft)}
+                  active={copiedField === 'all'}
+                />
+              </div>
+              <div className="px-3 py-2 flex gap-1.5">
+                {!isNewDraft && (
+                  <button
+                    type="button"
+                    onClick={() => void handleDeleteDraft()}
+                    disabled={busy}
+                    className="px-2.5 py-2 rounded-lg text-[13px] font-semibold text-rose-600 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100"
+                  >
+                    删除
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => void handleDeleteDraft()}
+                  onClick={() => void handleSaveDraft()}
                   disabled={busy}
-                  className="px-2.5 py-2 rounded-lg text-[13px] font-semibold text-rose-600 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100"
+                  className="flex-1 px-3 py-2 rounded-lg text-[13px] font-semibold text-white bg-amber-600 hover:bg-amber-500 disabled:opacity-60 flex items-center justify-center gap-1.5"
                 >
-                  删除
+                  {busy && <LoaderCircle className="w-3.5 h-3.5 animate-spin" />}
+                  保存
                 </button>
-              )}
-              <button
-                type="button"
-                onClick={() => void handleSaveDraft()}
-                disabled={busy}
-                className="flex-1 px-3 py-2 rounded-lg text-[13px] font-semibold text-white bg-amber-600 hover:bg-amber-500 disabled:opacity-60 flex items-center justify-center gap-1.5"
-              >
-                {busy && <LoaderCircle className="w-3.5 h-3.5 animate-spin" />}
-                保存
-              </button>
+              </div>
             </div>
           </div>
         )}
@@ -973,6 +1071,33 @@ function FieldGroup({
       )}
       {children}
     </section>
+  );
+}
+
+function ActionChip({
+  icon: Icon,
+  label,
+  onClick,
+  active,
+}: {
+  icon: LucideIcon;
+  label: string;
+  onClick: () => void;
+  active?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold border transition-colors ${
+        active
+          ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900 text-emerald-700 dark:text-emerald-300'
+          : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'
+      }`}
+    >
+      <Icon className="w-3 h-3" />
+      {label}
+    </button>
   );
 }
 
