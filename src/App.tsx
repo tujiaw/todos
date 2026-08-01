@@ -25,6 +25,7 @@ import { SyncModal } from './components/SyncModal';
 import { CategorySettingsModal } from './components/CategorySettingsModal';
 import { DropModal } from './components/DropModal';
 import { AiAssistModal } from './components/AiAssistModal';
+import { EmailAuthForm, type EmailAuthMode } from './components/EmailAuthForm';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { useConfirm } from './components/ConfirmDialog';
 import { useToast } from './components/Toast';
@@ -66,6 +67,8 @@ import {
   supabase,
   initializeAuthSession,
   loginWithGitHub,
+  signInWithEmail,
+  signUpWithEmail,
   logoutSupabase,
   fetchTasksFromSupabase,
   fetchCategoriesFromSupabase,
@@ -128,6 +131,8 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [authInfo, setAuthInfo] = useState<string | null>(null);
+  const [isEmailAuthSubmitting, setIsEmailAuthSubmitting] = useState(false);
   const syncedUserIdRef = useRef<string | null>(null);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [syncError, setSyncError] = useState<string | null>(null);
@@ -1046,9 +1051,42 @@ export default function App() {
   const handleGitHubLoginClick = async () => {
     try {
       setAuthError(null);
+      setAuthInfo(null);
       await loginWithGitHub();
     } catch (err) {
       setAuthError(err instanceof Error ? err.message : 'GitHub 登录启动失败，请检查浏览器弹窗拦截设置');
+    }
+  };
+
+  const handleEmailAuthSubmit = async (
+    mode: EmailAuthMode,
+    email: string,
+    password: string
+  ) => {
+    setIsEmailAuthSubmitting(true);
+    setAuthError(null);
+    setAuthInfo(null);
+    try {
+      const result =
+        mode === 'signin'
+          ? await signInWithEmail(email, password)
+          : await signUpWithEmail(email, password);
+
+      if (result.session?.user) {
+        setUser(result.session.user);
+        return;
+      }
+
+      if (result.needsEmailConfirmation) {
+        setAuthInfo('注册成功。请查收确认邮件并点击链接后再登录。');
+        return;
+      }
+
+      setAuthError('登录未完成，请稍后重试。');
+    } catch (err) {
+      setAuthError(err instanceof Error ? err.message : '邮箱登录失败，请检查邮箱和密码');
+    } finally {
+      setIsEmailAuthSubmitting(false);
     }
   };
 
@@ -1109,7 +1147,7 @@ export default function App() {
           <div className="space-y-2">
             <h1 className="text-xl font-bold">登录 Daily TODOs</h1>
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              登录后才能查看和管理你的待办事项。
+              使用邮箱或 GitHub 登录后即可同步待办。
             </p>
           </div>
           {authError && (
@@ -1117,10 +1155,21 @@ export default function App() {
               {authError}
             </div>
           )}
+          <EmailAuthForm
+            isSubmitting={isEmailAuthSubmitting}
+            infoMessage={authInfo}
+            onSubmit={handleEmailAuthSubmit}
+          />
+          <div className="flex items-center gap-3 text-[11px] text-slate-400 dark:text-slate-500">
+            <div className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+            <span>或</span>
+            <div className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+          </div>
           <button
             type="button"
             onClick={handleGitHubLoginClick}
-            className="w-full min-h-11 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-semibold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+            disabled={isEmailAuthSubmitting}
+            className="w-full min-h-11 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-semibold text-sm flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-40 transition-opacity"
           >
             <Github className="w-4 h-4" />
             使用 GitHub 登录

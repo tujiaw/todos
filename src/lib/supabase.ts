@@ -55,7 +55,7 @@ export const initializeAuthSession = async (): Promise<Session | null> => {
   }
 
   if (hasLegacyTokens) {
-    throw new Error('登录流程已升级，请重新使用 GitHub 登录。');
+    throw new Error('登录流程已升级，请重新登录。');
   }
 
   const { data, error } = await supabase.auth.getSession();
@@ -70,9 +70,49 @@ export const ensureAuthenticatedUser = async (): Promise<User> => {
   const { data, error } = await supabase.auth.getSession();
   if (error) throw error;
   if (!data.session?.user || data.session.user.is_anonymous) {
-    throw new Error('Please sign in with GitHub to continue.');
+    throw new Error('请先登录后再继续。');
   }
   return data.session.user;
+};
+
+export type EmailAuthResult = {
+  session: Session | null;
+  needsEmailConfirmation: boolean;
+};
+
+const normalizeAuthEmail = (email: string) => email.trim().toLowerCase();
+
+export const signInWithEmail = async (
+  email: string,
+  password: string
+): Promise<EmailAuthResult> => {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: normalizeAuthEmail(email),
+    password,
+  });
+  if (error) throw error;
+  return {
+    session: data.session,
+    needsEmailConfirmation: false,
+  };
+};
+
+export const signUpWithEmail = async (
+  email: string,
+  password: string
+): Promise<EmailAuthResult> => {
+  const { data, error } = await supabase.auth.signUp({
+    email: normalizeAuthEmail(email),
+    password,
+    options: {
+      emailRedirectTo: `${window.location.origin}/`,
+    },
+  });
+  if (error) throw error;
+  return {
+    session: data.session,
+    needsEmailConfirmation: !data.session,
+  };
 };
 
 // GitHub OAuth Login

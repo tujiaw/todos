@@ -296,12 +296,19 @@ export const Header: React.FC<HeaderProps> = ({
                   title="Connected to Supabase. Click to manage sync."
                 >
                   <img
-                    src={user.user_metadata?.avatar_url || 'https://github.com/github.png'}
-                    alt="GitHub Profile"
+                    src={
+                      user.user_metadata?.avatar_url ||
+                      `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(
+                        user.email || user.id
+                      )}`
+                    }
+                    alt="Profile"
                     className="w-5 h-5 rounded-lg object-cover"
                   />
                   <span className="hidden sm:inline text-xs font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[90px]">
-                    {user.user_metadata?.full_name?.split(' ')[0] || 'GitHub'}
+                    {user.user_metadata?.full_name?.split(' ')[0] ||
+                      user.email?.split('@')[0] ||
+                      'Account'}
                   </span>
                   <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
                 </button>
@@ -309,7 +316,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <button
                   onClick={onGitHubLogin}
                   className="px-2.5 py-1.5 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs min-h-[34px]"
-                  title="Sign in with GitHub to sync tasks via Supabase"
+                  title="Sign in to sync tasks via Supabase"
                 >
                   <Github className="w-3.5 h-3.5 fill-white" />
                   <span className="hidden sm:inline">Sign In</span>

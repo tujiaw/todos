@@ -180,16 +180,21 @@ export const SyncModal: React.FC<SyncModalProps> = ({
               <div className="bg-slate-800/80 p-3 rounded-lg border border-slate-700/80 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <img
-                    src={user.user_metadata?.avatar_url || 'https://github.com/github.png'}
-                    alt="GitHub Avatar"
+                    src={
+                      user.user_metadata?.avatar_url ||
+                      `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(
+                        user.email || user.id
+                      )}`
+                    }
+                    alt="User avatar"
                     className="w-8 h-8 rounded-full border border-slate-600 shrink-0"
                   />
                   <div className="min-w-0">
                     <p className="font-bold truncate text-xs text-white">
-                      {user.user_metadata?.full_name || user.email || 'GitHub User'}
+                      {user.user_metadata?.full_name || user.email || 'Signed-in user'}
                     </p>
                     <p className="text-[10px] text-slate-400 truncate">
-                      {user.email || 'Authorized via GitHub'}
+                      {user.email || 'Connected to Supabase'}
                     </p>
                   </div>
                 </div>
@@ -216,7 +221,7 @@ export const SyncModal: React.FC<SyncModalProps> = ({
             ) : (
               <div className="space-y-2.5">
                 <p className="text-[11px] text-slate-300 leading-relaxed">
-                  Sign in with GitHub to enable real-time Supabase cloud sync and cross-device data persistence.
+                  Sign in with email or GitHub to enable real-time Supabase cloud sync and cross-device data persistence.
                 </p>
                 <button
                   type="button"
@@ -224,7 +229,7 @@ export const SyncModal: React.FC<SyncModalProps> = ({
                   className="w-full py-2 bg-white text-slate-900 font-bold rounded-xl hover:bg-slate-100 transition-colors flex items-center justify-center gap-2 min-h-[38px] shadow-sm"
                 >
                   <Github className="w-4 h-4 fill-slate-900" />
-                  <span>Sign in with GitHub for Supabase Sync</span>
+                  <span>Sign in to enable Supabase Sync</span>
                 </button>
               </div>
             )}
