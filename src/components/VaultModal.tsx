@@ -1062,9 +1062,25 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                     touchActivity();
                   }}
                   placeholder="搜索…"
-                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 pl-8 pr-2.5 py-2 sm:py-1.5 text-base sm:text-[15px]"
+                  className={`w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 pl-8 py-2 sm:py-1.5 text-base sm:text-[15px] ${
+                    searchQuery ? 'pr-8' : 'pr-2.5'
+                  }`}
                   autoComplete="off"
                 />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('');
+                      touchActivity();
+                    }}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 sm:p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                    title="清空搜索"
+                    aria-label="清空搜索"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
               <div className="flex gap-1 overflow-x-auto">
                 {types.map((type) => (
