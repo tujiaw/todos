@@ -109,6 +109,18 @@ export const signUpWithEmail = async (
     },
   });
   if (error) throw error;
+
+  // When email already exists, Supabase may return a user with empty identities
+  // and no session (anti-enumeration). That is NOT a successful new signup.
+  const identities = data.user?.identities ?? [];
+  if (data.user && identities.length === 0) {
+    throw new Error('该邮箱可能已注册，请直接登录；若未收到确认邮件，请检查垃圾箱或联系管理员。');
+  }
+
+  if (!data.user) {
+    throw new Error('注册未成功创建用户，请检查 Auth 日志或稍后重试。');
+  }
+
   return {
     session: data.session,
     needsEmailConfirmation: !data.session,
