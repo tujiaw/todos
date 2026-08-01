@@ -182,7 +182,7 @@ function CollapsibleDropText({ content }: { content: string }) {
           <button
             type="button"
             onClick={() => setExpanded((value) => !value)}
-            className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-indigo-600 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
+            className="inline-flex items-center justify-center w-8 h-8 sm:w-7 sm:h-7 rounded-lg text-indigo-600 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
             title={expanded ? 'Show less' : 'Show more'}
             aria-label={expanded ? 'Show less' : 'Show more'}
             aria-expanded={expanded}
@@ -637,7 +637,7 @@ export const DropModal: React.FC<DropModalProps> = ({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className="drop-panel absolute right-0 top-0 bottom-0 w-full sm:w-[420px] lg:w-[440px] bg-slate-50 dark:bg-slate-950 shadow-2xl border-l border-white/70 dark:border-slate-800 flex flex-col h-full z-10 transition-transform animate-in slide-in-from-right duration-300 ease-out"
+        className="drop-panel absolute right-0 top-0 bottom-0 w-full sm:w-[420px] lg:w-[440px] bg-slate-50 dark:bg-slate-950 shadow-2xl border-l border-white/70 dark:border-slate-800 flex flex-col h-full z-10 pt-[env(safe-area-inset-top,0px)] sm:pt-0 transition-transform animate-in slide-in-from-right duration-300 ease-out"
         role="dialog"
         aria-modal="true"
         aria-labelledby="edge-drop-title"
@@ -753,7 +753,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                 onDismissError();
                 setAttachmentError(null);
               }}
-              className="shrink-0 p-0.5 rounded hover:bg-rose-100 dark:hover:bg-rose-900"
+              className="shrink-0 p-1 sm:p-0.5 rounded hover:bg-rose-100 dark:hover:bg-rose-900"
               aria-label="Dismiss error"
             >
               <X className="w-3 h-3" />
@@ -772,13 +772,13 @@ export const DropModal: React.FC<DropModalProps> = ({
                 placeholder="Search"
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
-                className="w-full text-sm pl-8 pr-8 py-2 rounded-xl border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 shadow-sm"
+                className="w-full text-base sm:text-sm pl-8 pr-8 py-2 rounded-xl border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 shadow-sm"
               />
               {hasSearchQuery && (
                 <button
                   type="button"
                   onClick={() => onSearchChange('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 -m-1.5 sm:p-0 sm:m-0 text-slate-400 hover:text-slate-600"
                   aria-label="Clear search"
                 >
                   <X className="w-3 h-3" />
@@ -789,7 +789,7 @@ export const DropModal: React.FC<DropModalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowToolbar(false)}
-                className="text-[15px] font-medium text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0"
+                className="text-[15px] font-medium text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 px-2 py-2 sm:py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0"
               >
                 Hide
               </button>
@@ -870,7 +870,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                         <button
                           type="button"
                           onClick={() => handleCopy(item.id, item.content)}
-                          className="px-2 py-1 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1"
+                          className="px-2 py-1.5 sm:py-1 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1"
                           title="Copy content"
                         >
                           {copiedId === item.id ? (
@@ -892,7 +892,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                         type="button"
                         onClick={() => handleDelete(item.id)}
                         disabled={deletingId === item.id}
-                        className="p-1 rounded text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                        className="p-1.5 sm:p-1 rounded text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
                         title="Delete drop item"
                       >
                         <Trash2 className="w-3 h-3" />
@@ -975,7 +975,7 @@ export const DropModal: React.FC<DropModalProps> = ({
         </div>
 
         {/* Input Composer Footer */}
-        <div className="drop-composer-wrap px-4 sm:px-5 py-4 space-y-2">
+        <div className="drop-composer-wrap px-4 sm:px-5 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:pb-4 space-y-2">
           {!isAuthenticated && (
             <button
               type="button"
@@ -1008,7 +1008,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                   <button
                     type="button"
                     onClick={() => handleRemoveAttachedFile(index)}
-                    className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                    className="p-1.5 sm:p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                     aria-label={`Remove ${file.name || 'attachment'}`}
                   >
                     <X className="w-3.5 h-3.5" />
@@ -1052,7 +1052,7 @@ export const DropModal: React.FC<DropModalProps> = ({
               }
               disabled={!isAuthenticated}
               rows={1}
-              className="min-w-0 flex-1 h-9 text-[15px] leading-5 px-2 py-2 bg-slate-50/80 dark:bg-slate-800/70 rounded-lg text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none resize-none disabled:cursor-not-allowed disabled:opacity-60"
+              className="min-w-0 flex-1 h-9 text-base sm:text-[15px] leading-5 px-2 py-2 bg-slate-50/80 dark:bg-slate-800/70 rounded-lg text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none resize-none disabled:cursor-not-allowed disabled:opacity-60"
             />
 
             <button
