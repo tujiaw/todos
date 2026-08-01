@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   X,
   Lock,
@@ -166,6 +166,8 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
   const draftSnapshotRef = useRef('');
   const editorReturnViewRef = useRef<'list' | 'detail'>('list');
   const escapeActionRef = useRef<() => void>(() => {});
+  const listScrollRef = useRef<HTMLDivElement>(null);
+  const savedListScrollTopRef = useRef<number | null>(null);
 
   const [view, setView] = useState<VaultView>('gate');
   const [hasMeta, setHasMeta] = useState<boolean | null>(null);
@@ -178,7 +180,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
   const [showPassword, setShowPassword] = useState(false);
   const [sessionTtlMs, setSessionTtlMs] = useState(loadPreferredVaultTtlMs);
   const [searchQuery, setSearchQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState<VaultItemType | 'all'>('all');
+  const [typeFilter, setTypeFilter] = useState<VaultItemType | 'all'>('login');
   const [draft, setDraft] = useState<VaultItemPlain | null>(null);
   const [isNewDraft, setIsNewDraft] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -208,9 +210,10 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     setPasswordConfirm('');
     setRevealSecrets({});
     setSearchQuery('');
-    setTypeFilter('all');
+    setTypeFilter('login');
     setCopyMenuFor(null);
     setHeaderMenuOpen(false);
+    savedListScrollTopRef.current = null;
     setView('gate');
   };
 
@@ -424,7 +427,24 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     }
   };
 
+  // 离开列表前记录滚动位置，返回列表时一次性恢复。
+  const rememberListScroll = () => {
+    if (listScrollRef.current) {
+      savedListScrollTopRef.current = listScrollRef.current.scrollTop;
+    }
+  };
+
+  useLayoutEffect(() => {
+    if (view !== 'list') return;
+    const saved = savedListScrollTopRef.current;
+    savedListScrollTopRef.current = null;
+    if (saved != null && listScrollRef.current) {
+      listScrollRef.current.scrollTop = saved;
+    }
+  }, [view]);
+
   const openCreate = (type: VaultItemType) => {
+    rememberListScroll();
     const next = emptyDraft(type);
     setDraft(next);
     setIsNewDraft(true);
@@ -436,6 +456,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
   };
 
   const openDetail = (item: VaultItemPlain) => {
+    rememberListScroll();
     setSelectedId(item.id);
     setRevealSecrets({});
     setView('detail');
@@ -443,6 +464,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
   };
 
   const openEdit = (item: VaultItemPlain) => {
+    rememberListScroll();
     const next = {
       ...item,
       fields: item.fields ? item.fields.map((f) => ({ ...f })) : undefined,
@@ -1065,7 +1087,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
               </div>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto">
+            <div ref={listScrollRef} className="flex-1 min-h-0 overflow-y-auto">
               {filteredItems.length === 0 ? (
                 <VaultEmptyState
                   hasItems={items.length > 0}
