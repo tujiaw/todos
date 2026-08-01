@@ -27,6 +27,6 @@ describe('vaultCrypto', () => {
   });
 
   it('uses the configured default iteration count', () => {
-    assert.equal(VAULT_KDF_ITERATIONS, 310_000);
+    assert.equal(VAULT_KDF_ITERATIONS, 600_000);
   });
 });

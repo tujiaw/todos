@@ -1,4 +1,4 @@
-export const VAULT_KDF_ITERATIONS = 310_000;
+export const VAULT_KDF_ITERATIONS = 600_000;
 export const VAULT_VERIFIER_PLAINTEXT = 'daily-todos-vault-v1';
 
 const textEncoder = new TextEncoder();

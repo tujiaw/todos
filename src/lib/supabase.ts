@@ -776,8 +776,9 @@ export const fetchVaultItemRows = async (): Promise<VaultItemRow[]> => {
 export const decryptVaultItems = async (
   key: CryptoKey,
   rows: VaultItemRow[]
-): Promise<VaultItemPlain[]> => {
+): Promise<{ items: VaultItemPlain[]; failed: number }> => {
   const items: VaultItemPlain[] = [];
+  let failed = 0;
   for (const row of rows) {
     try {
       const plain = await decryptJson<VaultItemPlain>(key, {
@@ -792,9 +793,10 @@ export const decryptVaultItems = async (
       });
     } catch (err) {
       console.warn('Failed to decrypt vault item', row.id, err);
+      failed += 1;
     }
   }
-  return items;
+  return { items, failed };
 };
 
 export const upsertVaultItemEncrypted = async (
@@ -832,20 +834,76 @@ export const deleteVaultItemFromSupabase = async (id: string): Promise<void> => 
   if (error) throw error;
 };
 
+const VAULT_UPSERT_CHUNK_SIZE = 100;
+
 export const upsertVaultItemsBatch = async (
   key: CryptoKey,
   items: VaultItemPlain[]
 ): Promise<{ saved: number; failed: number }> => {
+  if (items.length === 0) return { saved: 0, failed: 0 };
+  const activeUser = await ensureAuthenticatedUser();
+  const now = Date.now();
+
+  const rows = await Promise.all(
+    items.map(async (item) => {
+      const payload: VaultItemPlain = {
+        ...item,
+        updatedAt: item.updatedAt || now,
+        createdAt: item.createdAt || now,
+      };
+      const encrypted = await encryptJson(key, payload);
+      return {
+        id: payload.id,
+        user_id: activeUser.id,
+        type: payload.type,
+        ciphertext: encrypted.ciphertext,
+        iv: encrypted.iv,
+        updated_at: payload.updatedAt,
+      };
+    })
+  );
+
   let saved = 0;
   let failed = 0;
-  for (const item of items) {
-    try {
-      await upsertVaultItemEncrypted(key, item);
-      saved += 1;
-    } catch (err) {
-      console.warn('Vault batch upsert failed for', item.id, err);
-      failed += 1;
+  for (let i = 0; i < rows.length; i += VAULT_UPSERT_CHUNK_SIZE) {
+    const chunk = rows.slice(i, i + VAULT_UPSERT_CHUNK_SIZE);
+    const { error } = await supabase.from('vault_items').upsert(chunk);
+    if (error) {
+      console.warn('Vault batch upsert failed for chunk starting at', i, error);
+      failed += chunk.length;
+    } else {
+      saved += chunk.length;
     }
   }
   return { saved, failed };
+};
+
+/**
+ * Re-key the vault: new salt/verifier in vault_meta, then re-encrypt all items.
+ * Meta is updated first so the new password always unlocks; any item that fails
+ * re-encryption is reported so the caller can retry while plaintext is in memory.
+ */
+export const rotateVaultMasterPassword = async (
+  newPassword: string,
+  items: VaultItemPlain[]
+): Promise<{ key: CryptoKey; failed: number }> => {
+  const activeUser = await ensureAuthenticatedUser();
+  const salt = generateSalt();
+  const key = await deriveVaultKey(newPassword, salt, VAULT_KDF_ITERATIONS);
+  const verifier = await createVerifier(key);
+
+  const { error } = await supabase
+    .from('vault_meta')
+    .update({
+      salt: bytesToBase64(salt),
+      verifier_ciphertext: verifier.ciphertext,
+      verifier_iv: verifier.iv,
+      kdf_iterations: VAULT_KDF_ITERATIONS,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('user_id', activeUser.id);
+  if (error) throw error;
+
+  const result = await upsertVaultItemsBatch(key, items);
+  return { key, failed: result.failed };
 };

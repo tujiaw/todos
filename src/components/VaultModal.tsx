@@ -21,6 +21,11 @@ import {
   ExternalLink,
   ClipboardCopy,
   ChevronDown,
+  Download,
+  EllipsisVertical,
+  KeySquare,
+  Pencil,
+  RefreshCw,
 } from 'lucide-react';
 import type { VaultCustomField, VaultItemPlain, VaultItemType, VaultMergePlan } from '../types';
 import {
@@ -29,10 +34,13 @@ import {
   fetchVaultItemRows,
   fetchVaultMeta,
   initializeVaultMeta,
+  rotateVaultMasterPassword,
   unlockVaultWithPassword,
   upsertVaultItemEncrypted,
   upsertVaultItemsBatch,
 } from '../lib/supabase';
+import { verifyMasterPassword } from '../lib/vaultCrypto';
+import { generateTotpCode, parseTotpInput, totpRemainingSeconds } from '../utils/totp';
 import {
   buildVaultMergePlan,
   parseBitwardenExport,
@@ -44,6 +52,7 @@ import {
   getVaultSession,
   getVaultSessionRemainingMs,
   loadPreferredVaultTtlMs,
+  restoreVaultSession,
   savePreferredVaultTtlMs,
   setVaultSession,
   touchVaultSession,
@@ -51,9 +60,66 @@ import {
 } from '../lib/vaultSession';
 import { useConfirm } from './ConfirmDialog';
 
-type VaultView = 'gate' | 'list' | 'editor' | 'importPreview';
+type VaultView = 'gate' | 'list' | 'detail' | 'editor' | 'importPreview' | 'changePassword';
 type NoticeTone = 'info' | 'success' | 'error';
 type VaultNotice = { text: string; tone: NoticeTone };
+
+// setTimeout 的延迟上限（约 24.8 天），超过会被浏览器当作 0 立即触发。
+const MAX_TIMEOUT_DELAY_MS = 0x7fffffff;
+const CLIPBOARD_CLEAR_DELAY_MS = 30_000;
+const IMPORT_PREVIEW_LIMIT = 80;
+
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
+
+function formatRemainingMs(ms: number): string {
+  if (ms >= DAY_MS) return `${Math.round(ms / DAY_MS)}天`;
+  if (ms >= HOUR_MS) return `${Math.round(ms / HOUR_MS)}小时`;
+  return `${Math.max(1, Math.ceil(ms / 60_000))}分钟`;
+}
+
+// 去掉易混淆字符（O/0、I/l/1）后各取一类，保证四类字符齐全。
+const PASSWORD_CHARSETS = [
+  'ABCDEFGHJKLMNPQRSTUVWXYZ',
+  'abcdefghijkmnpqrstuvwxyz',
+  '23456789',
+  '!@#$%^&*-_=+?',
+];
+
+function generatePassword(length = 16): string {
+  const all = PASSWORD_CHARSETS.join('');
+  const randomValues = crypto.getRandomValues(new Uint32Array(length));
+  const chars = Array.from(randomValues, (random, index) => {
+    if (index < PASSWORD_CHARSETS.length) {
+      const charset = PASSWORD_CHARSETS[index];
+      return charset[random % charset.length];
+    }
+    return all[random % all.length];
+  });
+  for (let i = chars.length - 1; i > 0; i -= 1) {
+    const j = crypto.getRandomValues(new Uint32Array(1))[0] % (i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join('');
+}
+
+function formatCardNumber(raw?: string): string {
+  const value = raw?.trim() || '';
+  const digits = value.replace(/[\s-]/g, '');
+  if (!/^\d+$/.test(digits)) return value;
+  return digits.replace(/(.{4})/g, '$1 ').trim();
+}
+
+function loginDomain(item: VaultItemPlain): string | null {
+  if (item.type !== 'login') return null;
+  const normalized = normalizeVaultUrl(item.url);
+  if (!normalized) return null;
+  try {
+    return new URL(normalized).hostname;
+  } catch {
+    return null;
+  }
+}
 
 interface VaultModalProps {
   isOpen: boolean;
@@ -95,6 +161,10 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
   const importInputRef = useRef<HTMLInputElement>(null);
   const expiryTimerRef = useRef<number | null>(null);
   const noticeTimerRef = useRef<number | null>(null);
+  const clipboardClearTimerRef = useRef<number | null>(null);
+  const draftSnapshotRef = useRef('');
+  const editorReturnViewRef = useRef<'list' | 'detail'>('list');
+  const escapeActionRef = useRef<() => void>(() => {});
 
   const [view, setView] = useState<VaultView>('gate');
   const [hasMeta, setHasMeta] = useState<boolean | null>(null);
@@ -110,10 +180,13 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
   const [typeFilter, setTypeFilter] = useState<VaultItemType | 'all'>('all');
   const [draft, setDraft] = useState<VaultItemPlain | null>(null);
   const [isNewDraft, setIsNewDraft] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [revealSecrets, setRevealSecrets] = useState<Record<string, boolean>>({});
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [copyMenuFor, setCopyMenuFor] = useState<string | null>(null);
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const [mergePlan, setMergePlan] = useState<VaultMergePlan | null>(null);
+  const [, setLockCountdownTick] = useState(0);
 
   const showNotice = (text: string, tone: NoticeTone = 'info') => {
     setNotice({ text, tone });
@@ -128,6 +201,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     setVaultKey(null);
     setItems([]);
     setDraft(null);
+    setSelectedId(null);
     setMergePlan(null);
     setPassword('');
     setPasswordConfirm('');
@@ -135,6 +209,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     setSearchQuery('');
     setTypeFilter('all');
     setCopyMenuFor(null);
+    setHeaderMenuOpen(false);
     setView('gate');
   };
 
@@ -156,8 +231,12 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
       return;
     }
     expiryTimerRef.current = window.setTimeout(() => {
-      lockVault(true);
-    }, remaining);
+      if (getVaultSessionRemainingMs() <= 0) {
+        lockVault(true);
+      } else {
+        scheduleSessionExpiry();
+      }
+    }, Math.min(remaining, MAX_TIMEOUT_DELAY_MS));
   };
 
   const touchActivity = () => {
@@ -171,8 +250,11 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
 
   const loadItems = async (key: CryptoKey) => {
     const rows = await fetchVaultItemRows();
-    const decrypted = await decryptVaultItems(key, rows);
+    const { items: decrypted, failed } = await decryptVaultItems(key, rows);
     setItems(decrypted);
+    if (failed > 0) {
+      showNotice(`有 ${failed} 条记录无法解密，已隐藏`, 'error');
+    }
   };
 
   useEffect(() => {
@@ -185,7 +267,22 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
         if (cancelled) return;
         setHasMeta(Boolean(meta));
 
-        const sessionKey = getVaultSession();
+        let sessionKey = getVaultSession() ?? (await restoreVaultSession());
+        if (sessionKey) {
+          // 密钥可能属于其他账号或已被改密，先用 verifier 校验再复用。
+          const valid =
+            meta &&
+            (await verifyMasterPassword(sessionKey, {
+              ciphertext: meta.verifier_ciphertext,
+              iv: meta.verifier_iv,
+            }));
+          if (!valid) {
+            clearVaultSession();
+            sessionKey = null;
+          }
+        }
+        if (cancelled) return;
+
         if (sessionKey) {
           setVaultKey(sessionKey);
           setBusy(true);
@@ -228,6 +325,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
   useEffect(() => {
     return () => {
       if (noticeTimerRef.current) window.clearTimeout(noticeTimerRef.current);
+      if (clipboardClearTimerRef.current) window.clearTimeout(clipboardClearTimerRef.current);
     };
   }, []);
 
@@ -236,22 +334,32 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        if (view === 'editor' || view === 'importPreview') {
-          setDraft(null);
-          setMergePlan(null);
-          setView('list');
-        } else {
-          onClose();
-        }
-      }
+      if (event.key === 'Escape') escapeActionRef.current();
     };
     window.addEventListener('keydown', onKey);
     return () => {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener('keydown', onKey);
     };
-  }, [isOpen, onClose, view]);
+  }, [isOpen]);
+
+  // 每 30 秒刷新一次头部的「剩余锁定时间」。
+  useEffect(() => {
+    if (!isOpen || !vaultKey) return;
+    const id = window.setInterval(() => setLockCountdownTick((tick) => tick + 1), 30_000);
+    return () => window.clearInterval(id);
+  }, [isOpen, vaultKey]);
+
+  useEffect(() => {
+    if (!headerMenuOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('[data-vault-header-menu]')) return;
+      setHeaderMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, [headerMenuOpen]);
 
   const filteredItems = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -316,19 +424,56 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
   };
 
   const openCreate = (type: VaultItemType) => {
-    setDraft(emptyDraft(type));
+    const next = emptyDraft(type);
+    setDraft(next);
     setIsNewDraft(true);
     setRevealSecrets({});
+    draftSnapshotRef.current = JSON.stringify(next);
+    editorReturnViewRef.current = 'list';
     setView('editor');
     touchActivity();
   };
 
+  const openDetail = (item: VaultItemPlain) => {
+    setSelectedId(item.id);
+    setRevealSecrets({});
+    setView('detail');
+    touchActivity();
+  };
+
   const openEdit = (item: VaultItemPlain) => {
-    setDraft({ ...item, fields: item.fields ? item.fields.map((f) => ({ ...f })) : undefined });
+    const next = {
+      ...item,
+      fields: item.fields ? item.fields.map((f) => ({ ...f })) : undefined,
+    };
+    setDraft(next);
     setIsNewDraft(false);
     setRevealSecrets({});
+    draftSnapshotRef.current = JSON.stringify(next);
+    editorReturnViewRef.current = view === 'detail' ? 'detail' : 'list';
     setView('editor');
     touchActivity();
+  };
+
+  const closeEditor = () => {
+    setDraft(null);
+    if (editorReturnViewRef.current === 'detail' && selectedId) {
+      setView('detail');
+    } else {
+      setView('list');
+    }
+  };
+
+  const attemptCloseEditor = async () => {
+    if (draft && JSON.stringify(draft) !== draftSnapshotRef.current) {
+      const confirmed = await confirmAction({
+        title: '放弃未保存的修改？',
+        description: '当前编辑内容尚未保存，退出后将丢失。',
+        confirmLabel: '放弃修改',
+      });
+      if (!confirmed) return;
+    }
+    closeEditor();
   };
 
   const handleSaveDraft = async () => {
@@ -350,7 +495,12 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
         return [saved, ...without];
       });
       setDraft(null);
-      setView('list');
+      if (!isNewDraft && editorReturnViewRef.current === 'detail') {
+        setSelectedId(saved.id);
+        setView('detail');
+      } else {
+        setView('list');
+      }
       showNotice('已保存', 'success');
       touchActivity();
     } catch (err) {
@@ -373,6 +523,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
       await deleteVaultItemFromSupabase(draft.id);
       setItems((current) => current.filter((item) => item.id !== draft.id));
       setDraft(null);
+      setSelectedId(null);
       setView('list');
       showNotice('已删除', 'success');
     } catch (err) {
@@ -382,13 +533,39 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     }
   };
 
-  const handleCopy = async (field: string, value?: string, successText = '已复制') => {
+  // 到点后仅在剪贴板内容仍是我们写入的值时清空，避免覆盖用户后续复制的内容。
+  const scheduleClipboardClear = (value: string) => {
+    if (clipboardClearTimerRef.current) window.clearTimeout(clipboardClearTimerRef.current);
+    clipboardClearTimerRef.current = window.setTimeout(() => {
+      clipboardClearTimerRef.current = null;
+      void (async () => {
+        try {
+          const current = await navigator.clipboard.readText();
+          if (current === value) await navigator.clipboard.writeText('');
+        } catch {
+          // 无读取权限或窗口失焦时放弃清除
+        }
+      })();
+    }, CLIPBOARD_CLEAR_DELAY_MS);
+  };
+
+  const handleCopy = async (
+    field: string,
+    value?: string,
+    successText = '已复制',
+    sensitive = false
+  ) => {
     if (!value) return;
     const ok = await copyText(value);
     if (ok) {
       setCopiedField(field);
       setCopyMenuFor(null);
-      showNotice(successText, 'success');
+      if (sensitive) {
+        scheduleClipboardClear(value);
+        showNotice(`${successText}，30 秒后自动清除`, 'success');
+      } else {
+        showNotice(successText, 'success');
+      }
       window.setTimeout(() => setCopiedField(null), 1500);
     } else {
       showNotice('复制失败', 'error');
@@ -402,7 +579,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
       showNotice('暂无可复制内容', 'info');
       return;
     }
-    await handleCopy('all', text, '已复制全部信息');
+    await handleCopy('all', text, '已复制全部信息', true);
   };
 
   const handleCopyMenuAction = async (
@@ -414,7 +591,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
       return;
     }
     if (action === 'password') {
-      await handleCopy('password', item.password, '已复制密码');
+      await handleCopy('password', item.password, '已复制密码', true);
       return;
     }
     await handleCopyAll(item);
@@ -476,7 +653,8 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
       setView('list');
       showNotice(
         `导入完成：新增 ${mergePlan.adds.length}，更新 ${mergePlan.updates.length}，跳过 ${mergePlan.skips.length}` +
-          (result.failed ? `（失败 ${result.failed}）` : ''),
+          (result.failed ? `（失败 ${result.failed}）` : '') +
+          '。请删除导出的明文 JSON 文件',
         result.failed ? 'error' : 'success'
       );
       touchActivity();
@@ -485,6 +663,84 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     } finally {
       setBusy(false);
     }
+  };
+
+  const handleExport = async () => {
+    setHeaderMenuOpen(false);
+    const confirmed = await confirmAction({
+      title: '导出为未加密 JSON？',
+      description: '导出文件包含明文密码，请妥善保管并在使用后尽快删除。',
+      confirmLabel: '导出',
+    });
+    if (!confirmed) return;
+    const payload = { exportedAt: new Date().toISOString(), items };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `vault-export-${new Date().toISOString().slice(0, 10)}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    showNotice('已导出，请妥善保管文件', 'success');
+    touchActivity();
+  };
+
+  const openChangePassword = () => {
+    setHeaderMenuOpen(false);
+    setPassword('');
+    setPasswordConfirm('');
+    setShowPassword(false);
+    setView('changePassword');
+    touchActivity();
+  };
+
+  const handleChangePassword = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setNotice(null);
+    if (password.length < 8) {
+      showNotice('新主密码至少 8 位', 'error');
+      return;
+    }
+    if (password !== passwordConfirm) {
+      showNotice('两次输入的新主密码不一致', 'error');
+      return;
+    }
+    setBusy(true);
+    try {
+      const { key, failed } = await rotateVaultMasterPassword(password, items);
+      setVaultKey(key);
+      setVaultSession(key, sessionTtlMs);
+      scheduleSessionExpiry();
+      setPassword('');
+      setPasswordConfirm('');
+      setView('list');
+      if (failed > 0) {
+        showNotice(
+          `主密码已修改，但有 ${failed} 条记录重新加密失败，请保持解锁状态并重新保存`,
+          'error'
+        );
+      } else {
+        showNotice('主密码已修改', 'success');
+      }
+    } catch (err) {
+      showNotice(err instanceof Error ? err.message : '修改主密码失败', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleGeneratePassword = async () => {
+    if (!draft) return;
+    if (draft.password?.trim()) {
+      const confirmed = await confirmAction({
+        title: '替换现有密码？',
+        description: '将用新生成的随机密码覆盖当前密码。',
+        confirmLabel: '替换',
+      });
+      if (!confirmed) return;
+    }
+    updateDraft({ password: generatePassword() });
+    setRevealSecrets((current) => ({ ...current, password: true }));
   };
 
   const updateDraft = (patch: Partial<VaultItemPlain>) => {
@@ -502,14 +758,45 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     touchActivity();
   };
 
+  escapeActionRef.current = () => {
+    if (view === 'editor') {
+      void attemptCloseEditor();
+    } else if (view === 'detail') {
+      setSelectedId(null);
+      setView('list');
+    } else if (view === 'importPreview') {
+      setMergePlan(null);
+      setView('list');
+    } else if (view === 'changePassword') {
+      setPassword('');
+      setPasswordConfirm('');
+      setView('list');
+    } else {
+      onClose();
+    }
+  };
+
   if (!isOpen) return null;
 
   const types: Array<VaultItemType | 'all'> = ['all', 'login', 'card', 'identity', 'note', 'custom'];
   const createTypes: VaultItemType[] = ['login', 'card', 'identity', 'note', 'custom'];
+  const selectedItem = selectedId ? items.find((item) => item.id === selectedId) ?? null : null;
+  const showBackButton =
+    view === 'editor' || view === 'importPreview' || view === 'detail' || view === 'changePassword';
+  let headerBadgeType: VaultItemType | null = null;
+  if (view === 'editor' && draft) {
+    headerBadgeType = draft.type;
+  } else if (view === 'detail' && selectedItem) {
+    headerBadgeType = selectedItem.type;
+  }
 
   let headerTitle = '保险箱';
   if (view === 'importPreview') {
     headerTitle = '导入预览';
+  } else if (view === 'changePassword') {
+    headerTitle = '修改主密码';
+  } else if (view === 'detail' && selectedItem) {
+    headerTitle = selectedItem.title;
   } else if (view === 'editor' && draft) {
     const draftTitle = draft.title.trim();
     if (draftTitle) {
@@ -541,22 +828,17 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
       >
         <div className="shrink-0 h-12 px-3 flex items-center justify-between gap-2 border-b border-slate-200/70 dark:border-slate-800 bg-slate-50/95 dark:bg-slate-950/95">
           <div className="flex items-center gap-1.5 min-w-0">
-            {(view === 'editor' || view === 'importPreview') && (
+            {showBackButton && (
               <button
                 type="button"
-                onClick={() => {
-                  setDraft(null);
-                  setMergePlan(null);
-                  setNotice(null);
-                  setView('list');
-                }}
+                onClick={() => escapeActionRef.current()}
                 className="p-1.5 rounded-lg hover:bg-white/70 dark:hover:bg-white/10"
                 title="返回"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
               </button>
             )}
-            {view !== 'editor' && (
+            {(view === 'gate' || view === 'list') && (
               <Shield className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
             )}
             <h2
@@ -565,9 +847,14 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
             >
               {headerTitle}
             </h2>
-            {view === 'editor' && draft && (
+            {headerBadgeType && (
               <span className="shrink-0 text-sm font-semibold px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-200">
-                {vaultItemTypeLabel(draft.type)}
+                {vaultItemTypeLabel(headerBadgeType)}
+              </span>
+            )}
+            {vaultKey && view === 'list' && (
+              <span className="shrink-0 text-xs text-slate-400 dark:text-slate-500">
+                {formatRemainingMs(getVaultSessionRemainingMs())}后锁定
               </span>
             )}
           </div>
@@ -586,21 +873,48 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                 />
                 <button
                   type="button"
-                  onClick={() => importInputRef.current?.click()}
-                  className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-white/10"
-                  title="从 Bitwarden 导入"
-                  disabled={busy}
-                >
-                  <Upload className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
                   onClick={() => lockVault(true)}
                   className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-white/10"
                   title="锁定"
                 >
                   <Lock className="w-3.5 h-3.5" />
                 </button>
+                <div className="relative" data-vault-header-menu>
+                  <button
+                    type="button"
+                    onClick={() => setHeaderMenuOpen((open) => !open)}
+                    className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-white/10"
+                    title="更多操作"
+                    aria-expanded={headerMenuOpen}
+                  >
+                    <EllipsisVertical className="w-3.5 h-3.5" />
+                  </button>
+                  {headerMenuOpen && (
+                    <div className="absolute right-0 top-full mt-1 z-30 min-w-[11rem] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg py-1">
+                      <HeaderMenuItem
+                        icon={Upload}
+                        label="从 Bitwarden 导入"
+                        disabled={busy}
+                        onClick={() => {
+                          setHeaderMenuOpen(false);
+                          importInputRef.current?.click();
+                        }}
+                      />
+                      <HeaderMenuItem
+                        icon={Download}
+                        label="导出 JSON"
+                        disabled={busy}
+                        onClick={() => void handleExport()}
+                      />
+                      <HeaderMenuItem
+                        icon={KeySquare}
+                        label="修改主密码"
+                        disabled={busy}
+                        onClick={openChangePassword}
+                      />
+                    </div>
+                  )}
+                </div>
               </>
             )}
             <button
@@ -623,7 +937,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
             <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2.5">
               <p className="text-[15px] leading-snug text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/50 rounded-lg px-2.5 py-2">
                 {hasMeta
-                  ? '解锁后在有效时间内无需重复输入；关闭窗口不会锁定。'
+                  ? '解锁后在有效期内保持解锁，刷新页面也无需重复输入。'
                   : '设置主密码后启用。主密码不可找回。'}
               </p>
               {hasMeta === null ? (
@@ -639,6 +953,8 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                     revealed={showPassword}
                     onToggleReveal={() => setShowPassword((value) => !value)}
                     onChange={setPassword}
+                    autoFocus
+                    autoComplete={hasMeta ? 'current-password' : 'new-password'}
                   />
                   {!hasMeta && (
                     <Field
@@ -647,6 +963,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                       secret
                       revealed={showPassword}
                       onChange={setPasswordConfirm}
+                      autoComplete="new-password"
                     />
                   )}
                   <div>
@@ -727,10 +1044,12 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
 
             <div className="flex-1 min-h-0 overflow-y-auto">
               {filteredItems.length === 0 ? (
-                <div className="py-12 text-center text-[15px] text-slate-400">暂无条目</div>
+                <VaultEmptyState
+                  hasItems={items.length > 0}
+                  onCreateLogin={() => openCreate('login')}
+                />
               ) : (
                 filteredItems.map((item) => {
-                  const Icon = typeIcon(item.type);
                   const canOpen = item.type === 'login' && Boolean(item.url?.trim());
                   return (
                     <div
@@ -739,10 +1058,10 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                     >
                       <button
                         type="button"
-                        onClick={() => openEdit(item)}
+                        onClick={() => openDetail(item)}
                         className="min-w-0 flex-1 text-left px-3 py-2 flex items-center gap-2.5"
                       >
-                        <Icon className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                        <ItemGlyph item={item} />
                         <div className="min-w-0 flex-1">
                           <div className="text-[15px] font-semibold text-slate-900 dark:text-white truncate leading-tight">
                             {item.title}
@@ -800,6 +1119,164 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
           </div>
         )}
 
+        {view === 'detail' && selectedItem && (
+          <div className="flex flex-col flex-1 min-h-0">
+            <div className="flex-1 min-h-0 overflow-y-auto p-3">
+              <div className="rounded-lg border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/50 p-2.5 space-y-2.5">
+                {selectedItem.type === 'login' && (
+                  <>
+                    <DetailRow
+                      label="用户名"
+                      value={selectedItem.username}
+                      onCopy={() => handleCopy('username', selectedItem.username, '已复制用户名')}
+                      copied={copiedField === 'username'}
+                    />
+                    <DetailRow
+                      label="密码"
+                      value={selectedItem.password}
+                      secret
+                      mono
+                      onCopy={() =>
+                        handleCopy('password', selectedItem.password, '已复制密码', true)
+                      }
+                      copied={copiedField === 'password'}
+                    />
+                    <DetailRow
+                      label="网址"
+                      value={selectedItem.url}
+                      onCopy={() => handleCopy('url', selectedItem.url)}
+                      copied={copiedField === 'url'}
+                      action={
+                        selectedItem.url?.trim() ? (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenUrl(selectedItem.url)}
+                            className="p-1 text-slate-400 hover:text-amber-700 dark:hover:text-amber-300"
+                            title="打开网址"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </button>
+                        ) : undefined
+                      }
+                    />
+                    {selectedItem.totp?.trim() && (
+                      <TotpDetailRow
+                        rawSecret={selectedItem.totp}
+                        onCopyCode={(code) => handleCopy('totp', code, '已复制验证码', true)}
+                        copied={copiedField === 'totp'}
+                      />
+                    )}
+                  </>
+                )}
+
+                {selectedItem.type === 'card' && (
+                  <>
+                    <DetailRow label="持卡人" value={selectedItem.cardholder} />
+                    <DetailRow label="品牌" value={selectedItem.brand} />
+                    <DetailRow
+                      label="卡号"
+                      value={formatCardNumber(selectedItem.number)}
+                      secret
+                      mono
+                      onCopy={() =>
+                        handleCopy('number', selectedItem.number, '已复制卡号', true)
+                      }
+                      copied={copiedField === 'number'}
+                    />
+                    {(selectedItem.expMonth || selectedItem.expYear) && (
+                      <DetailRow
+                        label="有效期"
+                        value={[selectedItem.expMonth, selectedItem.expYear]
+                          .filter(Boolean)
+                          .join('/')}
+                      />
+                    )}
+                    <DetailRow
+                      label="CVV"
+                      value={selectedItem.cvv}
+                      secret
+                      mono
+                      onCopy={() => handleCopy('cvv', selectedItem.cvv, '已复制 CVV', true)}
+                      copied={copiedField === 'cvv'}
+                    />
+                  </>
+                )}
+
+                {selectedItem.type === 'identity' && (
+                  <>
+                    <DetailRow label="姓名" value={selectedItem.fullName} />
+                    <DetailRow label="证件类型" value={selectedItem.idType} />
+                    <DetailRow
+                      label="证件号"
+                      value={selectedItem.idNumber}
+                      secret
+                      mono
+                      onCopy={() =>
+                        handleCopy('idNumber', selectedItem.idNumber, '已复制证件号', true)
+                      }
+                      copied={copiedField === 'idNumber'}
+                    />
+                  </>
+                )}
+
+                {selectedItem.folder?.trim() && (
+                  <DetailRow label="文件夹" value={selectedItem.folder} />
+                )}
+
+                {(selectedItem.fields?.length ?? 0) > 0 && (
+                  <div className="pt-1 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                    <span className="block text-sm font-semibold text-slate-400">自定义字段</span>
+                    {selectedItem.fields!.map((field, index) => (
+                      <React.Fragment key={index}>
+                        <DetailRow
+                          label={field.label || '字段'}
+                          value={field.value}
+                          secret={field.secret}
+                          onCopy={() =>
+                            handleCopy(`field-${index}`, field.value, '已复制', Boolean(field.secret))
+                          }
+                          copied={copiedField === `field-${index}`}
+                        />
+                      </React.Fragment>
+                    ))}
+                  </div>
+                )}
+
+                {selectedItem.notes?.trim() && (
+                  <div className="pt-1 border-t border-slate-100 dark:border-slate-800">
+                    <span className="block text-sm font-semibold text-slate-500 dark:text-slate-400 mb-0.5">
+                      备注
+                    </span>
+                    <p className="text-[15px] text-slate-700 dark:text-slate-200 whitespace-pre-wrap break-words">
+                      {selectedItem.notes}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="shrink-0 px-3 py-2 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90 flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => void handleCopyAll(selectedItem)}
+                className="px-2.5 py-1.5 rounded-lg text-sm font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1"
+              >
+                <ClipboardCopy className="w-3.5 h-3.5" />
+                复制全部
+              </button>
+              <div className="flex-1" />
+              <button
+                type="button"
+                onClick={() => openEdit(selectedItem)}
+                className="px-3.5 py-1.5 rounded-lg text-sm font-semibold text-white bg-amber-600 hover:bg-amber-500 flex items-center gap-1.5"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                编辑
+              </button>
+            </div>
+          </div>
+        )}
+
         {view === 'editor' && draft && (
           <div className="flex flex-col flex-1 min-h-0">
             <div className="flex-1 min-h-0 overflow-y-auto p-3">
@@ -831,8 +1308,19 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                         }))
                       }
                       onChange={(value) => updateDraft({ password: value })}
-                      onCopy={() => handleCopy('password', draft.password, '已复制密码')}
+                      onCopy={() => handleCopy('password', draft.password, '已复制密码', true)}
                       copied={copiedField === 'password'}
+                      action={
+                        <button
+                          type="button"
+                          onClick={() => void handleGeneratePassword()}
+                          className="inline-flex items-center gap-0.5 text-sm font-semibold text-amber-700 dark:text-amber-300 hover:opacity-80"
+                          title="生成随机密码"
+                        >
+                          <RefreshCw className="w-3 h-3" />
+                          生成
+                        </button>
+                      }
                     />
                     <div className="grid grid-cols-[1fr_auto] gap-1.5 items-end">
                       <Field
@@ -856,7 +1344,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                       label="TOTP"
                       value={draft.totp || ''}
                       onChange={(value) => updateDraft({ totp: value })}
-                      onCopy={() => handleCopy('totp', draft.totp)}
+                      onCopy={() => handleCopy('totp', draft.totp, '已复制', true)}
                       copied={copiedField === 'totp'}
                     />
                   </>
@@ -890,7 +1378,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                         }))
                       }
                       onChange={(value) => updateDraft({ number: value })}
-                      onCopy={() => handleCopy('number', draft.number)}
+                      onCopy={() => handleCopy('number', draft.number, '已复制', true)}
                       copied={copiedField === 'number'}
                     />
                     <div className="grid grid-cols-3 gap-1.5">
@@ -916,7 +1404,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                           }))
                         }
                         onChange={(value) => updateDraft({ cvv: value })}
-                        onCopy={() => handleCopy('cvv', draft.cvv)}
+                        onCopy={() => handleCopy('cvv', draft.cvv, '已复制', true)}
                         copied={copiedField === 'cvv'}
                       />
                     </div>
@@ -951,7 +1439,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                         }))
                       }
                       onChange={(value) => updateDraft({ idNumber: value })}
-                      onCopy={() => handleCopy('idNumber', draft.idNumber)}
+                      onCopy={() => handleCopy('idNumber', draft.idNumber, '已复制', true)}
                       copied={copiedField === 'idNumber'}
                     />
                   </>
@@ -983,7 +1471,10 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                       </button>
                     </div>
                     {(draft.fields || []).map((field, index) => (
-                      <div key={index} className="grid grid-cols-[1fr_1fr_auto] gap-1.5 items-end">
+                      <div
+                        key={index}
+                        className="grid grid-cols-[1fr_1fr_auto_auto] gap-1.5 items-end"
+                      >
                         <Field
                           label="标签"
                           value={field.label}
@@ -992,10 +1483,39 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                         <Field
                           label="值"
                           value={field.value}
+                          secret={field.secret}
+                          revealed={Boolean(revealSecrets[`field-${index}`])}
+                          onToggleReveal={
+                            field.secret
+                              ? () =>
+                                  setRevealSecrets((current) => ({
+                                    ...current,
+                                    [`field-${index}`]: !current[`field-${index}`],
+                                  }))
+                              : undefined
+                          }
                           onChange={(value) => updateFieldRow(index, { value })}
-                          onCopy={() => handleCopy(`field-${index}`, field.value)}
+                          onCopy={() =>
+                            handleCopy(`field-${index}`, field.value, '已复制', Boolean(field.secret))
+                          }
                           copied={copiedField === `field-${index}`}
                         />
+                        <button
+                          type="button"
+                          onClick={() => updateFieldRow(index, { secret: !field.secret })}
+                          className={`p-1.5 mb-0.5 rounded-md ${
+                            field.secret
+                              ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40'
+                              : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                          }`}
+                          title={field.secret ? '取消隐藏字段' : '设为隐藏字段'}
+                        >
+                          {field.secret ? (
+                            <EyeOff className="w-3.5 h-3.5" />
+                          ) : (
+                            <Eye className="w-3.5 h-3.5" />
+                          )}
+                        </button>
                         <button
                           type="button"
                           onClick={() =>
@@ -1004,6 +1524,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                             })
                           }
                           className="p-1.5 mb-0.5 rounded-md text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                          title="删除字段"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -1049,7 +1570,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
               </div>
               <div className="rounded-lg border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800 text-[15px] overflow-hidden">
                 {[...mergePlan.adds, ...mergePlan.updates, ...mergePlan.skips]
-                  .slice(0, 80)
+                  .slice(0, IMPORT_PREVIEW_LIMIT)
                   .map((entry, index) => (
                     <div
                       key={`${entry.action}-${entry.incoming.externalId || index}`}
@@ -1065,6 +1586,17 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                       </span>
                     </div>
                   ))}
+                {mergePlan.adds.length + mergePlan.updates.length + mergePlan.skips.length >
+                  IMPORT_PREVIEW_LIMIT && (
+                  <div className="px-2.5 py-1.5 text-sm text-slate-400 text-center">
+                    还有{' '}
+                    {mergePlan.adds.length +
+                      mergePlan.updates.length +
+                      mergePlan.skips.length -
+                      IMPORT_PREVIEW_LIMIT}{' '}
+                    条未显示
+                  </div>
+                )}
               </div>
             </div>
             <div className="shrink-0 px-3 py-2 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90 flex gap-1.5">
@@ -1091,6 +1623,46 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
               </button>
             </div>
           </div>
+        )}
+
+        {view === 'changePassword' && (
+          <form onSubmit={handleChangePassword} className="flex flex-col flex-1 min-h-0">
+            <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2.5">
+              <p className="text-[15px] leading-snug text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/50 rounded-lg px-2.5 py-2">
+                修改后将用新密钥重新加密全部条目，请勿在过程中关闭页面。新主密码同样不可找回。
+              </p>
+              <FieldGroup>
+                <Field
+                  label="新主密码"
+                  value={password}
+                  secret
+                  revealed={showPassword}
+                  onToggleReveal={() => setShowPassword((value) => !value)}
+                  onChange={setPassword}
+                  autoFocus
+                  autoComplete="new-password"
+                />
+                <Field
+                  label="确认新主密码"
+                  value={passwordConfirm}
+                  secret
+                  revealed={showPassword}
+                  onChange={setPasswordConfirm}
+                  autoComplete="new-password"
+                />
+              </FieldGroup>
+            </div>
+            <div className="shrink-0 px-3 py-2 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90">
+              <button
+                type="submit"
+                disabled={busy}
+                className="w-full rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-[15px] font-semibold py-2 disabled:opacity-60 flex items-center justify-center gap-1.5"
+              >
+                {busy && <LoaderCircle className="w-3.5 h-3.5 animate-spin" />}
+                修改主密码
+              </button>
+            </div>
+          </form>
         )}
       </div>
     </div>
@@ -1265,6 +1837,9 @@ function Field({
   secret,
   revealed,
   onToggleReveal,
+  autoFocus,
+  autoComplete = 'off',
+  action,
 }: {
   label: string;
   value: string;
@@ -1274,16 +1849,20 @@ function Field({
   secret?: boolean;
   revealed?: boolean;
   onToggleReveal?: () => void;
+  autoFocus?: boolean;
+  autoComplete?: string;
+  action?: React.ReactNode;
 }) {
   const inputType = secret && !revealed ? 'password' : 'text';
   let rightPad = '';
-  if (secret && onCopy) rightPad = 'pr-14';
-  else if (secret || onCopy) rightPad = 'pr-8';
+  if (secret && onCopy) rightPad = 'pr-16';
+  else if (secret || onCopy) rightPad = 'pr-9';
 
   return (
     <label className="block min-w-0">
-      <span className="block text-sm font-semibold text-slate-500 dark:text-slate-400 mb-0.5 leading-tight">
+      <span className="flex items-center justify-between gap-2 text-sm font-semibold text-slate-500 dark:text-slate-400 mb-0.5 leading-tight">
         {label}
+        {action}
       </span>
       <div className="relative">
         <input
@@ -1291,25 +1870,230 @@ function Field({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           className={`w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-[15px] ${rightPad}`}
-          autoComplete="off"
+          autoComplete={autoComplete}
+          autoFocus={autoFocus}
         />
         <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center">
           {secret && onToggleReveal && (
-            <button type="button" onClick={onToggleReveal} className="p-1 text-slate-400">
-              {revealed ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+            <button
+              type="button"
+              onClick={onToggleReveal}
+              className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+            >
+              {revealed ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           )}
           {onCopy && (
-            <button type="button" onClick={onCopy} className="p-1 text-slate-400 hover:text-slate-600">
+            <button
+              type="button"
+              onClick={onCopy}
+              className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+            >
               {copied ? (
-                <Check className="w-3 h-3 text-emerald-500" />
+                <Check className="w-4 h-4 text-emerald-500" />
               ) : (
-                <Copy className="w-3 h-3" />
+                <Copy className="w-4 h-4" />
               )}
             </button>
           )}
         </div>
       </div>
     </label>
+  );
+}
+
+function DetailRow({
+  label,
+  value,
+  secret,
+  mono,
+  onCopy,
+  copied,
+  action,
+}: {
+  label: string;
+  value?: string;
+  secret?: boolean;
+  mono?: boolean;
+  onCopy?: () => void;
+  copied?: boolean;
+  action?: React.ReactNode;
+}) {
+  const [revealed, setRevealed] = useState(false);
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+
+  let display = trimmed;
+  if (secret && !revealed) display = '••••••••';
+
+  return (
+    <div className="min-w-0">
+      <span className="block text-sm font-semibold text-slate-500 dark:text-slate-400 leading-tight">
+        {label}
+      </span>
+      <div className="flex items-center gap-1">
+        <span
+          className={`flex-1 min-w-0 break-all text-[15px] text-slate-800 dark:text-slate-100 ${
+            mono ? 'font-mono' : ''
+          }`}
+        >
+          {display}
+        </span>
+        {secret && (
+          <button
+            type="button"
+            onClick={() => setRevealed((current) => !current)}
+            className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0"
+            title={revealed ? '隐藏' : '显示'}
+          >
+            {revealed ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        )}
+        {onCopy && (
+          <button
+            type="button"
+            onClick={onCopy}
+            className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0"
+            title="复制"
+          >
+            {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+          </button>
+        )}
+        {action}
+      </div>
+    </div>
+  );
+}
+
+function TotpDetailRow({
+  rawSecret,
+  onCopyCode,
+  copied,
+}: {
+  rawSecret: string;
+  onCopyCode: (code: string) => void;
+  copied?: boolean;
+}) {
+  const config = useMemo(() => parseTotpInput(rawSecret), [rawSecret]);
+  const [code, setCode] = useState('');
+  const [remaining, setRemaining] = useState(0);
+
+  useEffect(() => {
+    if (!config) return;
+    let disposed = false;
+    const update = () => {
+      setRemaining(totpRemainingSeconds(config.period));
+      void generateTotpCode(config).then((next) => {
+        if (!disposed) setCode(next);
+      });
+    };
+    update();
+    const id = window.setInterval(update, 1000);
+    return () => {
+      disposed = true;
+      window.clearInterval(id);
+    };
+  }, [config]);
+
+  if (!config) {
+    return <DetailRow label="TOTP" value={rawSecret} secret mono />;
+  }
+
+  const displayCode = code
+    ? `${code.slice(0, Math.ceil(code.length / 2))} ${code.slice(Math.ceil(code.length / 2))}`
+    : '……';
+
+  return (
+    <div className="min-w-0">
+      <span className="block text-sm font-semibold text-slate-500 dark:text-slate-400 leading-tight">
+        验证码
+      </span>
+      <div className="flex items-center gap-2">
+        <span className="text-lg font-mono font-bold tracking-wider text-slate-900 dark:text-white">
+          {displayCode}
+        </span>
+        <span className="text-sm text-slate-400 tabular-nums">{remaining}s</span>
+        <button
+          type="button"
+          onClick={() => code && onCopyCode(code)}
+          className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+          title="复制验证码"
+        >
+          {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ItemGlyph({ item }: { item: VaultItemPlain }) {
+  const [faviconFailed, setFaviconFailed] = useState(false);
+  const domain = loginDomain(item);
+  const Icon = typeIcon(item.type);
+
+  if (!domain || faviconFailed) {
+    return <Icon className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />;
+  }
+  return (
+    <img
+      src={`https://icons.duckduckgo.com/ip3/${domain}.ico`}
+      alt=""
+      loading="lazy"
+      className="w-4 h-4 rounded-sm shrink-0"
+      onError={() => setFaviconFailed(true)}
+    />
+  );
+}
+
+function VaultEmptyState({
+  hasItems,
+  onCreateLogin,
+}: {
+  hasItems: boolean;
+  onCreateLogin: () => void;
+}) {
+  if (hasItems) {
+    return <div className="py-12 text-center text-[15px] text-slate-400">没有匹配的条目</div>;
+  }
+  return (
+    <div className="py-12 px-6 text-center space-y-3">
+      <Shield className="w-9 h-9 mx-auto text-slate-300 dark:text-slate-600" />
+      <p className="text-[15px] font-semibold text-slate-500 dark:text-slate-400">保险箱还是空的</p>
+      <p className="text-sm text-slate-400 dark:text-slate-500">
+        点击下方按钮新建条目，或从右上角菜单导入 Bitwarden
+      </p>
+      <button
+        type="button"
+        onClick={onCreateLogin}
+        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-semibold text-white bg-amber-600 hover:bg-amber-500"
+      >
+        <Plus className="w-3.5 h-3.5" />
+        新建登录
+      </button>
+    </div>
+  );
+}
+
+function HeaderMenuItem({
+  icon: Icon,
+  label,
+  onClick,
+  disabled,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className="w-full text-left px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 flex items-center gap-2"
+    >
+      <Icon className="w-3.5 h-3.5 text-slate-400" />
+      {label}
+    </button>
   );
 }
