@@ -102,7 +102,8 @@ export function setVaultSession(key: CryptoKey, nextTtlMs: number = loadPreferre
 }
 
 export function touchVaultSession(): boolean {
-  if (!vaultKey || Date.now() >= expiresAt) {
+  if (!vaultKey) return false;
+  if (Date.now() >= expiresAt) {
     clearVaultSession();
     return false;
   }
@@ -114,7 +115,8 @@ export function touchVaultSession(): boolean {
 }
 
 export function getVaultSession(): CryptoKey | null {
-  if (!vaultKey || Date.now() >= expiresAt) {
+  if (!vaultKey) return null;
+  if (Date.now() >= expiresAt) {
     clearVaultSession();
     return null;
   }
