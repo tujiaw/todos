@@ -1,5 +1,16 @@
 import { createClient, User, Session } from '@supabase/supabase-js';
-import { Category, Task, DropItem } from '../types';
+import { Category, Task, DropItem, VaultItemPlain, VaultItemRow, VaultMetaRow } from '../types';
+import {
+  createVerifier,
+  decryptJson,
+  deriveVaultKey,
+  encryptJson,
+  generateSalt,
+  bytesToBase64,
+  base64ToBytes,
+  verifyMasterPassword,
+  VAULT_KDF_ITERATIONS,
+} from './vaultCrypto';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -689,4 +700,152 @@ export const clearAllDropItemsFromSupabase = async () => {
     .eq('user_id', activeUser.id);
   if (error) throw error;
   await removeStoredAttachments(filePaths);
+};
+
+// Zero-knowledge Vault
+// ==========================================
+
+export const fetchVaultMeta = async (): Promise<VaultMetaRow | null> => {
+  const activeUser = await ensureAuthenticatedUser();
+  const { data, error } = await supabase
+    .from('vault_meta')
+    .select('*')
+    .eq('user_id', activeUser.id)
+    .maybeSingle();
+  if (error) throw error;
+  return data as VaultMetaRow | null;
+};
+
+export const initializeVaultMeta = async (masterPassword: string): Promise<CryptoKey> => {
+  const activeUser = await ensureAuthenticatedUser();
+  const existing = await fetchVaultMeta();
+  if (existing) {
+    throw new Error('保险箱已初始化，请使用主密码解锁。');
+  }
+
+  const salt = generateSalt();
+  const key = await deriveVaultKey(masterPassword, salt, VAULT_KDF_ITERATIONS);
+  const verifier = await createVerifier(key);
+  const now = new Date().toISOString();
+
+  const { error } = await supabase.from('vault_meta').insert({
+    user_id: activeUser.id,
+    salt: bytesToBase64(salt),
+    verifier_ciphertext: verifier.ciphertext,
+    verifier_iv: verifier.iv,
+    kdf_iterations: VAULT_KDF_ITERATIONS,
+    created_at: now,
+    updated_at: now,
+  });
+  if (error) throw error;
+  return key;
+};
+
+export const unlockVaultWithPassword = async (masterPassword: string): Promise<CryptoKey> => {
+  const meta = await fetchVaultMeta();
+  if (!meta) {
+    throw new Error('尚未设置主密码。');
+  }
+
+  const key = await deriveVaultKey(
+    masterPassword,
+    base64ToBytes(meta.salt),
+    meta.kdf_iterations || VAULT_KDF_ITERATIONS
+  );
+  const ok = await verifyMasterPassword(key, {
+    ciphertext: meta.verifier_ciphertext,
+    iv: meta.verifier_iv,
+  });
+  if (!ok) {
+    throw new Error('主密码不正确');
+  }
+  return key;
+};
+
+export const fetchVaultItemRows = async (): Promise<VaultItemRow[]> => {
+  const activeUser = await ensureAuthenticatedUser();
+  const { data, error } = await supabase
+    .from('vault_items')
+    .select('*')
+    .eq('user_id', activeUser.id)
+    .order('updated_at', { ascending: false });
+  if (error) throw error;
+  return (data || []) as VaultItemRow[];
+};
+
+export const decryptVaultItems = async (
+  key: CryptoKey,
+  rows: VaultItemRow[]
+): Promise<VaultItemPlain[]> => {
+  const items: VaultItemPlain[] = [];
+  for (const row of rows) {
+    try {
+      const plain = await decryptJson<VaultItemPlain>(key, {
+        ciphertext: row.ciphertext,
+        iv: row.iv,
+      });
+      items.push({
+        ...plain,
+        id: row.id,
+        type: plain.type || row.type,
+        updatedAt: plain.updatedAt || row.updated_at,
+      });
+    } catch (err) {
+      console.warn('Failed to decrypt vault item', row.id, err);
+    }
+  }
+  return items;
+};
+
+export const upsertVaultItemEncrypted = async (
+  key: CryptoKey,
+  item: VaultItemPlain
+): Promise<VaultItemPlain> => {
+  const activeUser = await ensureAuthenticatedUser();
+  const now = Date.now();
+  const payload: VaultItemPlain = {
+    ...item,
+    updatedAt: item.updatedAt || now,
+    createdAt: item.createdAt || now,
+  };
+  const encrypted = await encryptJson(key, payload);
+
+  const { error } = await supabase.from('vault_items').upsert({
+    id: payload.id,
+    user_id: activeUser.id,
+    type: payload.type,
+    ciphertext: encrypted.ciphertext,
+    iv: encrypted.iv,
+    updated_at: payload.updatedAt,
+  });
+  if (error) throw error;
+  return payload;
+};
+
+export const deleteVaultItemFromSupabase = async (id: string): Promise<void> => {
+  const activeUser = await ensureAuthenticatedUser();
+  const { error } = await supabase
+    .from('vault_items')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', activeUser.id);
+  if (error) throw error;
+};
+
+export const upsertVaultItemsBatch = async (
+  key: CryptoKey,
+  items: VaultItemPlain[]
+): Promise<{ saved: number; failed: number }> => {
+  let saved = 0;
+  let failed = 0;
+  for (const item of items) {
+    try {
+      await upsertVaultItemEncrypted(key, item);
+      saved += 1;
+    } catch (err) {
+      console.warn('Vault batch upsert failed for', item.id, err);
+      failed += 1;
+    }
+  }
+  return { saved, failed };
 };

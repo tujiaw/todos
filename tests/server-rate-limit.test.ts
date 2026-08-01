@@ -25,7 +25,14 @@ test('lightweight limiter resets for a new Shanghai calendar day', () => {
 });
 
 test('Supabase schema defines durable AI quota RPC', () => {
-  assert.match(schema, /create table if not exists public\.ai_daily_usage/);
-  assert.match(schema, /create or replace function public\.consume_ai_quota/);
+  assert.match(schema, /create table public\.ai_daily_usage/);
+  assert.match(schema, /create function public\.consume_ai_quota/);
   assert.match(schema, /grant execute on function public\.consume_ai_quota/);
+});
+
+test('Supabase schema defines zero-knowledge vault tables', () => {
+  assert.match(schema, /create table if not exists public\.vault_meta/);
+  assert.match(schema, /create table if not exists public\.vault_items/);
+  assert.match(schema, /vault_items_select_own/);
+  assert.match(schema, /verifier_ciphertext/);
 });

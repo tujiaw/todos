@@ -264,3 +264,65 @@ begin
   end if;
 end
 $$;
+
+
+-- 6. Zero-knowledge Vault (client-encrypted; server stores ciphertext only)
+create table if not exists public.vault_meta (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  salt text not null,
+  verifier_ciphertext text not null,
+  verifier_iv text not null,
+  kdf_iterations integer not null default 310000,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.vault_meta enable row level security;
+
+drop policy if exists "vault_meta_select_own" on public.vault_meta;
+drop policy if exists "vault_meta_insert_own" on public.vault_meta;
+drop policy if exists "vault_meta_update_own" on public.vault_meta;
+drop policy if exists "vault_meta_delete_own" on public.vault_meta;
+
+create policy "vault_meta_select_own" on public.vault_meta
+  for select using (auth.uid() = user_id);
+
+create policy "vault_meta_insert_own" on public.vault_meta
+  for insert with check (auth.uid() = user_id);
+
+create policy "vault_meta_update_own" on public.vault_meta
+  for update using (auth.uid() = user_id);
+
+create policy "vault_meta_delete_own" on public.vault_meta
+  for delete using (auth.uid() = user_id);
+
+create table if not exists public.vault_items (
+  id text primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  type text not null check (type in ('login', 'card', 'identity', 'note', 'custom')),
+  ciphertext text not null,
+  iv text not null,
+  updated_at bigint not null
+);
+
+alter table public.vault_items enable row level security;
+
+drop policy if exists "vault_items_select_own" on public.vault_items;
+drop policy if exists "vault_items_insert_own" on public.vault_items;
+drop policy if exists "vault_items_update_own" on public.vault_items;
+drop policy if exists "vault_items_delete_own" on public.vault_items;
+
+create policy "vault_items_select_own" on public.vault_items
+  for select using (auth.uid() = user_id);
+
+create policy "vault_items_insert_own" on public.vault_items
+  for insert with check (auth.uid() = user_id);
+
+create policy "vault_items_update_own" on public.vault_items
+  for update using (auth.uid() = user_id);
+
+create policy "vault_items_delete_own" on public.vault_items
+  for delete using (auth.uid() = user_id);
+
+create index if not exists vault_items_user_updated_idx
+  on public.vault_items(user_id, updated_at desc);

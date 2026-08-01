@@ -24,6 +24,7 @@ import { TaskEditModal } from './components/TaskEditModal';
 import { SyncModal } from './components/SyncModal';
 import { CategorySettingsModal } from './components/CategorySettingsModal';
 import { DropModal } from './components/DropModal';
+import { VaultModal } from './components/VaultModal';
 import { AiAssistModal } from './components/AiAssistModal';
 import { EmailAuthForm, type EmailAuthMode } from './components/EmailAuthForm';
 import { MobileBottomNav } from './components/MobileBottomNav';
@@ -155,6 +156,8 @@ export default function App() {
   const [isSyncModalOpen, setIsSyncModalOpen] = useState<boolean>(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState<boolean>(false);
   const [isDropModalOpen, setIsDropModalOpen] = useState<boolean>(false);
+  const [isVaultModalOpen, setIsVaultModalOpen] = useState<boolean>(false);
+  const [vaultLockToken, setVaultLockToken] = useState(0);
   const [isAiAssistOpen, setIsAiAssistOpen] = useState(false);
   const [aiAssistMode, setAiAssistMode] = useState<AiAssistMode | null>(null);
   const [aiAssistPayload, setAiAssistPayload] = useState<AiAssistPayload | null>(null);
@@ -571,6 +574,8 @@ export default function App() {
         categoriesRef.current = [];
         setPendingSyncCount(0);
         setSyncError(null);
+        setIsVaultModalOpen(false);
+        setVaultLockToken((token) => token + 1);
         return;
       }
 
@@ -1134,6 +1139,8 @@ export default function App() {
       }
       if (user) clearOutbox(user.id);
       clearLocalUserData();
+      setIsVaultModalOpen(false);
+      setVaultLockToken((token) => token + 1);
       await logoutSupabase();
       setUser(null);
       setTasks([]);
@@ -1258,6 +1265,7 @@ export default function App() {
         onOpenSyncModal={() => setIsSyncModalOpen(true)}
         onOpenCategoryModal={() => setIsCategoryModalOpen(true)}
         onOpenDropModal={handleOpenDropModal}
+        onOpenVaultModal={() => setIsVaultModalOpen(true)}
         user={user}
         onGitHubLogin={handleGitHubLoginClick}
         onLogout={handleLogoutClick}
@@ -1383,6 +1391,12 @@ export default function App() {
         onDismissError={() => setDropError(null)}
         isAuthenticated={Boolean(user)}
         onSignIn={handleGitHubLoginClick}
+      />
+
+      <VaultModal
+        isOpen={isVaultModalOpen}
+        onClose={() => setIsVaultModalOpen(false)}
+        lockToken={vaultLockToken}
       />
 
       {/* AI-generated task review modal */}
