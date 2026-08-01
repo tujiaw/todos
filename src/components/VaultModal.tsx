@@ -398,15 +398,27 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
   if (!isOpen) return null;
 
   const types: Array<VaultItemType | 'all'> = ['all', 'login', 'card', 'identity', 'note', 'custom'];
+  const createTypes: VaultItemType[] = ['login', 'card', 'identity', 'note', 'custom'];
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-slate-950/50 backdrop-blur-sm p-0 sm:p-4"
+      className="fixed inset-0 z-[70] overflow-hidden"
       onMouseDown={touchActivity}
       onKeyDown={touchActivity}
     >
-      <div className="w-full sm:max-w-2xl max-h-[92vh] bg-white dark:bg-slate-950 rounded-t-2xl sm:rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+      <div
+        className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm transition-opacity animate-in fade-in duration-300"
+        onClick={onClose}
+      />
+
+      <div
+        className="absolute right-0 top-0 bottom-0 w-full sm:w-[360px] bg-slate-50 dark:bg-slate-950 shadow-2xl border-l border-white/70 dark:border-slate-800 flex flex-col h-full z-10 transition-transform animate-in slide-in-from-right duration-300 ease-out"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="vault-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="shrink-0 px-4 py-3 flex items-center justify-between border-b border-slate-200/70 dark:border-slate-800 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-sm">
           <div className="flex items-center gap-2 min-w-0">
             {(view === 'editor' || view === 'importPreview') && (
               <button
@@ -417,18 +429,28 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                   setError(null);
                   setView('list');
                 }}
-                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="p-1.5 rounded-xl hover:bg-white/70 dark:hover:bg-white/10"
                 title="返回"
               >
                 <ArrowLeft className="w-4 h-4" />
               </button>
             )}
-            <Shield className="w-4.5 h-4.5 text-amber-600 dark:text-amber-400 shrink-0" />
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white truncate">
-              {view === 'importPreview' ? 'Bitwarden 导入预览' : '保险箱'}
-            </h2>
+            <div className="p-2 rounded-xl bg-white/70 dark:bg-white/5 text-amber-600 dark:text-amber-400 border border-white/80 dark:border-slate-800 shrink-0">
+              <Shield className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <h2
+                id="vault-title"
+                className="text-sm font-bold text-slate-800 dark:text-slate-100 tracking-tight truncate"
+              >
+                {view === 'importPreview' ? '导入预览' : '保险箱'}
+              </h2>
+              <p className="text-[10px] text-amber-700/80 dark:text-amber-300/80 font-medium truncate">
+                零知识加密 · 仅本地解密
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5 shrink-0">
             {vaultKey && view === 'list' && (
               <>
                 <input
@@ -444,7 +466,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                 <button
                   type="button"
                   onClick={() => importInputRef.current?.click()}
-                  className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-white/10"
                   title="从 Bitwarden 导入"
                   disabled={busy}
                 >
@@ -456,7 +478,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                     lockVault();
                     showToast('已锁定', 'info');
                   }}
-                  className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-white/10"
                   title="锁定"
                 >
                   <Lock className="w-4 h-4" />
@@ -466,7 +488,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+              className="p-2 rounded-xl text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-white/70 dark:hover:bg-white/10"
               title="关闭"
             >
               <X className="w-4 h-4" />
@@ -475,14 +497,14 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
         </div>
 
         {error && (
-          <div className="px-4 py-2 text-xs text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 border-b border-rose-100 dark:border-rose-900">
+          <div className="shrink-0 px-4 py-2 text-xs text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 border-b border-rose-100 dark:border-rose-900">
             {error}
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto">
-          {view === 'gate' && (
-            <form onSubmit={handleSetupOrUnlock} className="p-5 sm:p-6 space-y-4">
+        {view === 'gate' && (
+          <form onSubmit={handleSetupOrUnlock} className="flex flex-col flex-1 min-h-0">
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
               <div className="rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/50 p-3 text-xs text-amber-900 dark:text-amber-100 leading-relaxed">
                 {hasMeta
                   ? '输入主密码以解锁。条目在本地解密，云端仅保存密文。'
@@ -529,90 +551,96 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                       />
                     </label>
                   )}
-                  <button
-                    type="submit"
-                    disabled={busy}
-                    className="w-full rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold py-2.5 disabled:opacity-60 flex items-center justify-center gap-2"
-                  >
-                    {busy && <LoaderCircle className="w-4 h-4 animate-spin" />}
-                    {hasMeta ? '解锁' : '设置并解锁'}
-                  </button>
                 </>
               )}
-            </form>
-          )}
+            </div>
+            {hasMeta !== null && (
+              <div className="shrink-0 p-3 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90">
+                <button
+                  type="submit"
+                  disabled={busy}
+                  className="w-full rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold py-2.5 disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  {busy && <LoaderCircle className="w-4 h-4 animate-spin" />}
+                  {hasMeta ? '解锁' : '设置并解锁'}
+                </button>
+              </div>
+            )}
+          </form>
+        )}
 
-          {view === 'list' && (
-            <div className="flex flex-col h-full min-h-[24rem]">
-              <div className="p-3 border-b border-slate-100 dark:border-slate-800 space-y-2">
-                <div className="relative">
-                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    value={searchQuery}
-                    onChange={(event) => {
-                      setSearchQuery(event.target.value);
+        {view === 'list' && (
+          <div className="flex flex-col flex-1 min-h-0">
+            <div className="shrink-0 p-3 border-b border-slate-200/70 dark:border-slate-800 space-y-2 bg-slate-50/80 dark:bg-slate-950/80">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  value={searchQuery}
+                  onChange={(event) => {
+                    setSearchQuery(event.target.value);
+                    touchActivity();
+                  }}
+                  placeholder="搜索标题、账号、备注…"
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 pl-9 pr-3 py-2 text-sm"
+                  autoComplete="off"
+                />
+              </div>
+              <div className="flex gap-1 overflow-x-auto pb-0.5">
+                {types.map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => {
+                      setTypeFilter(type);
                       touchActivity();
                     }}
-                    placeholder="搜索标题、账号、备注…"
-                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 pl-9 pr-3 py-2 text-sm"
-                    autoComplete="off"
-                  />
-                </div>
-                <div className="flex gap-1 overflow-x-auto pb-0.5">
-                  {types.map((type) => (
+                    className={`shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors ${
+                      typeFilter === type
+                        ? 'bg-amber-100 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200'
+                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+                    }`}
+                  >
+                    {type === 'all' ? '全部' : vaultItemTypeLabel(type)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+              {filteredItems.length === 0 ? (
+                <div className="py-16 text-center text-sm text-slate-400">暂无条目</div>
+              ) : (
+                filteredItems.map((item) => {
+                  const Icon = typeIcon(item.type);
+                  return (
                     <button
-                      key={type}
+                      key={item.id}
                       type="button"
-                      onClick={() => {
-                        setTypeFilter(type);
-                        touchActivity();
-                      }}
-                      className={`shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors ${
-                        typeFilter === type
-                          ? 'bg-amber-100 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200'
-                          : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
-                      }`}
+                      onClick={() => openEdit(item)}
+                      className="w-full text-left px-4 py-3 hover:bg-white/70 dark:hover:bg-slate-900/70 flex items-start gap-3"
                     >
-                      {type === 'all' ? '全部' : vaultItemTypeLabel(type)}
+                      <div className="mt-0.5 w-8 h-8 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 flex items-center justify-center shrink-0">
+                        <Icon className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                          {item.title}
+                        </div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                          {vaultItemTypeLabel(item.type)}
+                          {item.username ? ` · ${item.username}` : ''}
+                          {item.folder ? ` · ${item.folder}` : ''}
+                        </div>
+                      </div>
                     </button>
-                  ))}
-                </div>
-              </div>
+                  );
+                })
+              )}
+            </div>
 
-              <div className="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
-                {filteredItems.length === 0 ? (
-                  <div className="py-16 text-center text-sm text-slate-400">暂无条目</div>
-                ) : (
-                  filteredItems.map((item) => {
-                    const Icon = typeIcon(item.type);
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => openEdit(item)}
-                        className="w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-900/70 flex items-start gap-3"
-                      >
-                        <div className="mt-0.5 w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0">
-                          <Icon className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm font-semibold text-slate-900 dark:text-white truncate">
-                            {item.title}
-                          </div>
-                          <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                            {vaultItemTypeLabel(item.type)}
-                            {item.username ? ` · ${item.username}` : ''}
-                            {item.folder ? ` · ${item.folder}` : ''}
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-
-              <div className="p-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap gap-1.5">
-                {(['login', 'card', 'identity', 'note', 'custom'] as VaultItemType[]).map((type) => (
+            <div className="shrink-0 p-3 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90">
+              <div className="flex flex-wrap gap-1.5">
+                {createTypes.map((type) => (
                   <button
                     key={type}
                     type="button"
@@ -625,10 +653,12 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                 ))}
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {view === 'editor' && draft && (
-            <div className="p-4 space-y-3">
+        {view === 'editor' && draft && (
+          <div className="flex flex-col flex-1 min-h-0">
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
               <label className="block space-y-1">
                 <span className="text-[11px] font-semibold text-slate-500">类型</span>
                 <select
@@ -639,13 +669,11 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                   className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm"
                   disabled={!isNewDraft}
                 >
-                  {(['login', 'card', 'identity', 'note', 'custom'] as VaultItemType[]).map(
-                    (type) => (
-                      <option key={type} value={type}>
-                        {vaultItemTypeLabel(type)}
-                      </option>
-                    )
-                  )}
+                  {createTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {vaultItemTypeLabel(type)}
+                    </option>
+                  ))}
                 </select>
               </label>
 
@@ -777,22 +805,16 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                 </>
               )}
 
-              {(draft.type === 'note' ||
-                draft.type === 'login' ||
-                draft.type === 'card' ||
-                draft.type === 'identity' ||
-                draft.type === 'custom') && (
-                <label className="block space-y-1">
-                  <span className="text-[11px] font-semibold text-slate-500">备注</span>
-                  <textarea
-                    value={draft.notes || ''}
-                    onChange={(event) => updateDraft({ notes: event.target.value })}
-                    rows={3}
-                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm"
-                    autoComplete="off"
-                  />
-                </label>
-              )}
+              <label className="block space-y-1">
+                <span className="text-[11px] font-semibold text-slate-500">备注</span>
+                <textarea
+                  value={draft.notes || ''}
+                  onChange={(event) => updateDraft({ notes: event.target.value })}
+                  rows={3}
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm"
+                  autoComplete="off"
+                />
+              </label>
 
               {(draft.type === 'custom' || (draft.fields && draft.fields.length > 0)) && (
                 <div className="space-y-2">
@@ -839,43 +861,48 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                   ))}
                 </div>
               )}
+            </div>
 
-              <div className="flex gap-2 pt-2">
-                {!isNewDraft && (
-                  <button
-                    type="button"
-                    onClick={() => void handleDeleteDraft()}
-                    disabled={busy}
-                    className="px-3 py-2 rounded-xl text-sm font-semibold text-rose-600 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100"
-                  >
-                    删除
-                  </button>
-                )}
+            <div className="shrink-0 p-3 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90 flex gap-2">
+              {!isNewDraft && (
                 <button
                   type="button"
-                  onClick={() => void handleSaveDraft()}
+                  onClick={() => void handleDeleteDraft()}
                   disabled={busy}
-                  className="flex-1 px-3 py-2 rounded-xl text-sm font-semibold text-white bg-amber-600 hover:bg-amber-500 disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="px-3 py-2.5 rounded-xl text-sm font-semibold text-rose-600 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100"
                 >
-                  {busy && <LoaderCircle className="w-4 h-4 animate-spin" />}
-                  保存
+                  删除
                 </button>
-              </div>
+              )}
+              <button
+                type="button"
+                onClick={() => void handleSaveDraft()}
+                disabled={busy}
+                className="flex-1 px-3 py-2.5 rounded-xl text-sm font-semibold text-white bg-amber-600 hover:bg-amber-500 disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {busy && <LoaderCircle className="w-4 h-4 animate-spin" />}
+                保存
+              </button>
             </div>
-          )}
+          </div>
+        )}
 
-          {view === 'importPreview' && mergePlan && (
-            <div className="p-4 space-y-4">
+        {view === 'importPreview' && mergePlan && (
+          <div className="flex flex-col flex-1 min-h-0">
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
               <div className="grid grid-cols-3 gap-2 text-center">
                 <Stat label="新增" value={mergePlan.adds.length} />
                 <Stat label="更新" value={mergePlan.updates.length} />
                 <Stat label="跳过" value={mergePlan.skips.length} />
               </div>
-              <div className="max-h-64 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+              <div className="rounded-xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800 text-xs overflow-hidden">
                 {[...mergePlan.adds, ...mergePlan.updates, ...mergePlan.skips]
                   .slice(0, 80)
                   .map((entry, index) => (
-                    <div key={`${entry.action}-${entry.incoming.externalId || index}`} className="px-3 py-2 flex justify-between gap-2">
+                    <div
+                      key={`${entry.action}-${entry.incoming.externalId || index}`}
+                      className="px-3 py-2 flex justify-between gap-2"
+                    >
                       <span className="truncate text-slate-700 dark:text-slate-200">
                         {entry.incoming.title}
                       </span>
@@ -887,32 +914,32 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                     </div>
                   ))}
               </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMergePlan(null);
-                    setView('list');
-                  }}
-                  className="flex-1 px-3 py-2 rounded-xl text-sm font-semibold bg-slate-100 dark:bg-slate-800"
-                >
-                  取消
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleConfirmImport()}
-                  disabled={
-                    busy || (mergePlan.adds.length === 0 && mergePlan.updates.length === 0)
-                  }
-                  className="flex-1 px-3 py-2 rounded-xl text-sm font-semibold text-white bg-amber-600 hover:bg-amber-500 disabled:opacity-60 flex items-center justify-center gap-2"
-                >
-                  {busy && <LoaderCircle className="w-4 h-4 animate-spin" />}
-                  确认合并
-                </button>
-              </div>
             </div>
-          )}
-        </div>
+            <div className="shrink-0 p-3 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90 flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setMergePlan(null);
+                  setView('list');
+                }}
+                className="flex-1 px-3 py-2.5 rounded-xl text-sm font-semibold bg-slate-100 dark:bg-slate-800"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleConfirmImport()}
+                disabled={
+                  busy || (mergePlan.adds.length === 0 && mergePlan.updates.length === 0)
+                }
+                className="flex-1 px-3 py-2.5 rounded-xl text-sm font-semibold text-white bg-amber-600 hover:bg-amber-500 disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {busy && <LoaderCircle className="w-4 h-4 animate-spin" />}
+                确认合并
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
