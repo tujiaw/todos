@@ -418,8 +418,8 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
         aria-labelledby="vault-title"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="shrink-0 px-4 py-3 flex items-center justify-between border-b border-slate-200/70 dark:border-slate-800 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-sm">
-          <div className="flex items-center gap-2 min-w-0">
+        <div className="shrink-0 h-12 px-3 flex items-center justify-between gap-2 border-b border-slate-200/70 dark:border-slate-800 bg-slate-50/95 dark:bg-slate-950/95">
+          <div className="flex items-center gap-1.5 min-w-0">
             {(view === 'editor' || view === 'importPreview') && (
               <button
                 type="button"
@@ -429,28 +429,21 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                   setError(null);
                   setView('list');
                 }}
-                className="p-1.5 rounded-xl hover:bg-white/70 dark:hover:bg-white/10"
+                className="p-1.5 rounded-lg hover:bg-white/70 dark:hover:bg-white/10"
                 title="返回"
               >
-                <ArrowLeft className="w-4 h-4" />
+                <ArrowLeft className="w-3.5 h-3.5" />
               </button>
             )}
-            <div className="p-2 rounded-xl bg-white/70 dark:bg-white/5 text-amber-600 dark:text-amber-400 border border-white/80 dark:border-slate-800 shrink-0">
-              <Shield className="w-4 h-4" />
-            </div>
-            <div className="min-w-0">
-              <h2
-                id="vault-title"
-                className="text-sm font-bold text-slate-800 dark:text-slate-100 tracking-tight truncate"
-              >
-                {view === 'importPreview' ? '导入预览' : '保险箱'}
-              </h2>
-              <p className="text-[10px] text-amber-700/80 dark:text-amber-300/80 font-medium truncate">
-                零知识加密 · 仅本地解密
-              </p>
-            </div>
+            <Shield className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+            <h2
+              id="vault-title"
+              className="text-[13px] font-bold text-slate-800 dark:text-slate-100 truncate"
+            >
+              {view === 'importPreview' ? '导入预览' : '保险箱'}
+            </h2>
           </div>
-          <div className="flex items-center gap-0.5 shrink-0">
+          <div className="flex items-center shrink-0">
             {vaultKey && view === 'list' && (
               <>
                 <input
@@ -466,11 +459,11 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                 <button
                   type="button"
                   onClick={() => importInputRef.current?.click()}
-                  className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-white/10"
+                  className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-white/10"
                   title="从 Bitwarden 导入"
                   disabled={busy}
                 >
-                  <Upload className="w-4 h-4" />
+                  <Upload className="w-3.5 h-3.5" />
                 </button>
                 <button
                   type="button"
@@ -478,90 +471,72 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                     lockVault();
                     showToast('已锁定', 'info');
                   }}
-                  className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-white/10"
+                  className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-white/10"
                   title="锁定"
                 >
-                  <Lock className="w-4 h-4" />
+                  <Lock className="w-3.5 h-3.5" />
                 </button>
               </>
             )}
             <button
               type="button"
               onClick={onClose}
-              className="p-2 rounded-xl text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-white/70 dark:hover:bg-white/10"
+              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-white/70 dark:hover:bg-white/10"
               title="关闭"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
 
         {error && (
-          <div className="shrink-0 px-4 py-2 text-xs text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 border-b border-rose-100 dark:border-rose-900">
+          <div className="shrink-0 px-3 py-1.5 text-[11px] text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 border-b border-rose-100 dark:border-rose-900">
             {error}
           </div>
         )}
 
         {view === 'gate' && (
           <form onSubmit={handleSetupOrUnlock} className="flex flex-col flex-1 min-h-0">
-            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
-              <div className="rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/50 p-3 text-xs text-amber-900 dark:text-amber-100 leading-relaxed">
+            <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2.5">
+              <p className="text-[11px] leading-snug text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/50 rounded-lg px-2.5 py-2">
                 {hasMeta
-                  ? '输入主密码以解锁。条目在本地解密，云端仅保存密文。'
-                  : '首次使用请设置主密码。主密码不可找回，遗忘后密文无法解密。'}
-              </div>
+                  ? '输入主密码解锁。内容仅在本地解密。'
+                  : '设置主密码后启用。主密码不可找回。'}
+              </p>
               {hasMeta === null ? (
-                <div className="flex items-center justify-center py-10 text-slate-400">
+                <div className="flex items-center justify-center py-8 text-slate-400">
                   <LoaderCircle className="w-5 h-5 animate-spin" />
                 </div>
               ) : (
-                <>
-                  <label className="block space-y-1.5">
-                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                      主密码
-                    </span>
-                    <div className="relative">
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        autoComplete="off"
-                        value={password}
-                        onChange={(event) => setPassword(event.target.value)}
-                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword((value) => !value)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400"
-                      >
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </label>
+                <FieldGroup>
+                  <Field
+                    label="主密码"
+                    value={password}
+                    secret
+                    revealed={showPassword}
+                    onToggleReveal={() => setShowPassword((value) => !value)}
+                    onChange={setPassword}
+                  />
                   {!hasMeta && (
-                    <label className="block space-y-1.5">
-                      <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                        确认主密码
-                      </span>
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        autoComplete="off"
-                        value={passwordConfirm}
-                        onChange={(event) => setPasswordConfirm(event.target.value)}
-                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm"
-                      />
-                    </label>
+                    <Field
+                      label="确认主密码"
+                      value={passwordConfirm}
+                      secret
+                      revealed={showPassword}
+                      onChange={setPasswordConfirm}
+                    />
                   )}
-                </>
+                </FieldGroup>
               )}
             </div>
             {hasMeta !== null && (
-              <div className="shrink-0 p-3 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90">
+              <div className="shrink-0 px-3 py-2 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90">
                 <button
                   type="submit"
                   disabled={busy}
-                  className="w-full rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold py-2.5 disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="w-full rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-[13px] font-semibold py-2 disabled:opacity-60 flex items-center justify-center gap-1.5"
                 >
-                  {busy && <LoaderCircle className="w-4 h-4 animate-spin" />}
+                  {busy && <LoaderCircle className="w-3.5 h-3.5 animate-spin" />}
                   {hasMeta ? '解锁' : '设置并解锁'}
                 </button>
               </div>
@@ -571,21 +546,21 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
 
         {view === 'list' && (
           <div className="flex flex-col flex-1 min-h-0">
-            <div className="shrink-0 p-3 border-b border-slate-200/70 dark:border-slate-800 space-y-2 bg-slate-50/80 dark:bg-slate-950/80">
+            <div className="shrink-0 px-3 py-2 border-b border-slate-200/70 dark:border-slate-800 space-y-1.5">
               <div className="relative">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   value={searchQuery}
                   onChange={(event) => {
                     setSearchQuery(event.target.value);
                     touchActivity();
                   }}
-                  placeholder="搜索标题、账号、备注…"
-                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 pl-9 pr-3 py-2 text-sm"
+                  placeholder="搜索…"
+                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 pl-8 pr-2.5 py-1.5 text-[13px]"
                   autoComplete="off"
                 />
               </div>
-              <div className="flex gap-1 overflow-x-auto pb-0.5">
+              <div className="flex gap-1 overflow-x-auto">
                 {types.map((type) => (
                   <button
                     key={type}
@@ -594,10 +569,10 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                       setTypeFilter(type);
                       touchActivity();
                     }}
-                    className={`shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors ${
+                    className={`shrink-0 px-2 py-0.5 rounded-md text-[10px] font-semibold border transition-colors ${
                       typeFilter === type
                         ? 'bg-amber-100 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200'
-                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400'
                     }`}
                   >
                     {type === 'all' ? '全部' : vaultItemTypeLabel(type)}
@@ -606,9 +581,9 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
               </div>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+            <div className="flex-1 min-h-0 overflow-y-auto">
               {filteredItems.length === 0 ? (
-                <div className="py-16 text-center text-sm text-slate-400">暂无条目</div>
+                <div className="py-12 text-center text-[13px] text-slate-400">暂无条目</div>
               ) : (
                 filteredItems.map((item) => {
                   const Icon = typeIcon(item.type);
@@ -617,16 +592,14 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                       key={item.id}
                       type="button"
                       onClick={() => openEdit(item)}
-                      className="w-full text-left px-4 py-3 hover:bg-white/70 dark:hover:bg-slate-900/70 flex items-start gap-3"
+                      className="w-full text-left px-3 py-2 hover:bg-white/80 dark:hover:bg-slate-900/70 flex items-center gap-2.5 border-b border-slate-100/80 dark:border-slate-800/80"
                     >
-                      <div className="mt-0.5 w-8 h-8 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 flex items-center justify-center shrink-0">
-                        <Icon className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                      </div>
+                      <Icon className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
                       <div className="min-w-0 flex-1">
-                        <div className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                        <div className="text-[13px] font-semibold text-slate-900 dark:text-white truncate leading-tight">
                           {item.title}
                         </div>
-                        <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                        <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate leading-tight mt-0.5">
                           {vaultItemTypeLabel(item.type)}
                           {item.username ? ` · ${item.username}` : ''}
                           {item.folder ? ` · ${item.folder}` : ''}
@@ -638,17 +611,18 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
               )}
             </div>
 
-            <div className="shrink-0 p-3 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90">
-              <div className="flex flex-wrap gap-1.5">
+            <div className="shrink-0 px-3 py-2 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90">
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] font-semibold text-slate-400 shrink-0 mr-0.5">新建</span>
                 {createTypes.map((type) => (
                   <button
                     key={type}
                     type="button"
                     onClick={() => openCreate(type)}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700"
+                    className="flex-1 min-w-0 inline-flex items-center justify-center gap-0.5 px-1 py-1.5 rounded-md text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700"
                   >
-                    <Plus className="w-3 h-3" />
-                    {vaultItemTypeLabel(type)}
+                    <Plus className="w-2.5 h-2.5 shrink-0" />
+                    <span className="truncate">{vaultItemTypeLabel(type)}</span>
                   </button>
                 ))}
               </div>
@@ -658,81 +632,99 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
 
         {view === 'editor' && draft && (
           <div className="flex flex-col flex-1 min-h-0">
-            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
-              <label className="block space-y-1">
-                <span className="text-[11px] font-semibold text-slate-500">类型</span>
-                <select
-                  value={draft.type}
-                  onChange={(event) =>
-                    updateDraft({ type: event.target.value as VaultItemType })
-                  }
-                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm"
-                  disabled={!isNewDraft}
-                >
-                  {createTypes.map((type) => (
-                    <option key={type} value={type}>
-                      {vaultItemTypeLabel(type)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <Field
-                label="标题"
-                value={draft.title}
-                onChange={(value) => updateDraft({ title: value })}
-              />
+            <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2">
+              <FieldGroup>
+                <div className="grid grid-cols-[88px_1fr] gap-1.5">
+                  <label className="block min-w-0">
+                    <span className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-0.5 leading-tight">
+                      类型
+                    </span>
+                    <select
+                      value={draft.type}
+                      onChange={(event) =>
+                        updateDraft({ type: event.target.value as VaultItemType })
+                      }
+                      className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-[13px]"
+                      disabled={!isNewDraft}
+                    >
+                      {createTypes.map((type) => (
+                        <option key={type} value={type}>
+                          {vaultItemTypeLabel(type)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <Field
+                    label="标题"
+                    value={draft.title}
+                    onChange={(value) => updateDraft({ title: value })}
+                  />
+                </div>
+              </FieldGroup>
 
               {draft.type === 'login' && (
                 <>
-                  <Field
-                    label="用户名"
-                    value={draft.username || ''}
-                    onChange={(value) => updateDraft({ username: value })}
-                    onCopy={() => handleCopy('username', draft.username)}
-                    copied={copiedField === 'username'}
-                  />
-                  <SecretField
-                    label="密码"
-                    value={draft.password || ''}
-                    revealed={Boolean(revealSecrets.password)}
-                    onToggle={() =>
-                      setRevealSecrets((current) => ({
-                        ...current,
-                        password: !current.password,
-                      }))
-                    }
-                    onChange={(value) => updateDraft({ password: value })}
-                    onCopy={() => handleCopy('password', draft.password)}
-                    copied={copiedField === 'password'}
-                  />
-                  <Field
-                    label="网址"
-                    value={draft.url || ''}
-                    onChange={(value) => updateDraft({ url: value })}
-                  />
-                  <Field
-                    label="TOTP"
-                    value={draft.totp || ''}
-                    onChange={(value) => updateDraft({ totp: value })}
-                    onCopy={() => handleCopy('totp', draft.totp)}
-                    copied={copiedField === 'totp'}
-                  />
+                  <FieldGroup title="账号">
+                    <Field
+                      label="用户名"
+                      value={draft.username || ''}
+                      onChange={(value) => updateDraft({ username: value })}
+                      onCopy={() => handleCopy('username', draft.username)}
+                      copied={copiedField === 'username'}
+                    />
+                    <Field
+                      label="密码"
+                      value={draft.password || ''}
+                      secret
+                      revealed={Boolean(revealSecrets.password)}
+                      onToggleReveal={() =>
+                        setRevealSecrets((current) => ({
+                          ...current,
+                          password: !current.password,
+                        }))
+                      }
+                      onChange={(value) => updateDraft({ password: value })}
+                      onCopy={() => handleCopy('password', draft.password)}
+                      copied={copiedField === 'password'}
+                    />
+                  </FieldGroup>
+                  <FieldGroup title="网站">
+                    <Field
+                      label="网址"
+                      value={draft.url || ''}
+                      onChange={(value) => updateDraft({ url: value })}
+                    />
+                    <Field
+                      label="TOTP 密钥"
+                      value={draft.totp || ''}
+                      onChange={(value) => updateDraft({ totp: value })}
+                      onCopy={() => handleCopy('totp', draft.totp)}
+                      copied={copiedField === 'totp'}
+                    />
+                  </FieldGroup>
                 </>
               )}
 
               {draft.type === 'card' && (
-                <>
+                <FieldGroup title="卡片">
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <Field
+                      label="持卡人"
+                      value={draft.cardholder || ''}
+                      onChange={(value) => updateDraft({ cardholder: value })}
+                    />
+                    <Field
+                      label="品牌"
+                      value={draft.brand || ''}
+                      onChange={(value) => updateDraft({ brand: value })}
+                    />
+                  </div>
                   <Field
-                    label="持卡人"
-                    value={draft.cardholder || ''}
-                    onChange={(value) => updateDraft({ cardholder: value })}
-                  />
-                  <SecretField
                     label="卡号"
                     value={draft.number || ''}
+                    secret
                     revealed={Boolean(revealSecrets.number)}
-                    onToggle={() =>
+                    onToggleReveal={() =>
                       setRevealSecrets((current) => ({
                         ...current,
                         number: !current.number,
@@ -742,7 +734,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                     onCopy={() => handleCopy('number', draft.number)}
                     copied={copiedField === 'number'}
                   />
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-3 gap-1.5">
                     <Field
                       label="月"
                       value={draft.expMonth || ''}
@@ -753,11 +745,12 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                       value={draft.expYear || ''}
                       onChange={(value) => updateDraft({ expYear: value })}
                     />
-                    <SecretField
+                    <Field
                       label="CVV"
                       value={draft.cvv || ''}
+                      secret
                       revealed={Boolean(revealSecrets.cvv)}
-                      onToggle={() =>
+                      onToggleReveal={() =>
                         setRevealSecrets((current) => ({
                           ...current,
                           cvv: !current.cvv,
@@ -768,31 +761,29 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                       copied={copiedField === 'cvv'}
                     />
                   </div>
-                  <Field
-                    label="品牌"
-                    value={draft.brand || ''}
-                    onChange={(value) => updateDraft({ brand: value })}
-                  />
-                </>
+                </FieldGroup>
               )}
 
               {draft.type === 'identity' && (
-                <>
+                <FieldGroup title="证件">
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <Field
+                      label="姓名"
+                      value={draft.fullName || ''}
+                      onChange={(value) => updateDraft({ fullName: value })}
+                    />
+                    <Field
+                      label="类型"
+                      value={draft.idType || ''}
+                      onChange={(value) => updateDraft({ idType: value })}
+                    />
+                  </div>
                   <Field
-                    label="姓名"
-                    value={draft.fullName || ''}
-                    onChange={(value) => updateDraft({ fullName: value })}
-                  />
-                  <Field
-                    label="证件类型"
-                    value={draft.idType || ''}
-                    onChange={(value) => updateDraft({ idType: value })}
-                  />
-                  <SecretField
                     label="证件号"
                     value={draft.idNumber || ''}
+                    secret
                     revealed={Boolean(revealSecrets.idNumber)}
-                    onToggle={() =>
+                    onToggleReveal={() =>
                       setRevealSecrets((current) => ({
                         ...current,
                         idNumber: !current.idNumber,
@@ -802,24 +793,13 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                     onCopy={() => handleCopy('idNumber', draft.idNumber)}
                     copied={copiedField === 'idNumber'}
                   />
-                </>
+                </FieldGroup>
               )}
 
-              <label className="block space-y-1">
-                <span className="text-[11px] font-semibold text-slate-500">备注</span>
-                <textarea
-                  value={draft.notes || ''}
-                  onChange={(event) => updateDraft({ notes: event.target.value })}
-                  rows={3}
-                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm"
-                  autoComplete="off"
-                />
-              </label>
-
-              {(draft.type === 'custom' || (draft.fields && draft.fields.length > 0)) && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-semibold text-slate-500">自定义字段</span>
+              <FieldGroup
+                title="备注"
+                action={
+                  draft.type === 'custom' || (draft.fields && draft.fields.length > 0) ? (
                     <button
                       type="button"
                       onClick={() =>
@@ -827,13 +807,24 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                           fields: [...(draft.fields || []), { label: '', value: '' }],
                         })
                       }
-                      className="text-[11px] font-semibold text-amber-700 dark:text-amber-300"
+                      className="text-[10px] font-semibold text-amber-700 dark:text-amber-300"
                     >
-                      + 添加
+                      + 字段
                     </button>
-                  </div>
-                  {(draft.fields || []).map((field, index) => (
-                    <div key={index} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
+                  ) : undefined
+                }
+              >
+                <textarea
+                  value={draft.notes || ''}
+                  onChange={(event) => updateDraft({ notes: event.target.value })}
+                  rows={2}
+                  placeholder="备注"
+                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-[13px] resize-none"
+                  autoComplete="off"
+                />
+                {(draft.type === 'custom' || (draft.fields && draft.fields.length > 0)) &&
+                  (draft.fields || []).map((field, index) => (
+                    <div key={index} className="grid grid-cols-[1fr_1fr_auto] gap-1.5 items-end">
                       <Field
                         label="标签"
                         value={field.label}
@@ -853,23 +844,35 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                             fields: (draft.fields || []).filter((_, i) => i !== index),
                           })
                         }
-                        className="p-2 mb-0.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                        className="p-1.5 mb-0.5 rounded-md text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   ))}
-                </div>
-              )}
+                {draft.type === 'custom' && (!(draft.fields) || draft.fields.length === 0) && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      updateDraft({
+                        fields: [{ label: '', value: '' }],
+                      })
+                    }
+                    className="text-[11px] font-semibold text-amber-700 dark:text-amber-300 text-left"
+                  >
+                    + 添加自定义字段
+                  </button>
+                )}
+              </FieldGroup>
             </div>
 
-            <div className="shrink-0 p-3 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90 flex gap-2">
+            <div className="shrink-0 px-3 py-2 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90 flex gap-1.5">
               {!isNewDraft && (
                 <button
                   type="button"
                   onClick={() => void handleDeleteDraft()}
                   disabled={busy}
-                  className="px-3 py-2.5 rounded-xl text-sm font-semibold text-rose-600 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100"
+                  className="px-2.5 py-2 rounded-lg text-[13px] font-semibold text-rose-600 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100"
                 >
                   删除
                 </button>
@@ -878,9 +881,9 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                 type="button"
                 onClick={() => void handleSaveDraft()}
                 disabled={busy}
-                className="flex-1 px-3 py-2.5 rounded-xl text-sm font-semibold text-white bg-amber-600 hover:bg-amber-500 disabled:opacity-60 flex items-center justify-center gap-2"
+                className="flex-1 px-3 py-2 rounded-lg text-[13px] font-semibold text-white bg-amber-600 hover:bg-amber-500 disabled:opacity-60 flex items-center justify-center gap-1.5"
               >
-                {busy && <LoaderCircle className="w-4 h-4 animate-spin" />}
+                {busy && <LoaderCircle className="w-3.5 h-3.5 animate-spin" />}
                 保存
               </button>
             </div>
@@ -889,19 +892,19 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
 
         {view === 'importPreview' && mergePlan && (
           <div className="flex flex-col flex-1 min-h-0">
-            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
-              <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2">
+              <div className="grid grid-cols-3 gap-1.5 text-center">
                 <Stat label="新增" value={mergePlan.adds.length} />
                 <Stat label="更新" value={mergePlan.updates.length} />
                 <Stat label="跳过" value={mergePlan.skips.length} />
               </div>
-              <div className="rounded-xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800 text-xs overflow-hidden">
+              <div className="rounded-lg border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800 text-[11px] overflow-hidden">
                 {[...mergePlan.adds, ...mergePlan.updates, ...mergePlan.skips]
                   .slice(0, 80)
                   .map((entry, index) => (
                     <div
                       key={`${entry.action}-${entry.incoming.externalId || index}`}
-                      className="px-3 py-2 flex justify-between gap-2"
+                      className="px-2.5 py-1.5 flex justify-between gap-2"
                     >
                       <span className="truncate text-slate-700 dark:text-slate-200">
                         {entry.incoming.title}
@@ -915,14 +918,14 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                   ))}
               </div>
             </div>
-            <div className="shrink-0 p-3 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90 flex gap-2">
+            <div className="shrink-0 px-3 py-2 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90 flex gap-1.5">
               <button
                 type="button"
                 onClick={() => {
                   setMergePlan(null);
                   setView('list');
                 }}
-                className="flex-1 px-3 py-2.5 rounded-xl text-sm font-semibold bg-slate-100 dark:bg-slate-800"
+                className="flex-1 px-3 py-2 rounded-lg text-[13px] font-semibold bg-slate-100 dark:bg-slate-800"
               >
                 取消
               </button>
@@ -932,9 +935,9 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                 disabled={
                   busy || (mergePlan.adds.length === 0 && mergePlan.updates.length === 0)
                 }
-                className="flex-1 px-3 py-2.5 rounded-xl text-sm font-semibold text-white bg-amber-600 hover:bg-amber-500 disabled:opacity-60 flex items-center justify-center gap-2"
+                className="flex-1 px-3 py-2 rounded-lg text-[13px] font-semibold text-white bg-amber-600 hover:bg-amber-500 disabled:opacity-60 flex items-center justify-center gap-1.5"
               >
-                {busy && <LoaderCircle className="w-4 h-4 animate-spin" />}
+                {busy && <LoaderCircle className="w-3.5 h-3.5 animate-spin" />}
                 确认合并
               </button>
             </div>
@@ -945,11 +948,39 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
   );
 };
 
+function FieldGroup({
+  title,
+  action,
+  children,
+}: {
+  title?: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-lg border border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40 p-2 space-y-1.5">
+      {(title || action) && (
+        <div className="flex items-center justify-between gap-2 px-0.5">
+          {title ? (
+            <h3 className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+              {title}
+            </h3>
+          ) : (
+            <span />
+          )}
+          {action}
+        </div>
+      )}
+      {children}
+    </section>
+  );
+}
+
 function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 py-3">
-      <div className="text-lg font-bold text-slate-900 dark:text-white">{value}</div>
-      <div className="text-[11px] text-slate-500">{label}</div>
+    <div className="rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 py-1.5">
+      <div className="text-sm font-bold text-slate-900 dark:text-white leading-none">{value}</div>
+      <div className="text-[10px] text-slate-500 mt-0.5">{label}</div>
     </div>
   );
 }
@@ -960,77 +991,49 @@ function Field({
   onChange,
   onCopy,
   copied,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  onCopy?: () => void;
-  copied?: boolean;
-}) {
-  return (
-    <label className="block space-y-1 min-w-0">
-      <span className="text-[11px] font-semibold text-slate-500">{label}</span>
-      <div className="relative">
-        <input
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          className={`w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm ${
-            onCopy ? 'pr-9' : ''
-          }`}
-          autoComplete="off"
-        />
-        {onCopy && (
-          <button
-            type="button"
-            onClick={onCopy}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
-          >
-            {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-          </button>
-        )}
-      </div>
-    </label>
-  );
-}
-
-function SecretField({
-  label,
-  value,
+  secret,
   revealed,
-  onToggle,
-  onChange,
-  onCopy,
-  copied,
+  onToggleReveal,
 }: {
   label: string;
   value: string;
-  revealed: boolean;
-  onToggle: () => void;
   onChange: (value: string) => void;
   onCopy?: () => void;
   copied?: boolean;
+  secret?: boolean;
+  revealed?: boolean;
+  onToggleReveal?: () => void;
 }) {
+  const inputType = secret && !revealed ? 'password' : 'text';
+  let rightPad = '';
+  if (secret && onCopy) rightPad = 'pr-14';
+  else if (secret || onCopy) rightPad = 'pr-8';
+
   return (
-    <label className="block space-y-1 min-w-0">
-      <span className="text-[11px] font-semibold text-slate-500">{label}</span>
+    <label className="block min-w-0">
+      <span className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-0.5 leading-tight">
+        {label}
+      </span>
       <div className="relative">
         <input
-          type={revealed ? 'text' : 'password'}
+          type={inputType}
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm pr-16"
+          className={`w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-[13px] ${rightPad}`}
           autoComplete="off"
         />
-        <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
-          <button type="button" onClick={onToggle} className="p-1 text-slate-400">
-            {revealed ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-          </button>
+        <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center">
+          {secret && onToggleReveal && (
+            <button type="button" onClick={onToggleReveal} className="p-1 text-slate-400">
+              {revealed ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+            </button>
+          )}
           {onCopy && (
-            <button type="button" onClick={onCopy} className="p-1 text-slate-400">
+            <button type="button" onClick={onCopy} className="p-1 text-slate-400 hover:text-slate-600">
               {copied ? (
-                <Check className="w-3.5 h-3.5 text-emerald-500" />
+                <Check className="w-3 h-3 text-emerald-500" />
               ) : (
-                <Copy className="w-3.5 h-3.5" />
+                <Copy className="w-3 h-3" />
               )}
             </button>
           )}
