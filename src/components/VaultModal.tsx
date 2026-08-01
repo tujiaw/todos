@@ -424,6 +424,20 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
   const types: Array<VaultItemType | 'all'> = ['all', 'login', 'card', 'identity', 'note', 'custom'];
   const createTypes: VaultItemType[] = ['login', 'card', 'identity', 'note', 'custom'];
 
+  let headerTitle = '保险箱';
+  if (view === 'importPreview') {
+    headerTitle = '导入预览';
+  } else if (view === 'editor' && draft) {
+    const draftTitle = draft.title.trim();
+    if (draftTitle) {
+      headerTitle = draftTitle;
+    } else if (isNewDraft) {
+      headerTitle = `新建${vaultItemTypeLabel(draft.type)}`;
+    } else {
+      headerTitle = '编辑';
+    }
+  }
+
   return (
     <div
       className="fixed inset-0 z-[70] overflow-hidden"
@@ -459,13 +473,20 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                 <ArrowLeft className="w-3.5 h-3.5" />
               </button>
             )}
-            <Shield className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+            {view !== 'editor' && (
+              <Shield className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+            )}
             <h2
               id="vault-title"
               className="text-[13px] font-bold text-slate-800 dark:text-slate-100 truncate"
             >
-              {view === 'importPreview' ? '导入预览' : '保险箱'}
+              {headerTitle}
             </h2>
+            {view === 'editor' && draft && (
+              <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-200">
+                {vaultItemTypeLabel(draft.type)}
+              </span>
+            )}
           </div>
           <div className="flex items-center shrink-0">
             {vaultKey && view === 'list' && (
@@ -681,11 +702,11 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
 
         {view === 'editor' && draft && (
           <div className="flex flex-col flex-1 min-h-0">
-            <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2">
-              <FieldGroup>
-                <div className="grid grid-cols-[88px_1fr] gap-1.5">
-                  <label className="block min-w-0">
-                    <span className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-0.5 leading-tight">
+            <div className="flex-1 min-h-0 overflow-y-auto p-3">
+              <div className="rounded-lg border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/50 p-2.5 space-y-2">
+                {isNewDraft && (
+                  <label className="block">
+                    <span className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-0.5">
                       类型
                     </span>
                     <select
@@ -694,7 +715,6 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                         updateDraft({ type: event.target.value as VaultItemType })
                       }
                       className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-[13px]"
-                      disabled={!isNewDraft}
                     >
                       {createTypes.map((type) => (
                         <option key={type} value={type}>
@@ -703,22 +723,21 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                       ))}
                     </select>
                   </label>
-                  <Field
-                    label="标题"
-                    value={draft.title}
-                    onChange={(value) => updateDraft({ title: value })}
-                  />
-                </div>
-              </FieldGroup>
+                )}
 
-              {draft.type === 'login' && (
-                <>
-                  <FieldGroup title="账号">
+                <Field
+                  label="标题"
+                  value={draft.title}
+                  onChange={(value) => updateDraft({ title: value })}
+                />
+
+                {draft.type === 'login' && (
+                  <>
                     <Field
                       label="用户名"
                       value={draft.username || ''}
                       onChange={(value) => updateDraft({ username: value })}
-                      onCopy={() => handleCopy('username', draft.username)}
+                      onCopy={() => handleCopy('username', draft.username, '已复制用户名')}
                       copied={copiedField === 'username'}
                     />
                     <Field
@@ -733,257 +752,240 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                         }))
                       }
                       onChange={(value) => updateDraft({ password: value })}
-                      onCopy={() => handleCopy('password', draft.password)}
+                      onCopy={() => handleCopy('password', draft.password, '已复制密码')}
                       copied={copiedField === 'password'}
                     />
-                  </FieldGroup>
-                  <FieldGroup
-                    title="网站"
-                    action={
-                      draft.url?.trim() ? (
-                        <button
-                          type="button"
-                          onClick={() => handleOpenUrl(draft.url)}
-                          className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 dark:text-amber-300"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                          打开
-                        </button>
-                      ) : undefined
-                    }
-                  >
+                    <div className="grid grid-cols-[1fr_auto] gap-1.5 items-end">
+                      <Field
+                        label="网址"
+                        value={draft.url || ''}
+                        onChange={(value) => updateDraft({ url: value })}
+                        onCopy={() => handleCopy('url', draft.url)}
+                        copied={copiedField === 'url'}
+                      />
+                      <button
+                        type="button"
+                        disabled={!draft.url?.trim()}
+                        onClick={() => handleOpenUrl(draft.url)}
+                        className="mb-0.5 h-[30px] px-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 disabled:opacity-40"
+                        title="打开网址"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                     <Field
-                      label="网址"
-                      value={draft.url || ''}
-                      onChange={(value) => updateDraft({ url: value })}
-                      onCopy={() => handleCopy('url', draft.url)}
-                      copied={copiedField === 'url'}
-                    />
-                    <Field
-                      label="TOTP 密钥"
+                      label="TOTP"
                       value={draft.totp || ''}
                       onChange={(value) => updateDraft({ totp: value })}
                       onCopy={() => handleCopy('totp', draft.totp)}
                       copied={copiedField === 'totp'}
                     />
-                  </FieldGroup>
-                </>
-              )}
+                  </>
+                )}
 
-              {draft.type === 'card' && (
-                <FieldGroup title="卡片">
-                  <div className="grid grid-cols-2 gap-1.5">
+                {draft.type === 'card' && (
+                  <>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <Field
+                        label="持卡人"
+                        value={draft.cardholder || ''}
+                        onChange={(value) => updateDraft({ cardholder: value })}
+                        onCopy={() => handleCopy('cardholder', draft.cardholder)}
+                        copied={copiedField === 'cardholder'}
+                      />
+                      <Field
+                        label="品牌"
+                        value={draft.brand || ''}
+                        onChange={(value) => updateDraft({ brand: value })}
+                      />
+                    </div>
                     <Field
-                      label="持卡人"
-                      value={draft.cardholder || ''}
-                      onChange={(value) => updateDraft({ cardholder: value })}
-                    />
-                    <Field
-                      label="品牌"
-                      value={draft.brand || ''}
-                      onChange={(value) => updateDraft({ brand: value })}
-                    />
-                  </div>
-                  <Field
-                    label="卡号"
-                    value={draft.number || ''}
-                    secret
-                    revealed={Boolean(revealSecrets.number)}
-                    onToggleReveal={() =>
-                      setRevealSecrets((current) => ({
-                        ...current,
-                        number: !current.number,
-                      }))
-                    }
-                    onChange={(value) => updateDraft({ number: value })}
-                    onCopy={() => handleCopy('number', draft.number)}
-                    copied={copiedField === 'number'}
-                  />
-                  <div className="grid grid-cols-3 gap-1.5">
-                    <Field
-                      label="月"
-                      value={draft.expMonth || ''}
-                      onChange={(value) => updateDraft({ expMonth: value })}
-                    />
-                    <Field
-                      label="年"
-                      value={draft.expYear || ''}
-                      onChange={(value) => updateDraft({ expYear: value })}
-                    />
-                    <Field
-                      label="CVV"
-                      value={draft.cvv || ''}
+                      label="卡号"
+                      value={draft.number || ''}
                       secret
-                      revealed={Boolean(revealSecrets.cvv)}
+                      revealed={Boolean(revealSecrets.number)}
                       onToggleReveal={() =>
                         setRevealSecrets((current) => ({
                           ...current,
-                          cvv: !current.cvv,
+                          number: !current.number,
                         }))
                       }
-                      onChange={(value) => updateDraft({ cvv: value })}
-                      onCopy={() => handleCopy('cvv', draft.cvv)}
-                      copied={copiedField === 'cvv'}
+                      onChange={(value) => updateDraft({ number: value })}
+                      onCopy={() => handleCopy('number', draft.number)}
+                      copied={copiedField === 'number'}
                     />
-                  </div>
-                </FieldGroup>
-              )}
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <Field
+                        label="月"
+                        value={draft.expMonth || ''}
+                        onChange={(value) => updateDraft({ expMonth: value })}
+                      />
+                      <Field
+                        label="年"
+                        value={draft.expYear || ''}
+                        onChange={(value) => updateDraft({ expYear: value })}
+                      />
+                      <Field
+                        label="CVV"
+                        value={draft.cvv || ''}
+                        secret
+                        revealed={Boolean(revealSecrets.cvv)}
+                        onToggleReveal={() =>
+                          setRevealSecrets((current) => ({
+                            ...current,
+                            cvv: !current.cvv,
+                          }))
+                        }
+                        onChange={(value) => updateDraft({ cvv: value })}
+                        onCopy={() => handleCopy('cvv', draft.cvv)}
+                        copied={copiedField === 'cvv'}
+                      />
+                    </div>
+                  </>
+                )}
 
-              {draft.type === 'identity' && (
-                <FieldGroup title="证件">
-                  <div className="grid grid-cols-2 gap-1.5">
+                {draft.type === 'identity' && (
+                  <>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <Field
+                        label="姓名"
+                        value={draft.fullName || ''}
+                        onChange={(value) => updateDraft({ fullName: value })}
+                        onCopy={() => handleCopy('fullName', draft.fullName)}
+                        copied={copiedField === 'fullName'}
+                      />
+                      <Field
+                        label="证件类型"
+                        value={draft.idType || ''}
+                        onChange={(value) => updateDraft({ idType: value })}
+                      />
+                    </div>
                     <Field
-                      label="姓名"
-                      value={draft.fullName || ''}
-                      onChange={(value) => updateDraft({ fullName: value })}
-                    />
-                    <Field
-                      label="类型"
-                      value={draft.idType || ''}
-                      onChange={(value) => updateDraft({ idType: value })}
-                    />
-                  </div>
-                  <Field
-                    label="证件号"
-                    value={draft.idNumber || ''}
-                    secret
-                    revealed={Boolean(revealSecrets.idNumber)}
-                    onToggleReveal={() =>
-                      setRevealSecrets((current) => ({
-                        ...current,
-                        idNumber: !current.idNumber,
-                      }))
-                    }
-                    onChange={(value) => updateDraft({ idNumber: value })}
-                    onCopy={() => handleCopy('idNumber', draft.idNumber)}
-                    copied={copiedField === 'idNumber'}
-                  />
-                </FieldGroup>
-              )}
-
-              <FieldGroup
-                title="备注"
-                action={
-                  draft.type === 'custom' || (draft.fields && draft.fields.length > 0) ? (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        updateDraft({
-                          fields: [...(draft.fields || []), { label: '', value: '' }],
-                        })
+                      label="证件号"
+                      value={draft.idNumber || ''}
+                      secret
+                      revealed={Boolean(revealSecrets.idNumber)}
+                      onToggleReveal={() =>
+                        setRevealSecrets((current) => ({
+                          ...current,
+                          idNumber: !current.idNumber,
+                        }))
                       }
-                      className="text-[10px] font-semibold text-amber-700 dark:text-amber-300"
-                    >
-                      + 字段
-                    </button>
-                  ) : undefined
-                }
-              >
+                      onChange={(value) => updateDraft({ idNumber: value })}
+                      onCopy={() => handleCopy('idNumber', draft.idNumber)}
+                      copied={copiedField === 'idNumber'}
+                    />
+                  </>
+                )}
+
                 <textarea
                   value={draft.notes || ''}
                   onChange={(event) => updateDraft({ notes: event.target.value })}
                   rows={2}
-                  placeholder="备注"
+                  placeholder="备注（可选）"
                   className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-[13px] resize-none"
                   autoComplete="off"
                 />
-                {(draft.type === 'custom' || (draft.fields && draft.fields.length > 0)) &&
-                  (draft.fields || []).map((field, index) => (
-                    <div key={index} className="grid grid-cols-[1fr_1fr_auto] gap-1.5 items-end">
-                      <Field
-                        label="标签"
-                        value={field.label}
-                        onChange={(value) => updateFieldRow(index, { label: value })}
-                      />
-                      <Field
-                        label="值"
-                        value={field.value}
-                        onChange={(value) => updateFieldRow(index, { value })}
-                        onCopy={() => handleCopy(`field-${index}`, field.value)}
-                        copied={copiedField === `field-${index}`}
-                      />
+
+                {(draft.type === 'custom' || (draft.fields && draft.fields.length > 0)) && (
+                  <div className="space-y-1.5 pt-0.5 border-t border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-semibold text-slate-400">自定义字段</span>
                       <button
                         type="button"
                         onClick={() =>
                           updateDraft({
-                            fields: (draft.fields || []).filter((_, i) => i !== index),
+                            fields: [...(draft.fields || []), { label: '', value: '' }],
                           })
                         }
-                        className="p-1.5 mb-0.5 rounded-md text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                        className="text-[10px] font-semibold text-amber-700 dark:text-amber-300"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        + 添加
                       </button>
                     </div>
-                  ))}
-                {draft.type === 'custom' && (!(draft.fields) || draft.fields.length === 0) && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      updateDraft({
-                        fields: [{ label: '', value: '' }],
-                      })
-                    }
-                    className="text-[11px] font-semibold text-amber-700 dark:text-amber-300 text-left"
-                  >
-                    + 添加自定义字段
-                  </button>
+                    {(draft.fields || []).map((field, index) => (
+                      <div key={index} className="grid grid-cols-[1fr_1fr_auto] gap-1.5 items-end">
+                        <Field
+                          label="标签"
+                          value={field.label}
+                          onChange={(value) => updateFieldRow(index, { label: value })}
+                        />
+                        <Field
+                          label="值"
+                          value={field.value}
+                          onChange={(value) => updateFieldRow(index, { value })}
+                          onCopy={() => handleCopy(`field-${index}`, field.value)}
+                          copied={copiedField === `field-${index}`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateDraft({
+                              fields: (draft.fields || []).filter((_, i) => i !== index),
+                            })
+                          }
+                          className="p-1.5 mb-0.5 rounded-md text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 )}
-              </FieldGroup>
+              </div>
             </div>
 
-            <div className="shrink-0 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90">
-              <div className="px-3 pt-2 flex flex-wrap gap-1">
-                {draft.type === 'login' && draft.url?.trim() && (
-                  <ActionChip
+            <div className="shrink-0 px-3 py-2 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90 flex items-center gap-1.5">
+              {draft.type === 'login' && (
+                <>
+                  <IconAction
                     icon={ExternalLink}
-                    label="打开网址"
+                    title="打开网址"
+                    disabled={!draft.url?.trim()}
                     onClick={() => handleOpenUrl(draft.url)}
                   />
-                )}
-                {draft.type === 'login' && draft.username?.trim() && (
-                  <ActionChip
+                  <IconAction
                     icon={UserRound}
-                    label={copiedField === 'username' ? '已复制' : '复制用户名'}
-                    onClick={() => void handleCopy('username', draft.username, '已复制用户名')}
+                    title="复制用户名"
+                    disabled={!draft.username?.trim()}
                     active={copiedField === 'username'}
+                    onClick={() => void handleCopy('username', draft.username, '已复制用户名')}
                   />
-                )}
-                {draft.type === 'login' && draft.password?.trim() && (
-                  <ActionChip
+                  <IconAction
                     icon={KeyRound}
-                    label={copiedField === 'password' ? '已复制' : '复制密码'}
-                    onClick={() => void handleCopy('password', draft.password, '已复制密码')}
+                    title="复制密码"
+                    disabled={!draft.password?.trim()}
                     active={copiedField === 'password'}
+                    onClick={() => void handleCopy('password', draft.password, '已复制密码')}
                   />
-                )}
-                <ActionChip
-                  icon={ClipboardCopy}
-                  label={copiedField === 'all' ? '已复制' : '复制全部'}
-                  onClick={() => void handleCopyAll(draft)}
-                  active={copiedField === 'all'}
-                />
-              </div>
-              <div className="px-3 py-2 flex gap-1.5">
-                {!isNewDraft && (
-                  <button
-                    type="button"
-                    onClick={() => void handleDeleteDraft()}
-                    disabled={busy}
-                    className="px-2.5 py-2 rounded-lg text-[13px] font-semibold text-rose-600 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100"
-                  >
-                    删除
-                  </button>
-                )}
+                </>
+              )}
+              <IconAction
+                icon={ClipboardCopy}
+                title="复制全部"
+                active={copiedField === 'all'}
+                onClick={() => void handleCopyAll(draft)}
+              />
+              <div className="flex-1" />
+              {!isNewDraft && (
                 <button
                   type="button"
-                  onClick={() => void handleSaveDraft()}
+                  onClick={() => void handleDeleteDraft()}
                   disabled={busy}
-                  className="flex-1 px-3 py-2 rounded-lg text-[13px] font-semibold text-white bg-amber-600 hover:bg-amber-500 disabled:opacity-60 flex items-center justify-center gap-1.5"
+                  className="px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
                 >
-                  {busy && <LoaderCircle className="w-3.5 h-3.5 animate-spin" />}
-                  保存
+                  删除
                 </button>
-              </div>
+              )}
+              <button
+                type="button"
+                onClick={() => void handleSaveDraft()}
+                disabled={busy}
+                className="px-3.5 py-1.5 rounded-lg text-[12px] font-semibold text-white bg-amber-600 hover:bg-amber-500 disabled:opacity-60 flex items-center gap-1.5"
+              >
+                {busy && <LoaderCircle className="w-3.5 h-3.5 animate-spin" />}
+                保存
+              </button>
             </div>
           </div>
         )}
@@ -1074,29 +1076,33 @@ function FieldGroup({
   );
 }
 
-function ActionChip({
+function IconAction({
   icon: Icon,
-  label,
+  title,
   onClick,
   active,
+  disabled,
 }: {
   icon: LucideIcon;
-  label: string;
+  title: string;
   onClick: () => void;
   active?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
+      title={title}
+      aria-label={title}
+      disabled={disabled}
       onClick={onClick}
-      className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold border transition-colors ${
+      className={`p-1.5 rounded-lg border transition-colors disabled:opacity-35 ${
         active
           ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900 text-emerald-700 dark:text-emerald-300'
-          : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'
+          : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
       }`}
     >
-      <Icon className="w-3 h-3" />
-      {label}
+      <Icon className="w-3.5 h-3.5" />
     </button>
   );
 }
