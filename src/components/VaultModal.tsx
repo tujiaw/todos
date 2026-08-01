@@ -160,6 +160,28 @@ function typeIcon(type: VaultItemType) {
   return SlidersHorizontal;
 }
 
+function deriveVaultItemTitle(item: VaultItemPlain): string {
+  if (item.type === 'card') {
+    const cardholder = item.cardholder?.trim();
+    if (cardholder) return cardholder;
+    const brand = item.brand?.trim();
+    const digits = (item.number || '').replace(/[\s-]/g, '');
+    const last4 = digits.length >= 4 ? digits.slice(-4) : '';
+    if (brand && last4) return `${brand} •••• ${last4}`;
+    if (brand) return brand;
+    if (last4) return `•••• ${last4}`;
+    return 'Card';
+  }
+  if (item.type === 'identity') {
+    const name = item.fullName?.trim();
+    if (name) return name;
+    const idType = item.idType?.trim();
+    if (idType) return idType;
+    return 'Identity';
+  }
+  return item.title.trim();
+}
+
 async function copyText(value: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(value);
@@ -522,16 +544,31 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
 
   const handleSaveDraft = async () => {
     if (!vaultKey || !draft) return;
-    if (!draft.title.trim()) {
+
+    let title = draft.title.trim();
+    if (draft.type === 'card') {
+      if (!draft.cardholder?.trim() && !draft.number?.trim()) {
+        showNotice('Please enter a cardholder or number', 'error');
+        return;
+      }
+      title = deriveVaultItemTitle(draft);
+    } else if (draft.type === 'identity') {
+      if (!draft.fullName?.trim() && !draft.idNumber?.trim()) {
+        showNotice('Please enter a name or ID number', 'error');
+        return;
+      }
+      title = deriveVaultItemTitle(draft);
+    } else if (!title) {
       showNotice('Please enter a title', 'error');
       return;
     }
+
     setBusy(true);
     setNotice(null);
     try {
       const saved = await upsertVaultItemEncrypted(vaultKey, {
         ...draft,
-        title: draft.title.trim(),
+        title,
         updatedAt: Date.now(),
       });
       markVaultItemUsed(saved.id);
@@ -872,13 +909,24 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
   } else if (view === 'detail' && selectedItem) {
     headerTitle = selectedItem.title;
   } else if (view === 'editor' && draft) {
-    const draftTitle = draft.title.trim();
-    if (draftTitle) {
-      headerTitle = draftTitle;
-    } else if (isNewDraft) {
-      headerTitle = `New ${vaultItemTypeLabel(draft.type)}`;
+    if (draft.type === 'card' || draft.type === 'identity') {
+      const derived = deriveVaultItemTitle(draft);
+      if (derived !== 'Card' && derived !== 'Identity') {
+        headerTitle = derived;
+      } else if (isNewDraft) {
+        headerTitle = `New ${vaultItemTypeLabel(draft.type)}`;
+      } else {
+        headerTitle = 'Edit';
+      }
     } else {
-      headerTitle = 'Edit';
+      const draftTitle = draft.title.trim();
+      if (draftTitle) {
+        headerTitle = draftTitle;
+      } else if (isNewDraft) {
+        headerTitle = `New ${vaultItemTypeLabel(draft.type)}`;
+      } else {
+        headerTitle = 'Edit';
+      }
     }
   }
 
@@ -1385,11 +1433,13 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
           <div className="flex flex-col flex-1 min-h-0">
             <div className="flex-1 min-h-0 overflow-y-auto p-3">
               <div className="rounded-lg border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/50 p-2.5 space-y-2">
-                <Field
-                  label="Title"
-                  value={draft.title}
-                  onChange={(value) => updateDraft({ title: value })}
-                />
+                {draft.type !== 'card' && draft.type !== 'identity' && (
+                  <Field
+                    label="Title"
+                    value={draft.title}
+                    onChange={(value) => updateDraft({ title: value })}
+                  />
+                )}
 
                 {draft.type === 'login' && (
                   <>

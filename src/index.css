@@ -301,6 +301,14 @@ body {
   box-shadow: 0 24px 80px rgb(79 70 229 / 0.25);
 }
 
+.vault-panel button:not(:disabled) {
+  cursor: pointer;
+}
+
+.vault-panel button:disabled {
+  cursor: not-allowed;
+}
+
 @media (min-width: 640px) {
   .drop-panel,
   .vault-panel {
