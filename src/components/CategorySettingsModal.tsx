@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, FolderPlus, Tag, Check, Pencil, Trash2 } from 'lucide-react';
+import { X, FolderPlus, Tag, Check, Pencil, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import { Category } from '../types';
 
 interface CategorySettingsModalProps {
@@ -9,6 +9,7 @@ interface CategorySettingsModalProps {
   onAddCategory: (newCategory: Omit<Category, 'id'>) => void;
   onUpdateCategory: (category: Category) => void;
   onDeleteCategory: (categoryId: string) => void;
+  onReorderCategory: (categoryId: string, direction: 'up' | 'down') => void;
 }
 
 const PRESET_COLORS = [
@@ -33,6 +34,7 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({
   onAddCategory,
   onUpdateCategory,
   onDeleteCategory,
+  onReorderCategory,
 }) => {
   const [newCatName, setNewCatName] = useState('');
   const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[0]);
@@ -111,84 +113,113 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({
           )}
 
           <div>
-            <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-2">
+            <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Existing Categories ({categories.length})
             </label>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2">
+              Use the arrows to reorder. The first category is the default.
+            </p>
             <div className="space-y-2 max-h-52 overflow-y-auto">
-              {categories.map((cat) => (
-                <div
-                  key={cat.id}
-                  className={`rounded-xl border p-2.5 ${cat.bgClass} ${cat.borderClass}`}
-                >
-                  {editingId === cat.id ? (
-                    <div className="space-y-2">
-                      <input
-                        value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs"
-                      />
-                      <div className="flex flex-wrap gap-1.5">
-                        {PRESET_COLORS.map((color) => (
+              {categories.map((cat, index) => {
+                const isFirst = index === 0;
+                const isLast = index === categories.length - 1;
+                return (
+                  <div
+                    key={cat.id}
+                    className={`rounded-xl border p-2.5 ${cat.bgClass} ${cat.borderClass}`}
+                  >
+                    {editingId === cat.id ? (
+                      <div className="space-y-2">
+                        <input
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs"
+                        />
+                        <div className="flex flex-wrap gap-1.5">
+                          {PRESET_COLORS.map((color) => (
+                            <button
+                              key={color.hex}
+                              type="button"
+                              onClick={() => setEditColor(color)}
+                              className={`w-5 h-5 rounded-full border-2 ${
+                                editColor.hex === color.hex ? 'border-slate-800 dark:border-white' : 'border-transparent'
+                              }`}
+                              style={{ backgroundColor: color.hex }}
+                              title={color.name}
+                            />
+                          ))}
+                        </div>
+                        <div className="flex gap-2">
                           <button
-                            key={color.hex}
                             type="button"
-                            onClick={() => setEditColor(color)}
-                            className={`w-5 h-5 rounded-full border-2 ${
-                              editColor.hex === color.hex ? 'border-slate-800 dark:border-white' : 'border-transparent'
-                            }`}
-                            style={{ backgroundColor: color.hex }}
-                            title={color.name}
-                          />
-                        ))}
+                            onClick={saveEdit}
+                            className="px-2.5 py-1 rounded-lg bg-indigo-600 text-white font-semibold"
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingId(null)}
+                            className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700"
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={saveEdit}
-                          className="px-2.5 py-1 rounded-lg bg-indigo-600 text-white font-semibold"
-                        >
-                          Save
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEditingId(null)}
-                          className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700"
-                        >
-                          Cancel
-                        </button>
+                    ) : (
+                      <div className="flex items-center justify-between gap-2">
+                        <div className={`flex items-center gap-1.5 font-medium min-w-0 ${cat.textClass}`}>
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+                          <span className="truncate">{cat.name}</span>
+                          {(cat.isDefault || isFirst) && (
+                            <span className="text-[10px] opacity-70 border border-current px-1 rounded shrink-0">
+                              Default
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-0.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => onReorderCategory(cat.id, 'up')}
+                            disabled={isFirst}
+                            className="p-1.5 rounded-lg hover:bg-white/70 dark:hover:bg-slate-900/50 disabled:opacity-30 disabled:pointer-events-none"
+                            aria-label={`Move ${cat.name} up`}
+                            title="Move up"
+                          >
+                            <ChevronUp className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onReorderCategory(cat.id, 'down')}
+                            disabled={isLast}
+                            className="p-1.5 rounded-lg hover:bg-white/70 dark:hover:bg-slate-900/50 disabled:opacity-30 disabled:pointer-events-none"
+                            aria-label={`Move ${cat.name} down`}
+                            title="Move down"
+                          >
+                            <ChevronDown className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => startEdit(cat)}
+                            className="p-1.5 rounded-lg hover:bg-white/70 dark:hover:bg-slate-900/50"
+                            aria-label={`Edit ${cat.name}`}
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onDeleteCategory(cat.id)}
+                            className="p-1.5 rounded-lg hover:bg-white/70 dark:hover:bg-slate-900/50 text-rose-600"
+                            aria-label={`Delete ${cat.name}`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between gap-2">
-                      <div className={`flex items-center gap-1.5 font-medium ${cat.textClass}`}>
-                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
-                        <span>{cat.name}</span>
-                        {cat.isDefault && (
-                          <span className="text-[10px] opacity-70 border border-current px-1 rounded">Default</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => startEdit(cat)}
-                          className="p-1.5 rounded-lg hover:bg-white/70 dark:hover:bg-slate-900/50"
-                          aria-label={`Edit ${cat.name}`}
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onDeleteCategory(cat.id)}
-                          className="p-1.5 rounded-lg hover:bg-white/70 dark:hover:bg-slate-900/50 text-rose-600"
-                          aria-label={`Delete ${cat.name}`}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
 

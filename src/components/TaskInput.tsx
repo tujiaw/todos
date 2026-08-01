@@ -26,7 +26,10 @@ export const TaskInput: React.FC<TaskInputProps> = ({
   const { showToast } = useToast();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [categoryId, setCategoryId] = useState<string>(categories[0]?.id || '');
+  const [categoryId, setCategoryId] = useState<string>(() => {
+    const defaultCat = categories.find((cat) => cat.isDefault) || categories[0];
+    return defaultCat?.id || '';
+  });
   const [priority, setPriority] = useState<Priority>('medium');
   const [dueTime, setDueTime] = useState<string>('');
   const [estimatedMinutes, setEstimatedMinutes] = useState<number | ''>('');
@@ -60,7 +63,8 @@ export const TaskInput: React.FC<TaskInputProps> = ({
 
   useEffect(() => {
     if (!categories.some((category) => category.id === categoryId)) {
-      setCategoryId(categories[0]?.id || '');
+      const defaultCat = categories.find((cat) => cat.isDefault) || categories[0];
+      setCategoryId(defaultCat?.id || '');
     }
   }, [categories, categoryId]);
 

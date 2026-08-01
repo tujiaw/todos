@@ -144,6 +144,7 @@ const mapDbRowToCategory = (row: any): Category => ({
   bgClass: row.bg_class,
   textClass: row.text_class,
   borderClass: row.border_class,
+  sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0,
   isDefault: row.is_default || false,
 });
 
@@ -156,6 +157,7 @@ const mapCategoryToDbRow = (cat: Category, userId: string) => ({
   bg_class: cat.bgClass,
   text_class: cat.textClass,
   border_class: cat.borderClass,
+  sort_order: cat.sortOrder ?? 0,
   is_default: cat.isDefault || false,
 });
 
@@ -283,7 +285,11 @@ export const subscribeToTasks = (userId: string, onUpdate: () => void) => {
 
 // Fetch categories from Supabase
 export const fetchCategoriesFromSupabase = async (): Promise<Category[]> => {
-  const { data, error } = await supabase.from('todo_categories').select('*');
+  const { data, error } = await supabase
+    .from('todo_categories')
+    .select('*')
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true });
 
   if (error) {
     console.error('Error fetching categories from Supabase:', error);
@@ -305,6 +311,9 @@ export const upsertCategoryToSupabase = async (category: Category, user: User) =
 
 // Edge Drop Items Supabase Integration
 // ==========================================
+
+/** Hard cap for each drop_items page (also enforced server-side via range). */
+export const DROP_ITEMS_PAGE_SIZE = 50;
 
 // Fetch Drop items with pagination (50 items max) and server-side search
 export interface FetchDropItemsOptions {
@@ -404,8 +413,9 @@ const mapDbRowToDropItem = async (row: any): Promise<DropItem> => {
 export const fetchDropItemsFromSupabase = async (
   options: FetchDropItemsOptions = {}
 ): Promise<FetchDropItemsResult> => {
-  const limit = options.limit ?? 50;
-  const offset = options.offset ?? 0;
+  const requested = options.limit ?? DROP_ITEMS_PAGE_SIZE;
+  const limit = Math.min(Math.max(1, requested), DROP_ITEMS_PAGE_SIZE);
+  const offset = Math.max(0, options.offset ?? 0);
   const activeUser = await ensureAuthenticatedUser();
 
   let query = supabase
@@ -421,13 +431,14 @@ export const fetchDropItemsFromSupabase = async (
   const { data, error, count } = await query.range(offset, offset + limit - 1);
   if (error) throw error;
 
-  // The query pages from newest to oldest so the first page always contains
-  // the latest records. Reverse each page for chat-style oldest-to-newest UI.
-  const items = (await Promise.all((data || []).map(mapDbRowToDropItem))).reverse();
-  return {
-    items,
-    hasMore: offset + items.length < (count ?? 0),
-  };
+  const pageRows = data || [];
+  // Newest→oldest from API; reverse for chat-style oldest→newest UI.
+  const items = (await Promise.all(pageRows.map(mapDbRowToDropItem))).reverse();
+  const loadedThrough = offset + pageRows.length;
+  const hasMore =
+    count != null ? loadedThrough < count : pageRows.length >= limit;
+
+  return { items, hasMore };
 };
 
 export type DropRealtimeChange = {
@@ -553,19 +564,34 @@ export const deleteDropItemFromSupabase = async (id: string) => {
   await removeStoredAttachments(data.map((row: any) => row.file_path));
 };
 
-// Clear all Drop items from Supabase
+// Clear all Drop items from Supabase (file paths collected in pages of 50)
 export const clearAllDropItemsFromSupabase = async () => {
   const activeUser = await ensureAuthenticatedUser();
-  const { data: existingItems, error: fetchError } = await supabase
-    .from('drop_items')
-    .select('file_path')
-    .eq('user_id', activeUser.id);
-  if (fetchError) throw fetchError;
+  const filePaths: Array<string | null | undefined> = [];
+  let offset = 0;
+
+  for (;;) {
+    const { data, error: fetchError } = await supabase
+      .from('drop_items')
+      .select('file_path')
+      .eq('user_id', activeUser.id)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + DROP_ITEMS_PAGE_SIZE - 1);
+    if (fetchError) throw fetchError;
+
+    const page = data || [];
+    if (page.length === 0) break;
+    for (const row of page) {
+      filePaths.push(row.file_path);
+    }
+    if (page.length < DROP_ITEMS_PAGE_SIZE) break;
+    offset += DROP_ITEMS_PAGE_SIZE;
+  }
 
   const { error } = await supabase
     .from('drop_items')
     .delete()
     .eq('user_id', activeUser.id);
   if (error) throw error;
-  await removeStoredAttachments((existingItems || []).map((row: any) => row.file_path));
+  await removeStoredAttachments(filePaths);
 };

@@ -1,4 +1,5 @@
 import type { Category, Task } from '../types';
+import { sortCategoriesByOrder } from './categories';
 import type { SyncOp } from './syncQueue';
 
 export interface MergeTasksResult {
@@ -147,7 +148,8 @@ export function mergeCategories(
     }
   }
 
-  return { merged: Array.from(byId.values()), toPush, staleOps };
+  const merged = sortCategoriesByOrder(Array.from(byId.values()));
+  return { merged, toPush, staleOps };
 }
 
 /** Remove stale ops (by id) from an outbox list. */

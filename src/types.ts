@@ -8,6 +8,8 @@ export interface Category {
   bgClass: string;
   textClass: string;
   borderClass: string;
+  /** Lower comes first; index 0 is the default category. */
+  sortOrder?: number;
   isDefault?: boolean;
 }
 

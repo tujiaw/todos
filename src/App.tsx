@@ -50,6 +50,11 @@ import {
 import { formatWeekDisplayLabel } from './utils/week';
 import { mergeCategories, mergeTasksLww, withoutStaleOps } from './utils/mergeSync';
 import {
+  moveCategory,
+  normalizeCategoryOrder,
+  sortCategoriesByOrder,
+} from './utils/categories';
+import {
   clearOutbox,
   countPendingOps,
   enqueueOp,
@@ -66,6 +71,7 @@ import {
   fetchCategoriesFromSupabase,
   syncAllTasksToSupabase,
   syncAllCategoriesToSupabase,
+  DROP_ITEMS_PAGE_SIZE,
   fetchDropItemsFromSupabase,
   subscribeToDropItems,
   subscribeToTasks,
@@ -82,6 +88,8 @@ function createDefaultWorkCategory(userId: string): Category {
     bgClass: 'bg-blue-50 dark:bg-blue-950/40',
     textClass: 'text-blue-700 dark:text-blue-300',
     borderClass: 'border-blue-200 dark:border-blue-800/50',
+    sortOrder: 0,
+    isDefault: true,
   };
 }
 
@@ -165,7 +173,7 @@ export default function App() {
       try {
         setDropError(null);
         const res = await fetchDropItemsFromSupabase({
-          limit: 50,
+          limit: DROP_ITEMS_PAGE_SIZE,
           offset,
           searchQuery: query,
         });
@@ -326,14 +334,15 @@ export default function App() {
   );
 
   const persistCategories = useCallback((next: Category[]) => {
-    setCategories(next);
-    categoriesRef.current = next;
-    saveCategories(next);
+    const ordered = sortCategoriesByOrder(next);
+    setCategories(ordered);
+    categoriesRef.current = ordered;
+    saveCategories(ordered);
   }, []);
 
   const refreshFromStorage = useCallback(() => {
     const loadedTasks = loadTasks();
-    const loadedCats = loadCategories();
+    const loadedCats = sortCategoriesByOrder(loadCategories());
     setTasks(loadedTasks);
     tasksRef.current = loadedTasks;
     setCategories(loadedCats);
@@ -389,6 +398,25 @@ export default function App() {
           const fallback = createDefaultWorkCategory(user.id);
           mergedCats = [fallback];
           catsToPush = [fallback];
+        } else {
+          const normalized = normalizeCategoryOrder(mergedCats);
+          const orderChanged = normalized.some((cat, index) => {
+            const prev = mergedCats[index];
+            return (
+              !prev ||
+              prev.id !== cat.id ||
+              prev.sortOrder !== cat.sortOrder ||
+              Boolean(prev.isDefault) !== cat.isDefault
+            );
+          });
+          if (orderChanged) {
+            mergedCats = normalized;
+            for (const cat of normalized) {
+              if (!catsToPush.some((item) => item.id === cat.id)) {
+                catsToPush.push(cat);
+              }
+            }
+          }
         }
 
         persistTasks(mergedTasks);
@@ -876,17 +904,30 @@ export default function App() {
     const newCat: Category = {
       ...newCatData,
       id: `cat-${Date.now()}`,
+      sortOrder: categories.length,
+      isDefault: categories.length === 0,
     };
 
-    const updatedCategories = [...categories, newCat];
+    const updatedCategories = normalizeCategoryOrder([...categories, newCat]);
     persistCategories(updatedCategories);
-    void queueAndFlush('upsert_category', newCat.id, newCat);
+    for (const cat of updatedCategories) {
+      void queueAndFlush('upsert_category', cat.id, cat);
+    }
   };
 
   const handleUpdateCategory = (updated: Category) => {
     const next = categories.map((cat) => (cat.id === updated.id ? updated : cat));
     persistCategories(next);
     void queueAndFlush('upsert_category', updated.id, updated);
+  };
+
+  const handleReorderCategory = (categoryId: string, direction: 'up' | 'down') => {
+    const next = moveCategory(categories, categoryId, direction);
+    if (!next) return;
+    persistCategories(next);
+    for (const cat of next) {
+      void queueAndFlush('upsert_category', cat.id, cat);
+    }
   };
 
   const handleDeleteCategory = async (categoryId: string) => {
@@ -897,9 +938,8 @@ export default function App() {
       return;
     }
 
-    const fallback =
-      categories.find((cat) => cat.id !== categoryId && cat.isDefault) ||
-      categories.find((cat) => cat.id !== categoryId);
+    const remaining = categories.filter((cat) => cat.id !== categoryId);
+    const fallback = remaining[0];
     if (!fallback) return;
 
     const confirmed = await confirmAction({
@@ -921,9 +961,12 @@ export default function App() {
       }
     }
 
-    const nextCats = categories.filter((cat) => cat.id !== categoryId);
+    const nextCats = normalizeCategoryOrder(remaining);
     persistCategories(nextCats);
     void queueAndFlush('delete_category', categoryId);
+    for (const cat of nextCats) {
+      void queueAndFlush('upsert_category', cat.id, cat);
+    }
   };
 
   const handleImportData = async (tasksImported: Task[], categoriesImported: Category[]) => {
@@ -1190,6 +1233,7 @@ export default function App() {
         onAddCategory={handleAddCategory}
         onUpdateCategory={handleUpdateCategory}
         onDeleteCategory={handleDeleteCategory}
+        onReorderCategory={handleReorderCategory}
       />
 
       {/* Edge Drop Notepad & File Transfer Modal */}

@@ -14,8 +14,18 @@ create table if not exists public.todo_categories (
   text_class text not null,
   border_class text not null,
   is_default boolean default false,
+  sort_order integer default 0 not null,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+
+-- Existing projects: add sort_order without wiping data.
+alter table public.todo_categories add column if not exists sort_order integer default 0;
+update public.todo_categories set sort_order = 0 where sort_order is null;
+alter table public.todo_categories alter column sort_order set default 0;
+alter table public.todo_categories alter column sort_order set not null;
+
+create index if not exists todo_categories_user_sort_idx
+  on public.todo_categories(user_id, sort_order);
 
 -- Enable RLS for todo_categories
 alter table public.todo_categories enable row level security;

@@ -257,6 +257,8 @@ export const DropModal: React.FC<DropModalProps> = ({
   const dragDepthRef = useRef(0);
   const hasSeededScrollRef = useRef(false);
   const lastNewestIdRef = useRef<string | null>(null);
+  const pendingScrollRestoreRef = useRef<number | null>(null);
+  const wasLoadingMoreRef = useRef(false);
   const newestItemId = dropItems.length > 0 ? dropItems[dropItems.length - 1].id : null;
   const hasSearchQuery = Boolean(searchQuery.trim());
 
@@ -409,12 +411,30 @@ export const DropModal: React.FC<DropModalProps> = ({
   };
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const { scrollTop } = e.currentTarget;
+    const container = e.currentTarget;
     // Older records are prepended, so fetch them when approaching the top.
-    if (scrollTop < 100 && hasMore && !isLoadingMore && !isLoading) {
+    if (container.scrollTop < 100 && hasMore && !isLoadingMore && !isLoading) {
+      pendingScrollRestoreRef.current = container.scrollHeight;
       onLoadMore();
     }
   };
+
+  // Preserve viewport when older pages are prepended above the current list.
+  useLayoutEffect(() => {
+    if (isLoadingMore) {
+      wasLoadingMoreRef.current = true;
+      return;
+    }
+    if (!wasLoadingMoreRef.current) return;
+    wasLoadingMoreRef.current = false;
+
+    const container = scrollContainerRef.current;
+    const previousHeight = pendingScrollRestoreRef.current;
+    pendingScrollRestoreRef.current = null;
+    if (!container || previousHeight == null) return;
+
+    container.scrollTop = container.scrollHeight - previousHeight + container.scrollTop;
+  }, [dropItems, isLoadingMore]);
 
   const attachFiles = (files: File[]) => {
     setAttachmentError(null);
