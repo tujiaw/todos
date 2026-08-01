@@ -21,7 +21,6 @@ import {
   ExternalLink,
   ClipboardCopy,
   ChevronDown,
-  type LucideIcon,
 } from 'lucide-react';
 import type { VaultCustomField, VaultItemPlain, VaultItemType, VaultMergePlan } from '../types';
 import {
@@ -1159,37 +1158,6 @@ function FieldGroup({
       )}
       {children}
     </section>
-  );
-}
-
-function IconAction({
-  icon: Icon,
-  title,
-  onClick,
-  active,
-  disabled,
-}: {
-  icon: LucideIcon;
-  title: string;
-  onClick: () => void;
-  active?: boolean;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      title={title}
-      aria-label={title}
-      disabled={disabled}
-      onClick={onClick}
-      className={`p-1.5 rounded-lg border transition-colors disabled:opacity-35 ${
-        active
-          ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900 text-emerald-700 dark:text-emerald-300'
-          : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-      }`}
-    >
-      <Icon className="w-3.5 h-3.5" />
-    </button>
   );
 }
 
