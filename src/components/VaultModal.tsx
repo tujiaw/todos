@@ -852,8 +852,8 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
 
   if (!isOpen) return null;
 
-  const types: Array<VaultItemType | 'all'> = ['all', 'login', 'card', 'identity', 'note', 'custom'];
-  const createTypes: VaultItemType[] = ['login', 'card', 'identity', 'note', 'custom'];
+  const types: Array<VaultItemType | 'all'> = ['all', 'login', 'note', 'identity', 'card', 'custom'];
+  const createTypes: VaultItemType[] = ['login', 'note', 'identity', 'card', 'custom'];
   const selectedItem = selectedId ? items.find((item) => item.id === selectedId) ?? null : null;
   const showBackButton =
     view === 'editor' || view === 'importPreview' || view === 'detail' || view === 'changePassword';
