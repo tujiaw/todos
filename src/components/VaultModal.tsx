@@ -20,7 +20,7 @@ import {
   LoaderCircle,
   ExternalLink,
   ClipboardCopy,
-  UserRound,
+  ChevronDown,
   type LucideIcon,
 } from 'lucide-react';
 import type { VaultCustomField, VaultItemPlain, VaultItemType, VaultMergePlan } from '../types';
@@ -112,6 +112,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
   const [isNewDraft, setIsNewDraft] = useState(false);
   const [revealSecrets, setRevealSecrets] = useState<Record<string, boolean>>({});
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [copyMenuFor, setCopyMenuFor] = useState<string | null>(null);
   const [mergePlan, setMergePlan] = useState<VaultMergePlan | null>(null);
 
   const resetUiToGate = () => {
@@ -124,6 +125,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     setRevealSecrets({});
     setSearchQuery('');
     setTypeFilter('all');
+    setCopyMenuFor(null);
     setView('gate');
     setError(null);
   };
@@ -371,6 +373,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     const ok = await copyText(value);
     if (ok) {
       setCopiedField(field);
+      setCopyMenuFor(null);
       showToast(successText, 'success');
       window.setTimeout(() => setCopiedField(null), 1500);
     } else {
@@ -387,6 +390,32 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     }
     await handleCopy('all', text, '已复制全部信息');
   };
+
+  const handleCopyMenuAction = async (
+    item: VaultItemPlain,
+    action: 'username' | 'password' | 'all'
+  ) => {
+    if (action === 'username') {
+      await handleCopy('username', item.username, '已复制用户名');
+      return;
+    }
+    if (action === 'password') {
+      await handleCopy('password', item.password, '已复制密码');
+      return;
+    }
+    await handleCopyAll(item);
+  };
+
+  useEffect(() => {
+    if (!copyMenuFor) return;
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('[data-vault-copy-menu]')) return;
+      setCopyMenuFor(null);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, [copyMenuFor]);
 
   const handleOpenUrl = (rawUrl?: string) => {
     const url = normalizeVaultUrl(rawUrl);
@@ -724,14 +753,16 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                             <ExternalLink className="w-3.5 h-3.5" />
                           </button>
                         )}
-                        <button
-                          type="button"
-                          title="复制全部"
-                          onClick={() => void handleCopyAll(item)}
-                          className="p-1.5 rounded-md text-slate-500 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/40"
-                        >
-                          <ClipboardCopy className="w-3.5 h-3.5" />
-                        </button>
+                        <VaultCopyMenu
+                          open={copyMenuFor === item.id}
+                          onToggle={() =>
+                            setCopyMenuFor((current) => (current === item.id ? null : item.id))
+                          }
+                          item={item}
+                          onAction={(action) => void handleCopyMenuAction(item, action)}
+                          align="right"
+                          dropUp={false}
+                        />
                       </div>
                     </div>
                   );
@@ -995,34 +1026,23 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
 
             <div className="shrink-0 px-3 py-2 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90 flex items-center gap-1.5">
               {draft.type === 'login' && (
-                <>
-                  <IconAction
-                    icon={ExternalLink}
-                    title="打开网址"
-                    disabled={!draft.url?.trim()}
-                    onClick={() => handleOpenUrl(draft.url)}
-                  />
-                  <IconAction
-                    icon={UserRound}
-                    title="复制用户名"
-                    disabled={!draft.username?.trim()}
-                    active={copiedField === 'username'}
-                    onClick={() => void handleCopy('username', draft.username, '已复制用户名')}
-                  />
-                  <IconAction
-                    icon={KeyRound}
-                    title="复制密码"
-                    disabled={!draft.password?.trim()}
-                    active={copiedField === 'password'}
-                    onClick={() => void handleCopy('password', draft.password, '已复制密码')}
-                  />
-                </>
+                <IconAction
+                  icon={ExternalLink}
+                  title="打开网址"
+                  disabled={!draft.url?.trim()}
+                  onClick={() => handleOpenUrl(draft.url)}
+                />
               )}
-              <IconAction
-                icon={ClipboardCopy}
-                title="复制全部"
-                active={copiedField === 'all'}
-                onClick={() => void handleCopyAll(draft)}
+              <VaultCopyMenu
+                open={copyMenuFor === 'editor'}
+                onToggle={() =>
+                  setCopyMenuFor((current) => (current === 'editor' ? null : 'editor'))
+                }
+                item={draft}
+                onAction={(action) => void handleCopyMenuAction(draft, action)}
+                align="left"
+                showLabel
+                dropUp
               />
               <div className="flex-1" />
               {!isNewDraft && (
@@ -1161,6 +1181,93 @@ function IconAction({
       }`}
     >
       <Icon className="w-3.5 h-3.5" />
+    </button>
+  );
+}
+
+function VaultCopyMenu({
+  open,
+  onToggle,
+  item,
+  onAction,
+  align = 'right',
+  showLabel = false,
+  dropUp = false,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  item: VaultItemPlain;
+  onAction: (action: 'username' | 'password' | 'all') => void;
+  align?: 'left' | 'right';
+  showLabel?: boolean;
+  dropUp?: boolean;
+}) {
+  const canUsername = Boolean(item.username?.trim());
+  const canPassword = Boolean(item.password?.trim());
+
+  let menuPosition = 'top-full mt-1';
+  if (dropUp) menuPosition = 'bottom-full mb-1';
+
+  return (
+    <div className="relative" data-vault-copy-menu>
+      <button
+        type="button"
+        title="复制"
+        aria-label="复制"
+        aria-expanded={open}
+        onClick={onToggle}
+        className={`inline-flex items-center gap-1 rounded-lg border transition-colors ${
+          showLabel ? 'px-2 py-1.5 text-[12px] font-semibold' : 'p-1.5'
+        } ${
+          open
+            ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-200'
+            : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+        }`}
+      >
+        <ClipboardCopy className="w-3.5 h-3.5" />
+        {showLabel && <span>复制</span>}
+        <ChevronDown className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div
+          className={`absolute z-20 min-w-[8.5rem] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg py-1 ${menuPosition} ${
+            align === 'right' ? 'right-0' : 'left-0'
+          }`}
+        >
+          <CopyMenuItem
+            label="复制用户名"
+            disabled={!canUsername}
+            onClick={() => onAction('username')}
+          />
+          <CopyMenuItem
+            label="复制密码"
+            disabled={!canPassword}
+            onClick={() => onAction('password')}
+          />
+          <CopyMenuItem label="复制全部" onClick={() => onAction('all')} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CopyMenuItem({
+  label,
+  onClick,
+  disabled,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className="w-full text-left px-3 py-1.5 text-[12px] font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+    >
+      {label}
     </button>
   );
 }
