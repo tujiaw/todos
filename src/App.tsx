@@ -236,6 +236,8 @@ export default function App() {
   };
 
   const handleOpenDropModal = () => {
+    // Mark loading immediately so DropModal does not seed scroll before fetch starts.
+    setIsLoadingDropItems(true);
     setIsDropModalOpen(true);
   };
 

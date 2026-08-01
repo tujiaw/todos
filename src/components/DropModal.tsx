@@ -256,6 +256,7 @@ export const DropModal: React.FC<DropModalProps> = ({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const dragDepthRef = useRef(0);
   const hasSeededScrollRef = useRef(false);
+  const sawOpenLoadRef = useRef(false);
   const lastNewestIdRef = useRef<string | null>(null);
   const pendingScrollRestoreRef = useRef<number | null>(null);
   const wasLoadingMoreRef = useRef(false);
@@ -267,31 +268,30 @@ export const DropModal: React.FC<DropModalProps> = ({
     if (container) container.scrollTop = container.scrollHeight;
   };
 
-  const scrollToBottomSmooth = () => {
-    const container = scrollContainerRef.current;
-    if (container) {
-      container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
-    }
-  };
-
-  // Open: jump to bottom. Close: reset tracking.
+  // Open: jump to bottom instantly. Close: reset tracking.
   useLayoutEffect(() => {
     if (!isOpen) {
       hasSeededScrollRef.current = false;
+      sawOpenLoadRef.current = false;
       lastNewestIdRef.current = null;
       return;
     }
     scrollToBottomInstant();
   }, [isOpen]);
 
-  // Before seed (opening / first sync): always jump.
-  // After seed: animate only when the newest item id changes (send / receive).
+  // Pin to bottom without smooth scrolling (smooth is costly on long lists).
+  // Wait until the open-fetch has completed before seeding, otherwise the first
+  // data arrival looks like a "new message" and scrolls again.
   useLayoutEffect(() => {
     if (!isOpen) return;
 
+    if (isLoading) {
+      sawOpenLoadRef.current = true;
+    }
+
     if (!hasSeededScrollRef.current) {
       scrollToBottomInstant();
-      if (!isLoading) {
+      if (!isLoading && sawOpenLoadRef.current) {
         hasSeededScrollRef.current = true;
         lastNewestIdRef.current = newestItemId;
       }
@@ -303,10 +303,7 @@ export const DropModal: React.FC<DropModalProps> = ({
     }
 
     lastNewestIdRef.current = newestItemId;
-    const frame = requestAnimationFrame(() => {
-      scrollToBottomSmooth();
-    });
-    return () => cancelAnimationFrame(frame);
+    scrollToBottomInstant();
   }, [isOpen, isLoading, dropItems, newestItemId]);
 
   useEffect(() => {
