@@ -59,6 +59,12 @@ import {
   VAULT_TTL_OPTIONS,
 } from '../lib/vaultSession';
 import { useConfirm } from './ConfirmDialog';
+import {
+  markVaultItemUsed,
+  pruneVaultUsage,
+  removeVaultUsage,
+  type VaultUsageMap,
+} from '../lib/vaultUsage';
 
 type VaultView = 'gate' | 'list' | 'detail' | 'editor' | 'importPreview' | 'changePassword';
 type NoticeTone = 'info' | 'success' | 'error';
@@ -189,6 +195,8 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
   const [copyMenuFor, setCopyMenuFor] = useState<string | null>(null);
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const [mergePlan, setMergePlan] = useState<VaultMergePlan | null>(null);
+  // 加载条目时的最近使用快照；期间的使用行为只写 localStorage，下次加载才影响排序。
+  const [usageSnapshot, setUsageSnapshot] = useState<VaultUsageMap>({});
   const [, setLockCountdownTick] = useState(0);
 
   const showNotice = (text: string, tone: NoticeTone = 'info') => {
@@ -255,6 +263,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
   const loadItems = async (key: CryptoKey) => {
     const rows = await fetchVaultItemRows();
     const { items: decrypted, failed } = await decryptVaultItems(key, rows);
+    setUsageSnapshot(pruneVaultUsage(decrypted.map((item) => item.id)));
     setItems(decrypted);
     if (failed > 0) {
       showNotice(`有 ${failed} 条记录无法解密，已隐藏`, 'error');
@@ -386,8 +395,12 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
           .toLowerCase();
         return haystack.includes(q);
       })
-      .sort((a, b) => b.updatedAt - a.updatedAt);
-  }, [items, searchQuery, typeFilter]);
+      .sort((a, b) => {
+        const aTime = usageSnapshot[a.id] ?? a.updatedAt;
+        const bTime = usageSnapshot[b.id] ?? b.updatedAt;
+        return bTime - aTime;
+      });
+  }, [items, searchQuery, typeFilter, usageSnapshot]);
 
   const handleSetupOrUnlock = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -514,6 +527,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
         title: draft.title.trim(),
         updatedAt: Date.now(),
       });
+      markVaultItemUsed(saved.id);
       setItems((current) => {
         const without = current.filter((item) => item.id !== saved.id);
         return [saved, ...without];
@@ -545,6 +559,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     setBusy(true);
     try {
       await deleteVaultItemFromSupabase(item.id);
+      removeVaultUsage(item.id);
       setItems((current) => current.filter((entry) => entry.id !== item.id));
       setSelectedId(null);
       setView('list');
@@ -572,15 +587,26 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     }, CLIPBOARD_CLEAR_DELAY_MS);
   };
 
+  // 列表行操作显式传条目 id；详情/编辑视图从当前上下文推断。
+  const resolveUsageItemId = (explicitId?: string): string | null => {
+    if (explicitId) return explicitId;
+    if (view === 'detail') return selectedId;
+    if (view === 'editor') return draft?.id ?? null;
+    return null;
+  };
+
   const handleCopy = async (
     field: string,
     value?: string,
     successText = '已复制',
-    sensitive = false
+    sensitive = false,
+    itemId?: string
   ) => {
     if (!value) return;
     const ok = await copyText(value);
     if (ok) {
+      const usageId = resolveUsageItemId(itemId);
+      if (usageId) markVaultItemUsed(usageId);
       setCopiedField(field);
       setCopyMenuFor(null);
       if (sensitive) {
@@ -602,7 +628,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
       showNotice('暂无可复制内容', 'info');
       return;
     }
-    await handleCopy('all', text, '已复制全部信息', true);
+    await handleCopy('all', text, '已复制全部信息', true, item.id);
   };
 
   const handleCopyMenuAction = async (
@@ -610,11 +636,11 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     action: 'username' | 'password' | 'all'
   ) => {
     if (action === 'username') {
-      await handleCopy('username', item.username, '已复制用户名');
+      await handleCopy('username', item.username, '已复制用户名', false, item.id);
       return;
     }
     if (action === 'password') {
-      await handleCopy('password', item.password, '已复制密码', true);
+      await handleCopy('password', item.password, '已复制密码', true, item.id);
       return;
     }
     await handleCopyAll(item);
@@ -631,12 +657,14 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     return () => document.removeEventListener('mousedown', onPointerDown);
   }, [copyMenuFor]);
 
-  const handleOpenUrl = (rawUrl?: string) => {
+  const handleOpenUrl = (rawUrl?: string, itemId?: string) => {
     const url = normalizeVaultUrl(rawUrl);
     if (!url) {
       showNotice('没有可打开的网址', 'info');
       return;
     }
+    const usageId = resolveUsageItemId(itemId);
+    if (usageId) markVaultItemUsed(usageId);
     window.open(url, '_blank', 'noopener,noreferrer');
     touchActivity();
   };
@@ -1139,7 +1167,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                           <button
                             type="button"
                             title="打开网址"
-                            onClick={() => handleOpenUrl(item.url)}
+                            onClick={() => handleOpenUrl(item.url, item.id)}
                             className="p-2 sm:p-1.5 rounded-md text-slate-500 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/40"
                           >
                             <ExternalLink className="w-3.5 h-3.5" />
