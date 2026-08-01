@@ -621,6 +621,20 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     touchActivity();
   };
 
+  const handleRefresh = async () => {
+    if (!vaultKey || busy) return;
+    setBusy(true);
+    try {
+      await loadItems(vaultKey);
+      showNotice('已刷新', 'success');
+    } catch (err) {
+      showNotice(err instanceof Error ? err.message : '刷新失败', 'error');
+    } finally {
+      setBusy(false);
+    }
+    touchActivity();
+  };
+
   const handleImportFile = async (file: File) => {
     if (!vaultKey) return;
     setBusy(true);
@@ -877,6 +891,15 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                     if (file) void handleImportFile(file);
                   }}
                 />
+                <button
+                  type="button"
+                  onClick={() => void handleRefresh()}
+                  disabled={busy}
+                  className="p-2 sm:p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-white/10 disabled:opacity-60"
+                  title="刷新"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${busy ? 'animate-spin' : ''}`} />
+                </button>
                 <button
                   type="button"
                   onClick={() => lockVault(true)}
