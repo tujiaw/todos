@@ -159,7 +159,7 @@ function CollapsibleDropText({ content }: { content: string }) {
   return (
     <div className="space-y-1.5">
       <div
-        className={`text-[13px] text-slate-700 dark:text-slate-200 leading-relaxed whitespace-pre-wrap break-words font-sans ${
+        className={`text-[15px] text-slate-700 dark:text-slate-200 leading-relaxed whitespace-pre-wrap break-words font-sans ${
           collapsed ? 'line-clamp-[10]' : ''
         }`}
       >
@@ -659,11 +659,11 @@ export const DropModal: React.FC<DropModalProps> = ({
             <div className="min-w-0">
               <h3
                 id="edge-drop-title"
-                className="text-sm font-bold text-slate-800 dark:text-slate-100 tracking-tight"
+                className="text-base font-bold text-slate-800 dark:text-slate-100 tracking-tight"
               >
                 Edge Drop
               </h3>
-              <p className="text-[10px] text-indigo-600/80 dark:text-indigo-300/80 font-medium truncate">
+              <p className="text-sm text-indigo-600/80 dark:text-indigo-300/80 font-medium truncate">
                 Notes & files across devices
               </p>
             </div>
@@ -694,7 +694,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                     type="button"
                     role="menuitem"
                     onClick={openSearch}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-[12px] font-medium text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
                   >
                     <Search className="w-3.5 h-3.5 text-indigo-500" />
                     Search
@@ -707,7 +707,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                       void onRefreshDropItems();
                     }}
                     disabled={isLoading}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-[12px] font-medium text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 disabled:opacity-50"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 disabled:opacity-50"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 text-indigo-500 ${isLoading ? 'animate-spin' : ''}`} />
                     Refresh
@@ -721,7 +721,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                         void handleClearConfirm();
                       }}
                       disabled={isClearing}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-left text-[12px] font-medium text-rose-600 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/30 disabled:opacity-50"
+                      className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm font-medium text-rose-600 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/30 disabled:opacity-50"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                       Clear all
@@ -744,7 +744,7 @@ export const DropModal: React.FC<DropModalProps> = ({
         {(error || attachmentError) && (
           <div
             role="alert"
-            className="mx-4 sm:mx-5 mt-3 px-3.5 py-3 rounded-2xl border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/40 text-[11px] text-rose-700 dark:text-rose-300 flex items-start justify-between gap-2 shadow-sm"
+            className="mx-4 sm:mx-5 mt-3 px-3.5 py-3 rounded-2xl border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/40 text-[15px] text-rose-700 dark:text-rose-300 flex items-start justify-between gap-2 shadow-sm"
           >
             <span>{error || attachmentError}</span>
             <button
@@ -763,7 +763,7 @@ export const DropModal: React.FC<DropModalProps> = ({
 
         {/* Search stays hidden by default; open from ⋯ menu. Auto-shows while filtering. */}
         {showToolbar && (
-          <div className="drop-toolbar px-4 sm:px-5 py-2.5 flex items-center gap-2 text-xs">
+          <div className="drop-toolbar px-4 sm:px-5 py-2.5 flex items-center gap-2 text-sm">
             <div className="relative flex-1 max-w-[16rem]">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
               <input
@@ -772,7 +772,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                 placeholder="Search"
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
-                className="w-full text-xs pl-8 pr-8 py-2 rounded-xl border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 shadow-sm"
+                className="w-full text-sm pl-8 pr-8 py-2 rounded-xl border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 shadow-sm"
               />
               {hasSearchQuery && (
                 <button
@@ -789,7 +789,7 @@ export const DropModal: React.FC<DropModalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowToolbar(false)}
-                className="text-[11px] font-medium text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0"
+                className="text-[15px] font-medium text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0"
               >
                 Hide
               </button>
@@ -803,13 +803,13 @@ export const DropModal: React.FC<DropModalProps> = ({
           className="drop-feed drop-scrollbar flex-1 overflow-y-auto px-4 sm:px-5 py-5 space-y-3"
         >
           {isLoading && dropItems.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-slate-400 text-xs gap-2 py-12">
+            <div className="flex flex-col items-center justify-center h-full text-slate-400 text-sm gap-2 py-12">
               <RefreshCw className="w-6 h-6 animate-spin text-indigo-500" />
               <span>Syncing notes…</span>
               <span className="text-slate-400 dark:text-slate-500">You can still write below.</span>
             </div>
           ) : dropItems.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-slate-400 text-xs gap-3 py-12 text-center">
+            <div className="flex flex-col items-center justify-center h-full text-slate-400 text-sm gap-3 py-12 text-center">
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-950/50 dark:to-indigo-950/70 text-indigo-600 dark:text-indigo-300 flex items-center justify-center shadow-inner">
                 {hasSearchQuery ? <Search className="w-6 h-6" /> : <Send className="w-6 h-6" />}
               </div>
@@ -817,7 +817,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                 <p className="font-semibold text-slate-700 dark:text-slate-300">
                   {hasSearchQuery ? 'No matches' : 'Nothing here yet'}
                 </p>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                <p className="text-[15px] text-slate-500 dark:text-slate-400 leading-relaxed">
                   {hasSearchQuery
                     ? 'Try another keyword, or clear the search to see everything.'
                     : 'Write a note below, paste an image, or drop a file here.'}
@@ -827,7 +827,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                 <button
                   type="button"
                   onClick={() => onSearchChange('')}
-                  className="mt-1 px-3 py-1.5 rounded-xl text-[11px] font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors"
+                  className="mt-1 px-3 py-1.5 rounded-xl text-[15px] font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors"
                 >
                   Clear search
                 </button>
@@ -842,7 +842,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                     type="button"
                     onClick={onLoadMore}
                     disabled={isLoadingMore}
-                    className="w-full py-2.5 px-3 text-xs text-indigo-600 dark:text-indigo-300 bg-white dark:bg-slate-900 border border-indigo-100 dark:border-indigo-900/70 hover:border-indigo-300 rounded-2xl transition-all flex items-center justify-center gap-2 font-semibold shadow-sm"
+                    className="w-full py-2.5 px-3 text-sm text-indigo-600 dark:text-indigo-300 bg-white dark:bg-slate-900 border border-indigo-100 dark:border-indigo-900/70 hover:border-indigo-300 rounded-2xl transition-all flex items-center justify-center gap-2 font-semibold shadow-sm"
                   >
                     {isLoadingMore ? (
                       <>
@@ -862,7 +862,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                   className="drop-item-card bg-white dark:bg-slate-900 border border-slate-200/75 dark:border-slate-800 rounded-2xl p-4 transition-all group relative space-y-3"
                 >
                   {/* Meta Row */}
-                  <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500">
+                  <div className="flex items-center justify-between text-sm text-slate-400 dark:text-slate-500">
                     <span>{formatDate(item.created_at)}</span>
                     <div className="drop-item-actions flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                       {/* Copy Text Button */}
@@ -921,7 +921,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                             />
                           </div>
                           {(item.file_name || item.file_size !== undefined) && (
-                            <div className="flex items-center gap-1.5 px-1 min-w-0 text-[10px] text-slate-500 dark:text-slate-400">
+                            <div className="flex items-center gap-1.5 px-1 min-w-0 text-sm text-slate-500 dark:text-slate-400">
                               <FileTypeIcon
                                 fileName={item.file_name}
                                 mimeType={item.mime_type}
@@ -940,7 +940,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                           onClick={() => handleDownload(item)}
                           disabled={downloadingId === item.id}
                           title={`Download ${item.file_name || 'attachment'}`}
-                          className="drop-file-tile w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-xs hover:bg-indigo-50/60 dark:hover:bg-indigo-950/20 transition-colors disabled:cursor-wait disabled:opacity-60"
+                          className="drop-file-tile w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-sm hover:bg-indigo-50/60 dark:hover:bg-indigo-950/20 transition-colors disabled:cursor-wait disabled:opacity-60"
                         >
                           <div className="flex items-center gap-2 min-w-0 text-left">
                             <FileTypeIcon
@@ -952,7 +952,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                                 {item.file_name || 'Attached File'}
                               </span>
                               {item.file_size !== undefined && (
-                                <span className="block text-[10px] text-slate-400 dark:text-slate-500">
+                                <span className="block text-sm text-slate-400 dark:text-slate-500">
                                   {formatFileSize(item.file_size)}
                                 </span>
                               )}
@@ -980,7 +980,7 @@ export const DropModal: React.FC<DropModalProps> = ({
             <button
               type="button"
               onClick={onSignIn}
-              className="w-full px-3 py-2 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 text-xs font-semibold text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors"
+              className="w-full px-3 py-2 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 text-sm font-semibold text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors"
             >
               Sign in to Drop
             </button>
@@ -992,7 +992,7 @@ export const DropModal: React.FC<DropModalProps> = ({
               {attachedFiles.map((file, index) => (
                 <div
                   key={`${file.name}-${file.size}-${file.lastModified}-${index}`}
-                  className="flex items-center justify-between gap-2 p-2.5 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-100 dark:border-indigo-900 text-xs"
+                  className="flex items-center justify-between gap-2 p-2.5 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-100 dark:border-indigo-900 text-sm"
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <FileTypeIcon fileName={file.name} mimeType={file.type} />
@@ -1000,7 +1000,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                       <span className="block font-medium text-blue-900 dark:text-blue-200 truncate">
                         {file.name || 'Attachment'}
                       </span>
-                      <span className="block text-[10px] text-blue-600/70 dark:text-blue-300/70">
+                      <span className="block text-sm text-blue-600/70 dark:text-blue-300/70">
                         {formatFileSize(file.size)}
                       </span>
                     </div>
@@ -1036,7 +1036,7 @@ export const DropModal: React.FC<DropModalProps> = ({
               title={isAuthenticated ? 'Attach file or image' : 'Sign in to attach files'}
             >
               <Paperclip className="w-3.5 h-3.5" />
-              <span className="text-[11px]">Attach</span>
+              <span className="text-[15px]">Attach</span>
             </button>
 
             <textarea
@@ -1052,7 +1052,7 @@ export const DropModal: React.FC<DropModalProps> = ({
               }
               disabled={!isAuthenticated}
               rows={1}
-              className="min-w-0 flex-1 h-9 text-[13px] leading-5 px-2 py-2 bg-slate-50/80 dark:bg-slate-800/70 rounded-lg text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none resize-none disabled:cursor-not-allowed disabled:opacity-60"
+              className="min-w-0 flex-1 h-9 text-[15px] leading-5 px-2 py-2 bg-slate-50/80 dark:bg-slate-800/70 rounded-lg text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none resize-none disabled:cursor-not-allowed disabled:opacity-60"
             />
 
             <button
@@ -1063,7 +1063,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                 isSubmitting ||
                 (!inputText.trim() && attachedFiles.length === 0)
               }
-              className="h-9 px-3 bg-gradient-to-br from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 disabled:opacity-40 text-white font-bold text-xs rounded-lg transition-all flex items-center gap-1.5 shadow-md shadow-indigo-500/20 shrink-0"
+              className="h-9 px-3 bg-gradient-to-br from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 disabled:opacity-40 text-white font-bold text-sm rounded-lg transition-all flex items-center gap-1.5 shadow-md shadow-indigo-500/20 shrink-0"
               title={sendButtonTitle}
               aria-busy={isSubmitting}
             >

@@ -51,9 +51,10 @@ import {
   VAULT_TTL_OPTIONS,
 } from '../lib/vaultSession';
 import { useConfirm } from './ConfirmDialog';
-import { useToast } from './Toast';
 
 type VaultView = 'gate' | 'list' | 'editor' | 'importPreview';
+type NoticeTone = 'info' | 'success' | 'error';
+type VaultNotice = { text: string; tone: NoticeTone };
 
 interface VaultModalProps {
   isOpen: boolean;
@@ -92,16 +93,16 @@ async function copyText(value: string): Promise<boolean> {
 
 export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockToken }) => {
   const confirmAction = useConfirm();
-  const { showToast } = useToast();
   const importInputRef = useRef<HTMLInputElement>(null);
   const expiryTimerRef = useRef<number | null>(null);
+  const noticeTimerRef = useRef<number | null>(null);
 
   const [view, setView] = useState<VaultView>('gate');
   const [hasMeta, setHasMeta] = useState<boolean | null>(null);
   const [vaultKey, setVaultKey] = useState<CryptoKey | null>(null);
   const [items, setItems] = useState<VaultItemPlain[]>([]);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<VaultNotice | null>(null);
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -115,6 +116,15 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
   const [copyMenuFor, setCopyMenuFor] = useState<string | null>(null);
   const [mergePlan, setMergePlan] = useState<VaultMergePlan | null>(null);
 
+  const showNotice = (text: string, tone: NoticeTone = 'info') => {
+    setNotice({ text, tone });
+    if (noticeTimerRef.current) window.clearTimeout(noticeTimerRef.current);
+    noticeTimerRef.current = window.setTimeout(() => {
+      setNotice(null);
+      noticeTimerRef.current = null;
+    }, 3600);
+  };
+
   const resetUiToGate = () => {
     setVaultKey(null);
     setItems([]);
@@ -127,7 +137,6 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     setTypeFilter('all');
     setCopyMenuFor(null);
     setView('gate');
-    setError(null);
   };
 
   const lockVault = (announce = false) => {
@@ -137,7 +146,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
       expiryTimerRef.current = null;
     }
     resetUiToGate();
-    if (announce) showToast('保险箱已锁定', 'info');
+    if (announce) showNotice('保险箱已锁定', 'info');
   };
 
   const scheduleSessionExpiry = () => {
@@ -200,7 +209,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : '无法加载保险箱');
+          showNotice(err instanceof Error ? err.message : '无法加载保险箱', 'error');
           setHasMeta(false);
         }
       }
@@ -216,6 +225,12 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     if (lockToken > 0) lockVault(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lockToken]);
+
+  useEffect(() => {
+    return () => {
+      if (noticeTimerRef.current) window.clearTimeout(noticeTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -265,17 +280,17 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
 
   const handleSetupOrUnlock = async (event: React.FormEvent) => {
     event.preventDefault();
-    setError(null);
+    setNotice(null);
     if (!password.trim()) {
-      setError('请输入主密码');
+      showNotice('请输入主密码', 'error');
       return;
     }
     if (!hasMeta && password !== passwordConfirm) {
-      setError('两次输入的主密码不一致');
+      showNotice('两次输入的主密码不一致', 'error');
       return;
     }
     if (!hasMeta && password.length < 8) {
-      setError('主密码至少 8 位');
+      showNotice('主密码至少 8 位', 'error');
       return;
     }
 
@@ -293,9 +308,9 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
       setHasMeta(true);
       setView('list');
       scheduleSessionExpiry();
-      showToast(hasMeta ? '保险箱已解锁' : '主密码已设置', 'success');
+      showNotice(hasMeta ? '保险箱已解锁' : '主密码已设置', 'success');
     } catch (err) {
-      setError(err instanceof Error ? err.message : '操作失败');
+      showNotice(err instanceof Error ? err.message : '操作失败', 'error');
     } finally {
       setBusy(false);
     }
@@ -320,11 +335,11 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
   const handleSaveDraft = async () => {
     if (!vaultKey || !draft) return;
     if (!draft.title.trim()) {
-      setError('请填写标题');
+      showNotice('请填写标题', 'error');
       return;
     }
     setBusy(true);
-    setError(null);
+    setNotice(null);
     try {
       const saved = await upsertVaultItemEncrypted(vaultKey, {
         ...draft,
@@ -337,10 +352,10 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
       });
       setDraft(null);
       setView('list');
-      showToast('已保存', 'success');
+      showNotice('已保存', 'success');
       touchActivity();
     } catch (err) {
-      setError(err instanceof Error ? err.message : '保存失败');
+      showNotice(err instanceof Error ? err.message : '保存失败', 'error');
     } finally {
       setBusy(false);
     }
@@ -360,9 +375,9 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
       setItems((current) => current.filter((item) => item.id !== draft.id));
       setDraft(null);
       setView('list');
-      showToast('已删除', 'success');
+      showNotice('已删除', 'success');
     } catch (err) {
-      setError(err instanceof Error ? err.message : '删除失败');
+      showNotice(err instanceof Error ? err.message : '删除失败', 'error');
     } finally {
       setBusy(false);
     }
@@ -374,10 +389,10 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     if (ok) {
       setCopiedField(field);
       setCopyMenuFor(null);
-      showToast(successText, 'success');
+      showNotice(successText, 'success');
       window.setTimeout(() => setCopiedField(null), 1500);
     } else {
-      showToast('复制失败', 'error');
+      showNotice('复制失败', 'error');
     }
     touchActivity();
   };
@@ -385,7 +400,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
   const handleCopyAll = async (item: VaultItemPlain) => {
     const text = formatVaultItemForCopy(item);
     if (!text) {
-      showToast('暂无可复制内容', 'info');
+      showNotice('暂无可复制内容', 'info');
       return;
     }
     await handleCopy('all', text, '已复制全部信息');
@@ -420,7 +435,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
   const handleOpenUrl = (rawUrl?: string) => {
     const url = normalizeVaultUrl(rawUrl);
     if (!url) {
-      showToast('没有可打开的网址', 'info');
+      showNotice('没有可打开的网址', 'info');
       return;
     }
     window.open(url, '_blank', 'noopener,noreferrer');
@@ -430,7 +445,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
   const handleImportFile = async (file: File) => {
     if (!vaultKey) return;
     setBusy(true);
-    setError(null);
+    setNotice(null);
     try {
       const text = await file.text();
       const parsed = JSON.parse(text) as unknown;
@@ -440,7 +455,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
       setView('importPreview');
       touchActivity();
     } catch (err) {
-      setError(err instanceof Error ? err.message : '导入失败');
+      showNotice(err instanceof Error ? err.message : '导入失败', 'error');
     } finally {
       setBusy(false);
       if (importInputRef.current) importInputRef.current.value = '';
@@ -450,7 +465,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
   const handleConfirmImport = async () => {
     if (!vaultKey || !mergePlan) return;
     setBusy(true);
-    setError(null);
+    setNotice(null);
     try {
       const toWrite = [
         ...mergePlan.adds.map((entry) => entry.incoming),
@@ -460,14 +475,14 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
       await loadItems(vaultKey);
       setMergePlan(null);
       setView('list');
-      showToast(
+      showNotice(
         `导入完成：新增 ${mergePlan.adds.length}，更新 ${mergePlan.updates.length}，跳过 ${mergePlan.skips.length}` +
           (result.failed ? `（失败 ${result.failed}）` : ''),
         result.failed ? 'error' : 'success'
       );
       touchActivity();
     } catch (err) {
-      setError(err instanceof Error ? err.message : '写入失败');
+      showNotice(err instanceof Error ? err.message : '写入失败', 'error');
     } finally {
       setBusy(false);
     }
@@ -519,7 +534,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
       />
 
       <div
-        className="absolute right-0 top-0 bottom-0 w-full sm:w-[360px] bg-slate-50 dark:bg-slate-950 shadow-2xl border-l border-white/70 dark:border-slate-800 flex flex-col h-full z-10 transition-transform animate-in slide-in-from-right duration-300 ease-out"
+        className="absolute right-0 top-0 bottom-0 w-full sm:top-3 sm:right-3 sm:bottom-3 sm:h-auto sm:w-[360px] sm:rounded-2xl sm:border sm:overflow-hidden bg-slate-50 dark:bg-slate-950 shadow-2xl border-l border-white/80 dark:border-slate-800 flex flex-col h-full z-10 transition-transform animate-in slide-in-from-right duration-300 ease-out"
         role="dialog"
         aria-modal="true"
         aria-labelledby="vault-title"
@@ -533,7 +548,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                 onClick={() => {
                   setDraft(null);
                   setMergePlan(null);
-                  setError(null);
+                  setNotice(null);
                   setView('list');
                 }}
                 className="p-1.5 rounded-lg hover:bg-white/70 dark:hover:bg-white/10"
@@ -547,12 +562,12 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
             )}
             <h2
               id="vault-title"
-              className="text-[13px] font-bold text-slate-800 dark:text-slate-100 truncate"
+              className="text-base font-bold text-slate-800 dark:text-slate-100 truncate"
             >
               {headerTitle}
             </h2>
             {view === 'editor' && draft && (
-              <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-200">
+              <span className="shrink-0 text-sm font-semibold px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-200">
                 {vaultItemTypeLabel(draft.type)}
               </span>
             )}
@@ -600,16 +615,14 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
           </div>
         </div>
 
-        {error && (
-          <div className="shrink-0 px-3 py-1.5 text-[11px] text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 border-b border-rose-100 dark:border-rose-900">
-            {error}
-          </div>
+        {notice && (
+          <VaultNoticeBanner notice={notice} onDismiss={() => setNotice(null)} />
         )}
 
         {view === 'gate' && (
           <form onSubmit={handleSetupOrUnlock} className="flex flex-col flex-1 min-h-0">
             <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2.5">
-              <p className="text-[11px] leading-snug text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/50 rounded-lg px-2.5 py-2">
+              <p className="text-[15px] leading-snug text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/50 rounded-lg px-2.5 py-2">
                 {hasMeta
                   ? '解锁后在有效时间内无需重复输入；关闭窗口不会锁定。'
                   : '设置主密码后启用。主密码不可找回。'}
@@ -638,7 +651,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                     />
                   )}
                   <div>
-                    <span className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                    <span className="block text-sm font-semibold text-slate-500 dark:text-slate-400 mb-1">
                       解锁有效期
                     </span>
                     <div className="grid grid-cols-4 gap-1">
@@ -647,7 +660,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                           key={option.ms}
                           type="button"
                           onClick={() => setSessionTtlMs(option.ms)}
-                          className={`px-1 py-1.5 rounded-md text-[10px] font-semibold border transition-colors ${
+                          className={`px-1 py-1.5 rounded-md text-sm font-semibold border transition-colors ${
                             sessionTtlMs === option.ms
                               ? 'bg-amber-100 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200'
                               : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
@@ -666,7 +679,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                 <button
                   type="submit"
                   disabled={busy}
-                  className="w-full rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-[13px] font-semibold py-2 disabled:opacity-60 flex items-center justify-center gap-1.5"
+                  className="w-full rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-[15px] font-semibold py-2 disabled:opacity-60 flex items-center justify-center gap-1.5"
                 >
                   {busy && <LoaderCircle className="w-3.5 h-3.5 animate-spin" />}
                   {hasMeta ? '解锁' : '设置并解锁'}
@@ -688,7 +701,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                     touchActivity();
                   }}
                   placeholder="搜索…"
-                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 pl-8 pr-2.5 py-1.5 text-[13px]"
+                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 pl-8 pr-2.5 py-1.5 text-[15px]"
                   autoComplete="off"
                 />
               </div>
@@ -701,7 +714,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                       setTypeFilter(type);
                       touchActivity();
                     }}
-                    className={`shrink-0 px-2 py-0.5 rounded-md text-[10px] font-semibold border transition-colors ${
+                    className={`shrink-0 px-2 py-0.5 rounded-md text-sm font-semibold border transition-colors ${
                       typeFilter === type
                         ? 'bg-amber-100 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200'
                         : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400'
@@ -715,7 +728,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
 
             <div className="flex-1 min-h-0 overflow-y-auto">
               {filteredItems.length === 0 ? (
-                <div className="py-12 text-center text-[13px] text-slate-400">暂无条目</div>
+                <div className="py-12 text-center text-[15px] text-slate-400">暂无条目</div>
               ) : (
                 filteredItems.map((item) => {
                   const Icon = typeIcon(item.type);
@@ -732,10 +745,10 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                       >
                         <Icon className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
                         <div className="min-w-0 flex-1">
-                          <div className="text-[13px] font-semibold text-slate-900 dark:text-white truncate leading-tight">
+                          <div className="text-[15px] font-semibold text-slate-900 dark:text-white truncate leading-tight">
                             {item.title}
                           </div>
-                          <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate leading-tight mt-0.5">
+                          <div className="text-sm text-slate-500 dark:text-slate-400 truncate leading-tight mt-0.5">
                             {vaultItemTypeLabel(item.type)}
                             {item.username ? ` · ${item.username}` : ''}
                             {item.folder ? ` · ${item.folder}` : ''}
@@ -772,13 +785,13 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
 
             <div className="shrink-0 px-3 py-2 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90">
               <div className="flex items-center gap-1">
-                <span className="text-[10px] font-semibold text-slate-400 shrink-0 mr-0.5">新建</span>
+                <span className="text-sm font-semibold text-slate-400 shrink-0 mr-0.5">新建</span>
                 {createTypes.map((type) => (
                   <button
                     key={type}
                     type="button"
                     onClick={() => openCreate(type)}
-                    className="flex-1 min-w-0 inline-flex items-center justify-center gap-0.5 px-1 py-1.5 rounded-md text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700"
+                    className="flex-1 min-w-0 inline-flex items-center justify-center gap-0.5 px-1 py-1.5 rounded-md text-sm font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700"
                   >
                     <Plus className="w-2.5 h-2.5 shrink-0" />
                     <span className="truncate">{vaultItemTypeLabel(type)}</span>
@@ -793,27 +806,6 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
           <div className="flex flex-col flex-1 min-h-0">
             <div className="flex-1 min-h-0 overflow-y-auto p-3">
               <div className="rounded-lg border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/50 p-2.5 space-y-2">
-                {isNewDraft && (
-                  <label className="block">
-                    <span className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-0.5">
-                      类型
-                    </span>
-                    <select
-                      value={draft.type}
-                      onChange={(event) =>
-                        updateDraft({ type: event.target.value as VaultItemType })
-                      }
-                      className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-[13px]"
-                    >
-                      {createTypes.map((type) => (
-                        <option key={type} value={type}>
-                          {vaultItemTypeLabel(type)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
-
                 <Field
                   label="标题"
                   value={draft.title}
@@ -972,14 +964,14 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                   onChange={(event) => updateDraft({ notes: event.target.value })}
                   rows={6}
                   placeholder="备注（可选）"
-                  className="w-full min-h-[9rem] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-2 text-[13px] resize-y"
+                  className="w-full min-h-[9rem] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-2 text-[15px] resize-y"
                   autoComplete="off"
                 />
 
                 {(draft.type === 'custom' || (draft.fields && draft.fields.length > 0)) && (
                   <div className="space-y-1.5 pt-0.5 border-t border-slate-100 dark:border-slate-800">
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-semibold text-slate-400">自定义字段</span>
+                      <span className="text-sm font-semibold text-slate-400">自定义字段</span>
                       <button
                         type="button"
                         onClick={() =>
@@ -987,7 +979,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                             fields: [...(draft.fields || []), { label: '', value: '' }],
                           })
                         }
-                        className="text-[10px] font-semibold text-amber-700 dark:text-amber-300"
+                        className="text-sm font-semibold text-amber-700 dark:text-amber-300"
                       >
                         + 添加
                       </button>
@@ -1025,32 +1017,13 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
             </div>
 
             <div className="shrink-0 px-3 py-2 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90 flex items-center gap-1.5">
-              {draft.type === 'login' && (
-                <IconAction
-                  icon={ExternalLink}
-                  title="打开网址"
-                  disabled={!draft.url?.trim()}
-                  onClick={() => handleOpenUrl(draft.url)}
-                />
-              )}
-              <VaultCopyMenu
-                open={copyMenuFor === 'editor'}
-                onToggle={() =>
-                  setCopyMenuFor((current) => (current === 'editor' ? null : 'editor'))
-                }
-                item={draft}
-                onAction={(action) => void handleCopyMenuAction(draft, action)}
-                align="left"
-                showLabel
-                dropUp
-              />
               <div className="flex-1" />
               {!isNewDraft && (
                 <button
                   type="button"
                   onClick={() => void handleDeleteDraft()}
                   disabled={busy}
-                  className="px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                  className="px-2.5 py-1.5 rounded-lg text-sm font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
                 >
                   删除
                 </button>
@@ -1059,7 +1032,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                 type="button"
                 onClick={() => void handleSaveDraft()}
                 disabled={busy}
-                className="px-3.5 py-1.5 rounded-lg text-[12px] font-semibold text-white bg-amber-600 hover:bg-amber-500 disabled:opacity-60 flex items-center gap-1.5"
+                className="px-3.5 py-1.5 rounded-lg text-sm font-semibold text-white bg-amber-600 hover:bg-amber-500 disabled:opacity-60 flex items-center gap-1.5"
               >
                 {busy && <LoaderCircle className="w-3.5 h-3.5 animate-spin" />}
                 保存
@@ -1076,7 +1049,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                 <Stat label="更新" value={mergePlan.updates.length} />
                 <Stat label="跳过" value={mergePlan.skips.length} />
               </div>
-              <div className="rounded-lg border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800 text-[11px] overflow-hidden">
+              <div className="rounded-lg border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800 text-[15px] overflow-hidden">
                 {[...mergePlan.adds, ...mergePlan.updates, ...mergePlan.skips]
                   .slice(0, 80)
                   .map((entry, index) => (
@@ -1103,7 +1076,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                   setMergePlan(null);
                   setView('list');
                 }}
-                className="flex-1 px-3 py-2 rounded-lg text-[13px] font-semibold bg-slate-100 dark:bg-slate-800"
+                className="flex-1 px-3 py-2 rounded-lg text-[15px] font-semibold bg-slate-100 dark:bg-slate-800"
               >
                 取消
               </button>
@@ -1113,7 +1086,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                 disabled={
                   busy || (mergePlan.adds.length === 0 && mergePlan.updates.length === 0)
                 }
-                className="flex-1 px-3 py-2 rounded-lg text-[13px] font-semibold text-white bg-amber-600 hover:bg-amber-500 disabled:opacity-60 flex items-center justify-center gap-1.5"
+                className="flex-1 px-3 py-2 rounded-lg text-[15px] font-semibold text-white bg-amber-600 hover:bg-amber-500 disabled:opacity-60 flex items-center justify-center gap-1.5"
               >
                 {busy && <LoaderCircle className="w-3.5 h-3.5 animate-spin" />}
                 确认合并
@@ -1125,6 +1098,41 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     </div>
   );
 };
+
+function VaultNoticeBanner({
+  notice,
+  onDismiss,
+}: {
+  notice: VaultNotice;
+  onDismiss: () => void;
+}) {
+  let toneClass =
+    'text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-900 border-slate-200 dark:border-slate-800';
+  if (notice.tone === 'success') {
+    toneClass =
+      'text-emerald-800 dark:text-emerald-200 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-100 dark:border-emerald-900';
+  } else if (notice.tone === 'error') {
+    toneClass =
+      'text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 border-rose-100 dark:border-rose-900';
+  }
+
+  return (
+    <div
+      role="status"
+      className={`shrink-0 px-3 py-2 text-sm border-b flex items-start justify-between gap-2 ${toneClass}`}
+    >
+      <span className="leading-snug">{notice.text}</span>
+      <button
+        type="button"
+        onClick={onDismiss}
+        className="shrink-0 p-0.5 rounded hover:opacity-70"
+        title="关闭"
+      >
+        <X className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
+}
 
 function FieldGroup({
   title,
@@ -1140,7 +1148,7 @@ function FieldGroup({
       {(title || action) && (
         <div className="flex items-center justify-between gap-2 px-0.5">
           {title ? (
-            <h3 className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+            <h3 className="text-sm font-bold uppercase tracking-wide text-slate-400">
               {title}
             </h3>
           ) : (
@@ -1217,7 +1225,7 @@ function VaultCopyMenu({
         aria-expanded={open}
         onClick={onToggle}
         className={`inline-flex items-center gap-1 rounded-lg border transition-colors ${
-          showLabel ? 'px-2 py-1.5 text-[12px] font-semibold' : 'p-1.5'
+          showLabel ? 'px-2 py-1.5 text-sm font-semibold' : 'p-1.5'
         } ${
           open
             ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-200'
@@ -1265,7 +1273,7 @@ function CopyMenuItem({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="w-full text-left px-3 py-1.5 text-[12px] font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+      className="w-full text-left px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
     >
       {label}
     </button>
@@ -1276,7 +1284,7 @@ function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 py-1.5">
       <div className="text-sm font-bold text-slate-900 dark:text-white leading-none">{value}</div>
-      <div className="text-[10px] text-slate-500 mt-0.5">{label}</div>
+      <div className="text-sm text-slate-500 mt-0.5">{label}</div>
     </div>
   );
 }
@@ -1307,7 +1315,7 @@ function Field({
 
   return (
     <label className="block min-w-0">
-      <span className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-0.5 leading-tight">
+      <span className="block text-sm font-semibold text-slate-500 dark:text-slate-400 mb-0.5 leading-tight">
         {label}
       </span>
       <div className="relative">
@@ -1315,7 +1323,7 @@ function Field({
           type={inputType}
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          className={`w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-[13px] ${rightPad}`}
+          className={`w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-[15px] ${rightPad}`}
           autoComplete="off"
         />
         <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center">

@@ -1,10 +1,13 @@
 const SESSION_TTL_KEY = 'vault_session_ttl_ms';
 
+const HOUR = 60 * 60 * 1000;
+const DAY = 24 * HOUR;
+
 export const VAULT_TTL_OPTIONS = [
-  { label: '15分钟', ms: 15 * 60 * 1000 },
-  { label: '30分钟', ms: 30 * 60 * 1000 },
-  { label: '1小时', ms: 60 * 60 * 1000 },
-  { label: '4小时', ms: 4 * 60 * 60 * 1000 },
+  { label: '1小时', ms: HOUR },
+  { label: '1天', ms: DAY },
+  { label: '7天', ms: 7 * DAY },
+  { label: '30天', ms: 30 * DAY },
 ] as const;
 
 export const DEFAULT_VAULT_TTL_MS = VAULT_TTL_OPTIONS[1].ms;
