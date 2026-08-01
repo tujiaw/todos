@@ -302,7 +302,8 @@ body {
 }
 
 @media (min-width: 640px) {
-  .drop-panel {
+  .drop-panel,
+  .vault-panel {
     top: 0.75rem;
     right: 0.75rem;
     bottom: 0.75rem;
@@ -312,7 +313,8 @@ body {
     border: 1px solid rgb(255 255 255 / 0.8);
   }
 
-  .dark .drop-panel {
+  .dark .drop-panel,
+  .dark .vault-panel {
     border-color: rgb(30 41 59);
   }
 }
