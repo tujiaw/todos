@@ -158,6 +158,7 @@ async function copyText(value: string): Promise<boolean> {
 
 export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockToken }) => {
   const confirmAction = useConfirm();
+  const panelRef = useRef<HTMLDivElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
   const expiryTimerRef = useRef<number | null>(null);
   const noticeTimerRef = useRef<number | null>(null);
@@ -470,6 +471,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
         title: '放弃未保存的修改？',
         description: '当前编辑内容尚未保存，退出后将丢失。',
         confirmLabel: '放弃修改',
+        container: panelRef.current,
       });
       if (!confirmed) return;
     }
@@ -516,6 +518,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
       title: '删除这条保险箱记录？',
       description: '删除后无法恢复。',
       confirmLabel: '删除',
+      container: panelRef.current,
     });
     if (!confirmed) return;
     setBusy(true);
@@ -671,6 +674,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
       title: '导出为未加密 JSON？',
       description: '导出文件包含明文密码，请妥善保管并在使用后尽快删除。',
       confirmLabel: '导出',
+      container: panelRef.current,
     });
     if (!confirmed) return;
     const payload = { exportedAt: new Date().toISOString(), items };
@@ -736,6 +740,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
         title: '替换现有密码？',
         description: '将用新生成的随机密码覆盖当前密码。',
         confirmLabel: '替换',
+        container: panelRef.current,
       });
       if (!confirmed) return;
     }
@@ -820,6 +825,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
       />
 
       <div
+        ref={panelRef}
         className="vault-panel absolute right-0 top-0 bottom-0 w-full sm:w-[400px] bg-slate-50 dark:bg-slate-950 shadow-2xl border-l border-white/80 dark:border-slate-800 flex flex-col h-full z-10 transition-transform animate-in slide-in-from-right duration-300 ease-out"
         role="dialog"
         aria-modal="true"
@@ -927,10 +933,6 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
             </button>
           </div>
         </div>
-
-        {notice && (
-          <VaultNoticeBanner notice={notice} onDismiss={() => setNotice(null)} />
-        )}
 
         {view === 'gate' && (
           <form onSubmit={handleSetupOrUnlock} className="flex flex-col flex-1 min-h-0">
@@ -1664,6 +1666,10 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
             </div>
           </form>
         )}
+
+        {notice && (
+          <VaultNoticeBanner notice={notice} onDismiss={() => setNotice(null)} />
+        )}
       </div>
     </div>
   );
@@ -1680,16 +1686,16 @@ function VaultNoticeBanner({
     'text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-900 border-slate-200 dark:border-slate-800';
   if (notice.tone === 'success') {
     toneClass =
-      'text-emerald-800 dark:text-emerald-200 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-100 dark:border-emerald-900';
+      'text-emerald-800 dark:text-emerald-200 bg-emerald-50 dark:bg-emerald-950 border-emerald-100 dark:border-emerald-900';
   } else if (notice.tone === 'error') {
     toneClass =
-      'text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 border-rose-100 dark:border-rose-900';
+      'text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950 border-rose-100 dark:border-rose-900';
   }
 
   return (
     <div
       role="status"
-      className={`shrink-0 px-3 py-2 text-sm border-b flex items-start justify-between gap-2 ${toneClass}`}
+      className={`absolute bottom-14 left-3 right-3 z-40 px-3 py-2 text-sm border rounded-lg shadow-lg flex items-start justify-between gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200 ${toneClass}`}
     >
       <span className="leading-snug">{notice.text}</span>
       <button
