@@ -826,7 +826,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
 
       <div
         ref={panelRef}
-        className="vault-panel absolute right-0 top-0 bottom-0 w-full sm:w-[400px] bg-slate-50 dark:bg-slate-950 shadow-2xl border-l border-white/80 dark:border-slate-800 flex flex-col h-full z-10 transition-transform animate-in slide-in-from-right duration-300 ease-out"
+        className="vault-panel absolute right-0 top-0 bottom-0 w-full sm:w-[400px] bg-slate-50 dark:bg-slate-950 shadow-2xl border-l border-white/80 dark:border-slate-800 flex flex-col h-full z-10 pt-[env(safe-area-inset-top,0px)] sm:pt-0 transition-transform animate-in slide-in-from-right duration-300 ease-out"
         role="dialog"
         aria-modal="true"
         aria-labelledby="vault-title"
@@ -838,7 +838,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
               <button
                 type="button"
                 onClick={() => escapeActionRef.current()}
-                className="p-1.5 rounded-lg hover:bg-white/70 dark:hover:bg-white/10"
+                className="p-2 sm:p-1.5 rounded-lg hover:bg-white/70 dark:hover:bg-white/10"
                 title="返回"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
@@ -880,7 +880,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                 <button
                   type="button"
                   onClick={() => lockVault(true)}
-                  className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-white/10"
+                  className="p-2 sm:p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-white/10"
                   title="锁定"
                 >
                   <Lock className="w-3.5 h-3.5" />
@@ -889,7 +889,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                   <button
                     type="button"
                     onClick={() => setHeaderMenuOpen((open) => !open)}
-                    className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-white/10"
+                    className="p-2 sm:p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-white/10"
                     title="更多操作"
                     aria-expanded={headerMenuOpen}
                   >
@@ -926,7 +926,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-white/70 dark:hover:bg-white/10"
+              className="p-2 sm:p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-white/70 dark:hover:bg-white/10"
               title="关闭"
             >
               <X className="w-3.5 h-3.5" />
@@ -978,7 +978,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                           key={option.ms}
                           type="button"
                           onClick={() => setSessionTtlMs(option.ms)}
-                          className={`px-1 py-1.5 rounded-md text-sm font-semibold border transition-colors ${
+                          className={`px-1 py-2 sm:py-1.5 rounded-md text-sm font-semibold border transition-colors ${
                             sessionTtlMs === option.ms
                               ? 'bg-amber-100 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200'
                               : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
@@ -993,7 +993,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
               )}
             </div>
             {hasMeta !== null && (
-              <div className="shrink-0 px-3 py-2 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90">
+              <div className="shrink-0 px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] sm:pb-2 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90">
                 <button
                   type="submit"
                   disabled={busy}
@@ -1019,7 +1019,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                     touchActivity();
                   }}
                   placeholder="搜索…"
-                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 pl-8 pr-2.5 py-1.5 text-[15px]"
+                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 pl-8 pr-2.5 py-2 sm:py-1.5 text-base sm:text-[15px]"
                   autoComplete="off"
                 />
               </div>
@@ -1032,7 +1032,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                       setTypeFilter(type);
                       touchActivity();
                     }}
-                    className={`shrink-0 px-2 py-0.5 rounded-md text-sm font-semibold border transition-colors ${
+                    className={`shrink-0 px-2 py-1 sm:py-0.5 rounded-md text-sm font-semibold border transition-colors ${
                       typeFilter === type
                         ? 'bg-amber-100 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200'
                         : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400'
@@ -1081,7 +1081,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                             type="button"
                             title="打开网址"
                             onClick={() => handleOpenUrl(item.url)}
-                            className="p-1.5 rounded-md text-slate-500 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                            className="p-2 sm:p-1.5 rounded-md text-slate-500 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/40"
                           >
                             <ExternalLink className="w-3.5 h-3.5" />
                           </button>
@@ -1103,14 +1103,14 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
               )}
             </div>
 
-            <div className="shrink-0 px-3 py-2 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90">
+            <div className="shrink-0 px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] sm:pb-2 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90">
               <div className="flex items-center gap-1">
                 {createTypes.map((type) => (
                   <button
                     key={type}
                     type="button"
                     onClick={() => openCreate(type)}
-                    className="flex-1 min-w-0 inline-flex items-center justify-center gap-0.5 px-1 py-1.5 rounded-md text-sm font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700"
+                    className="flex-1 min-w-0 inline-flex items-center justify-center gap-0.5 px-1 py-2 sm:py-1.5 rounded-md text-sm font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700"
                   >
                     <Plus className="w-2.5 h-2.5 shrink-0" />
                     <span className="truncate">{vaultItemTypeLabel(type)}</span>
@@ -1153,7 +1153,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                           <button
                             type="button"
                             onClick={() => handleOpenUrl(selectedItem.url)}
-                            className="p-1 text-slate-400 hover:text-amber-700 dark:hover:text-amber-300"
+                            className="p-1.5 sm:p-1 text-slate-400 hover:text-amber-700 dark:hover:text-amber-300"
                             title="打开网址"
                           >
                             <ExternalLink className="w-4 h-4" />
@@ -1257,11 +1257,11 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
               </div>
             </div>
 
-            <div className="shrink-0 px-3 py-2 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90 flex items-center gap-1.5">
+            <div className="shrink-0 px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] sm:pb-2 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90 flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => void handleCopyAll(selectedItem)}
-                className="px-2.5 py-1.5 rounded-lg text-sm font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1"
+                className="px-2.5 py-2 sm:py-1.5 rounded-lg text-sm font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1"
               >
                 <ClipboardCopy className="w-3.5 h-3.5" />
                 复制全部
@@ -1270,7 +1270,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
               <button
                 type="button"
                 onClick={() => openEdit(selectedItem)}
-                className="px-3.5 py-1.5 rounded-lg text-sm font-semibold text-white bg-amber-600 hover:bg-amber-500 flex items-center gap-1.5"
+                className="px-3.5 py-2 sm:py-1.5 rounded-lg text-sm font-semibold text-white bg-amber-600 hover:bg-amber-500 flex items-center gap-1.5"
               >
                 <Pencil className="w-3.5 h-3.5" />
                 编辑
@@ -1336,7 +1336,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                         type="button"
                         disabled={!draft.url?.trim()}
                         onClick={() => handleOpenUrl(draft.url)}
-                        className="mb-0.5 h-[30px] px-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 disabled:opacity-40"
+                        className="mb-0.5 h-9 sm:h-[30px] px-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 disabled:opacity-40"
                         title="打开网址"
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
@@ -1452,7 +1452,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                   onChange={(event) => updateDraft({ notes: event.target.value })}
                   rows={6}
                   placeholder="备注（可选）"
-                  className="w-full min-h-[9rem] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-2 text-[15px] resize-y"
+                  className="w-full min-h-[9rem] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-2 text-base sm:text-[15px] resize-y"
                   autoComplete="off"
                 />
 
@@ -1505,7 +1505,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                         <button
                           type="button"
                           onClick={() => updateFieldRow(index, { secret: !field.secret })}
-                          className={`p-1.5 mb-0.5 rounded-md ${
+                          className={`p-2 sm:p-1.5 mb-0.5 rounded-md ${
                             field.secret
                               ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40'
                               : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -1525,7 +1525,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                               fields: (draft.fields || []).filter((_, i) => i !== index),
                             })
                           }
-                          className="p-1.5 mb-0.5 rounded-md text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                          className="p-2 sm:p-1.5 mb-0.5 rounded-md text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40"
                           title="删除字段"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -1537,14 +1537,14 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
               </div>
             </div>
 
-            <div className="shrink-0 px-3 py-2 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90 flex items-center gap-1.5">
+            <div className="shrink-0 px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] sm:pb-2 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90 flex items-center gap-1.5">
               <div className="flex-1" />
               {!isNewDraft && (
                 <button
                   type="button"
                   onClick={() => void handleDeleteDraft()}
                   disabled={busy}
-                  className="px-2.5 py-1.5 rounded-lg text-sm font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                  className="px-2.5 py-2 sm:py-1.5 rounded-lg text-sm font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
                 >
                   删除
                 </button>
@@ -1553,7 +1553,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                 type="button"
                 onClick={() => void handleSaveDraft()}
                 disabled={busy}
-                className="px-3.5 py-1.5 rounded-lg text-sm font-semibold text-white bg-amber-600 hover:bg-amber-500 disabled:opacity-60 flex items-center gap-1.5"
+                className="px-3.5 py-2 sm:py-1.5 rounded-lg text-sm font-semibold text-white bg-amber-600 hover:bg-amber-500 disabled:opacity-60 flex items-center gap-1.5"
               >
                 {busy && <LoaderCircle className="w-3.5 h-3.5 animate-spin" />}
                 保存
@@ -1601,7 +1601,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                 )}
               </div>
             </div>
-            <div className="shrink-0 px-3 py-2 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90 flex gap-1.5">
+            <div className="shrink-0 px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] sm:pb-2 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90 flex gap-1.5">
               <button
                 type="button"
                 onClick={() => {
@@ -1654,7 +1654,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                 />
               </FieldGroup>
             </div>
-            <div className="shrink-0 px-3 py-2 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90">
+            <div className="shrink-0 px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] sm:pb-2 border-t border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-950/90">
               <button
                 type="submit"
                 disabled={busy}
@@ -1695,7 +1695,7 @@ function VaultNoticeBanner({
   return (
     <div
       role="status"
-      className={`absolute bottom-14 left-3 right-3 z-40 px-3 py-2 text-sm border rounded-lg shadow-lg flex items-start justify-between gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200 ${toneClass}`}
+      className={`absolute bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] sm:bottom-14 left-3 right-3 z-40 px-3 py-2 text-sm border rounded-lg shadow-lg flex items-start justify-between gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200 ${toneClass}`}
     >
       <span className="leading-snug">{notice.text}</span>
       <button
@@ -1770,7 +1770,7 @@ function VaultCopyMenu({
         aria-expanded={open}
         onClick={onToggle}
         className={`inline-flex items-center gap-1 rounded-lg border transition-colors ${
-          showLabel ? 'px-2 py-1.5 text-sm font-semibold' : 'p-1.5'
+          showLabel ? 'px-2 py-1.5 text-sm font-semibold' : 'p-2 sm:p-1.5'
         } ${
           open
             ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-200'
@@ -1818,7 +1818,7 @@ function CopyMenuItem({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="w-full text-left px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+      className="w-full text-left px-3 py-2 sm:py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
     >
       {label}
     </button>
@@ -1875,7 +1875,7 @@ function Field({
           type={inputType}
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          className={`w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-[15px] ${rightPad}`}
+          className={`w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-2 sm:py-1.5 text-base sm:text-[15px] ${rightPad}`}
           autoComplete={autoComplete}
           autoFocus={autoFocus}
         />
@@ -1884,7 +1884,7 @@ function Field({
             <button
               type="button"
               onClick={onToggleReveal}
-              className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              className="p-1.5 sm:p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
             >
               {revealed ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
@@ -1893,7 +1893,7 @@ function Field({
             <button
               type="button"
               onClick={onCopy}
-              className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              className="p-1.5 sm:p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
             >
               {copied ? (
                 <Check className="w-4 h-4 text-emerald-500" />
@@ -1949,7 +1949,7 @@ function DetailRow({
           <button
             type="button"
             onClick={() => setRevealed((current) => !current)}
-            className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0"
+            className="p-1.5 sm:p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0"
             title={revealed ? '隐藏' : '显示'}
           >
             {revealed ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -1959,7 +1959,7 @@ function DetailRow({
           <button
             type="button"
             onClick={onCopy}
-            className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0"
+            className="p-1.5 sm:p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0"
             title="复制"
           >
             {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
@@ -2022,7 +2022,7 @@ function TotpDetailRow({
         <button
           type="button"
           onClick={() => code && onCopyCode(code)}
-          className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+          className="p-1.5 sm:p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
           title="复制验证码"
         >
           {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
@@ -2071,7 +2071,7 @@ function VaultEmptyState({
       <button
         type="button"
         onClick={onCreateLogin}
-        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-semibold text-white bg-amber-600 hover:bg-amber-500"
+        className="inline-flex items-center gap-1 px-3 py-2 sm:py-1.5 rounded-lg text-sm font-semibold text-white bg-amber-600 hover:bg-amber-500"
       >
         <Plus className="w-3.5 h-3.5" />
         新建登录
@@ -2096,7 +2096,7 @@ function HeaderMenuItem({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="w-full text-left px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 flex items-center gap-2"
+      className="w-full text-left px-3 py-2 sm:py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 flex items-center gap-2"
     >
       <Icon className="w-3.5 h-3.5 text-slate-400" />
       {label}
