@@ -10,12 +10,16 @@ export function normalizeCategoryOrder(categories: Category[]): Category[] {
 }
 
 export function sortCategoriesByOrder(categories: Category[]): Category[] {
-  return [...categories].sort((a, b) => {
-    const orderA = a.sortOrder ?? Number.MAX_SAFE_INTEGER;
-    const orderB = b.sortOrder ?? Number.MAX_SAFE_INTEGER;
-    if (orderA !== orderB) return orderA - orderB;
-    return a.name.localeCompare(b.name);
-  });
+  // Stable sort: equal sortOrder keeps the current relative order.
+  return categories
+    .map((cat, index) => ({ cat, index }))
+    .sort((a, b) => {
+      const orderA = a.cat.sortOrder ?? Number.MAX_SAFE_INTEGER;
+      const orderB = b.cat.sortOrder ?? Number.MAX_SAFE_INTEGER;
+      if (orderA !== orderB) return orderA - orderB;
+      return a.index - b.index;
+    })
+    .map(({ cat }) => cat);
 }
 
 export function moveCategory(
@@ -30,8 +34,9 @@ export function moveCategory(
   if (target < 0 || target >= categories.length) return null;
 
   const next = [...categories];
-  const [removed] = next.splice(index, 1);
-  next.splice(target, 0, removed);
+  const current = next[index];
+  next[index] = next[target];
+  next[target] = current;
   return normalizeCategoryOrder(next);
 }
 

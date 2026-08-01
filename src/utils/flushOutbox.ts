@@ -8,9 +8,15 @@ import {
 } from '../lib/supabase';
 import { loadOutbox, replaceOutbox, type SyncOp } from './syncQueue';
 
-export async function flushOutbox(
-  user: User
-): Promise<{ flushed: number; remaining: number; lastError?: string }> {
+export type FlushOutboxResult = {
+  flushed: number;
+  remaining: number;
+  lastError?: string;
+};
+
+let flushTail: Promise<void> = Promise.resolve();
+
+async function flushOutboxUnlocked(user: User): Promise<FlushOutboxResult> {
   const ops = loadOutbox(user.id);
   if (ops.length === 0) {
     return { flushed: 0, remaining: 0 };
@@ -44,4 +50,19 @@ export async function flushOutbox(
     remaining: remaining.length,
     lastError,
   };
+}
+
+/** Serialize flushes so concurrent callers cannot wipe each other's outbox. */
+export async function flushOutbox(user: User): Promise<FlushOutboxResult> {
+  let result: FlushOutboxResult = { flushed: 0, remaining: 0 };
+  const run = async () => {
+    result = await flushOutboxUnlocked(user);
+  };
+  const waited = flushTail.then(run, run);
+  flushTail = waited.then(
+    () => undefined,
+    () => undefined
+  );
+  await waited;
+  return result;
 }

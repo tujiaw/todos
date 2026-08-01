@@ -468,6 +468,22 @@ export default function App() {
     await chained;
   }, [persistCategories, persistTasks, refreshPendingCount, showToast, user]);
 
+  const suppressRealtimeSyncUntilRef = useRef(0);
+
+  const runFlushOutbox = useCallback(async () => {
+    if (!user) return;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      showToast('Saved locally. Will sync when you are back online.', 'info');
+      return;
+    }
+
+    const result = await flushOutbox(user);
+    refreshPendingCount(user.id);
+    if (result.remaining > 0) {
+      showToast(result.lastError || 'Some changes are still pending sync.', 'error');
+    }
+  }, [refreshPendingCount, showToast, user]);
+
   const queueAndFlush = useCallback(
     async (
       type: 'upsert_task' | 'delete_task' | 'upsert_category' | 'delete_category',
@@ -477,17 +493,24 @@ export default function App() {
       if (!user) return;
       enqueueOp(user.id, type, entityId, payload);
       refreshPendingCount(user.id);
-      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-        showToast('Saved locally. Will sync when you are back online.', 'info');
-        return;
-      }
-      const result = await flushOutbox(user);
-      refreshPendingCount(user.id);
-      if (result.remaining > 0) {
-        showToast(result.lastError || 'Some changes are still pending sync.', 'error');
-      }
+      await runFlushOutbox();
     },
-    [refreshPendingCount, showToast, user]
+    [refreshPendingCount, runFlushOutbox, user]
+  );
+
+  const queueCategoriesAndFlush = useCallback(
+    async (cats: Category[]) => {
+      if (!user) return;
+      // Avoid realtime pull-back while category order/metadata is still converging.
+      suppressRealtimeSyncUntilRef.current = Date.now() + 2000;
+      for (const cat of cats) {
+        enqueueOp(user.id, 'upsert_category', cat.id, cat);
+      }
+      refreshPendingCount(user.id);
+      await runFlushOutbox();
+      suppressRealtimeSyncUntilRef.current = Date.now() + 1500;
+    },
+    [refreshPendingCount, runFlushOutbox, user]
   );
 
   useEffect(() => {
@@ -572,10 +595,16 @@ export default function App() {
     if (!user) return;
 
     const unsubscribe = subscribeToTasks(user.id, () => {
+      if (Date.now() < suppressRealtimeSyncUntilRef.current) {
+        return;
+      }
       if (realtimeSyncTimerRef.current) {
         window.clearTimeout(realtimeSyncTimerRef.current);
       }
       realtimeSyncTimerRef.current = window.setTimeout(() => {
+        if (Date.now() < suppressRealtimeSyncUntilRef.current) {
+          return;
+        }
         void handleSyncWithSupabase({ quiet: true });
       }, 400);
     });
@@ -901,44 +930,42 @@ export default function App() {
 
   // Category actions
   const handleAddCategory = (newCatData: Omit<Category, 'id'>) => {
+    const current = categoriesRef.current;
     const newCat: Category = {
       ...newCatData,
       id: `cat-${Date.now()}`,
-      sortOrder: categories.length,
-      isDefault: categories.length === 0,
+      sortOrder: current.length,
+      isDefault: current.length === 0,
     };
 
-    const updatedCategories = normalizeCategoryOrder([...categories, newCat]);
+    const updatedCategories = normalizeCategoryOrder([...current, newCat]);
     persistCategories(updatedCategories);
-    for (const cat of updatedCategories) {
-      void queueAndFlush('upsert_category', cat.id, cat);
-    }
+    void queueCategoriesAndFlush(updatedCategories);
   };
 
   const handleUpdateCategory = (updated: Category) => {
-    const next = categories.map((cat) => (cat.id === updated.id ? updated : cat));
+    const next = categoriesRef.current.map((cat) => (cat.id === updated.id ? updated : cat));
     persistCategories(next);
     void queueAndFlush('upsert_category', updated.id, updated);
   };
 
   const handleReorderCategory = (categoryId: string, direction: 'up' | 'down') => {
-    const next = moveCategory(categories, categoryId, direction);
+    const next = moveCategory(categoriesRef.current, categoryId, direction);
     if (!next) return;
     persistCategories(next);
-    for (const cat of next) {
-      void queueAndFlush('upsert_category', cat.id, cat);
-    }
+    void queueCategoriesAndFlush(next);
   };
 
   const handleDeleteCategory = async (categoryId: string) => {
-    const target = categories.find((cat) => cat.id === categoryId);
+    const current = categoriesRef.current;
+    const target = current.find((cat) => cat.id === categoryId);
     if (!target) return;
-    if (categories.length <= 1) {
+    if (current.length <= 1) {
       showToast('Keep at least one category.', 'error');
       return;
     }
 
-    const remaining = categories.filter((cat) => cat.id !== categoryId);
+    const remaining = current.filter((cat) => cat.id !== categoryId);
     const fallback = remaining[0];
     if (!fallback) return;
 
@@ -963,9 +990,16 @@ export default function App() {
 
     const nextCats = normalizeCategoryOrder(remaining);
     persistCategories(nextCats);
-    void queueAndFlush('delete_category', categoryId);
-    for (const cat of nextCats) {
-      void queueAndFlush('upsert_category', cat.id, cat);
+    if (user) {
+      suppressRealtimeSyncUntilRef.current = Date.now() + 2000;
+      enqueueOp(user.id, 'delete_category', categoryId);
+      for (const cat of nextCats) {
+        enqueueOp(user.id, 'upsert_category', cat.id, cat);
+      }
+      refreshPendingCount(user.id);
+      void runFlushOutbox().finally(() => {
+        suppressRealtimeSyncUntilRef.current = Date.now() + 1500;
+      });
     }
   };
 

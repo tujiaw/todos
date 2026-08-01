@@ -101,6 +101,19 @@ export function mergeTasksLww(
   return { merged, toPush, staleOps };
 }
 
+function categorySyncSnapshot(cat: Category): string {
+  return [
+    cat.id,
+    cat.name,
+    cat.color,
+    cat.bgClass,
+    cat.textClass,
+    cat.borderClass,
+    String(cat.sortOrder ?? 0),
+    cat.isDefault ? '1' : '0',
+  ].join('\0');
+}
+
 export function mergeCategories(
   localCategories: Category[],
   remoteCategories: Category[],
@@ -114,28 +127,42 @@ export function mergeCategories(
       .filter((op) => op.type === 'upsert_category' && op.payload)
       .map((op) => [op.entityId, op])
   );
+  const hasPendingCategoryWork = pendingDeletes.size > 0 || pendingUpserts.size > 0;
 
   const byId = new Map<string, Category>();
   const toPush: Category[] = [];
   const staleOps: SyncOp[] = [];
+  const remoteById = new Map(remoteCategories.map((cat) => [cat.id, cat]));
 
-  for (const cat of remoteCategories) {
-    if (!pendingDeletes.has(cat.id)) {
+  if (hasPendingCategoryWork) {
+    // While category ops are in flight, keep optimistic local order/metadata.
+    for (const cat of localCategories) {
+      if (pendingDeletes.has(cat.id)) continue;
+      const payload = pendingUpserts.get(cat.id)?.payload as Category | undefined;
+      const next = payload || cat;
+      byId.set(next.id, next);
+      const remote = remoteById.get(next.id);
+      if (!remote || categorySyncSnapshot(remote) !== categorySyncSnapshot(next)) {
+        toPush.push(next);
+      }
+    }
+    for (const cat of remoteCategories) {
+      if (pendingDeletes.has(cat.id) || byId.has(cat.id)) continue;
       byId.set(cat.id, cat);
     }
-  }
-
-  for (const cat of localCategories) {
-    if (pendingDeletes.has(cat.id)) continue;
-    const upsertOp = pendingUpserts.get(cat.id);
-    if (upsertOp?.payload) {
-      byId.set(cat.id, upsertOp.payload as Category);
-      toPush.push(upsertOp.payload as Category);
-      continue;
+  } else {
+    for (const cat of remoteCategories) {
+      if (!pendingDeletes.has(cat.id)) {
+        byId.set(cat.id, cat);
+      }
     }
-    if (!byId.has(cat.id)) {
-      byId.set(cat.id, cat);
-      toPush.push(cat);
+
+    for (const cat of localCategories) {
+      if (pendingDeletes.has(cat.id)) continue;
+      if (!byId.has(cat.id)) {
+        byId.set(cat.id, cat);
+        toPush.push(cat);
+      }
     }
   }
 
