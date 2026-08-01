@@ -79,9 +79,16 @@ const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 
 function formatRemainingMs(ms: number): string {
-  if (ms >= DAY_MS) return `${Math.round(ms / DAY_MS)}天`;
-  if (ms >= HOUR_MS) return `${Math.round(ms / HOUR_MS)}小时`;
-  return `${Math.max(1, Math.ceil(ms / 60_000))}分钟`;
+  if (ms >= DAY_MS) {
+    const n = Math.round(ms / DAY_MS);
+    return n === 1 ? '1 day' : `${n} days`;
+  }
+  if (ms >= HOUR_MS) {
+    const n = Math.round(ms / HOUR_MS);
+    return n === 1 ? '1 hour' : `${n} hours`;
+  }
+  const n = Math.max(1, Math.ceil(ms / 60_000));
+  return n === 1 ? '1 minute' : `${n} minutes`;
 }
 
 // 去掉易混淆字符（O/0、I/l/1）后各取一类，保证四类字符齐全。
@@ -232,7 +239,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
       expiryTimerRef.current = null;
     }
     resetUiToGate();
-    if (announce) showNotice('保险箱已锁定', 'info');
+    if (announce) showNotice('Vault locked', 'info');
   };
 
   const scheduleSessionExpiry = () => {
@@ -266,7 +273,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     setUsageSnapshot(pruneVaultUsage(decrypted.map((item) => item.id)));
     setItems(decrypted);
     if (failed > 0) {
-      showNotice(`有 ${failed} 条记录无法解密，已隐藏`, 'error');
+      showNotice(`${failed} item(s) could not be decrypted and were hidden`, 'error');
     }
   };
 
@@ -318,7 +325,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
         }
       } catch (err) {
         if (!cancelled) {
-          showNotice(err instanceof Error ? err.message : '无法加载保险箱', 'error');
+          showNotice(err instanceof Error ? err.message : 'Unable to load vault', 'error');
           setHasMeta(false);
         }
       }
@@ -406,15 +413,15 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     event.preventDefault();
     setNotice(null);
     if (!password.trim()) {
-      showNotice('请输入主密码', 'error');
+      showNotice('Please enter a master password', 'error');
       return;
     }
     if (!hasMeta && password !== passwordConfirm) {
-      showNotice('两次输入的主密码不一致', 'error');
+      showNotice('Master passwords do not match', 'error');
       return;
     }
     if (!hasMeta && password.length < 8) {
-      showNotice('主密码至少 8 位', 'error');
+      showNotice('Master password must be at least 8 characters', 'error');
       return;
     }
 
@@ -432,9 +439,9 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
       setHasMeta(true);
       setView('list');
       scheduleSessionExpiry();
-      showNotice(hasMeta ? '保险箱已解锁' : '主密码已设置', 'success');
+      showNotice(hasMeta ? 'Vault unlocked' : 'Master password set', 'success');
     } catch (err) {
-      showNotice(err instanceof Error ? err.message : '操作失败', 'error');
+      showNotice(err instanceof Error ? err.message : 'Operation failed', 'error');
     } finally {
       setBusy(false);
     }
@@ -503,9 +510,9 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
   const attemptCloseEditor = async () => {
     if (draft && JSON.stringify(draft) !== draftSnapshotRef.current) {
       const confirmed = await confirmAction({
-        title: '放弃未保存的修改？',
-        description: '当前编辑内容尚未保存，退出后将丢失。',
-        confirmLabel: '放弃修改',
+        title: 'Discard unsaved changes?',
+        description: 'Your edits have not been saved and will be lost.',
+        confirmLabel: 'Discard',
         container: panelRef.current,
       });
       if (!confirmed) return;
@@ -516,7 +523,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
   const handleSaveDraft = async () => {
     if (!vaultKey || !draft) return;
     if (!draft.title.trim()) {
-      showNotice('请填写标题', 'error');
+      showNotice('Please enter a title', 'error');
       return;
     }
     setBusy(true);
@@ -539,10 +546,10 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
       } else {
         setView('list');
       }
-      showNotice('已保存', 'success');
+      showNotice('Saved', 'success');
       touchActivity();
     } catch (err) {
-      showNotice(err instanceof Error ? err.message : '保存失败', 'error');
+      showNotice(err instanceof Error ? err.message : 'Save failed', 'error');
     } finally {
       setBusy(false);
     }
@@ -550,9 +557,9 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
 
   const handleDeleteItem = async (item: VaultItemPlain) => {
     const confirmed = await confirmAction({
-      title: '删除这条保险箱记录？',
-      description: '删除后无法恢复。',
-      confirmLabel: '删除',
+      title: 'Delete this vault item?',
+      description: 'This cannot be undone.',
+      confirmLabel: 'Delete',
       container: panelRef.current,
     });
     if (!confirmed) return;
@@ -563,9 +570,9 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
       setItems((current) => current.filter((entry) => entry.id !== item.id));
       setSelectedId(null);
       setView('list');
-      showNotice('已删除', 'success');
+      showNotice('Deleted', 'success');
     } catch (err) {
-      showNotice(err instanceof Error ? err.message : '删除失败', 'error');
+      showNotice(err instanceof Error ? err.message : 'Delete failed', 'error');
     } finally {
       setBusy(false);
     }
@@ -598,7 +605,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
   const handleCopy = async (
     field: string,
     value?: string,
-    successText = '已复制',
+    successText = 'Copied',
     sensitive = false,
     itemId?: string
   ) => {
@@ -611,13 +618,13 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
       setCopyMenuFor(null);
       if (sensitive) {
         scheduleClipboardClear(value);
-        showNotice(`${successText}，30 秒后自动清除`, 'success');
+        showNotice(`${successText}. Cleared from clipboard in 30 seconds`, 'success');
       } else {
         showNotice(successText, 'success');
       }
       window.setTimeout(() => setCopiedField(null), 1500);
     } else {
-      showNotice('复制失败', 'error');
+      showNotice('Copy failed', 'error');
     }
     touchActivity();
   };
@@ -625,10 +632,10 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
   const handleCopyAll = async (item: VaultItemPlain) => {
     const text = formatVaultItemForCopy(item);
     if (!text) {
-      showNotice('暂无可复制内容', 'info');
+      showNotice('Nothing to copy', 'info');
       return;
     }
-    await handleCopy('all', text, '已复制全部信息', true, item.id);
+    await handleCopy('all', text, 'Copied all fields', true, item.id);
   };
 
   const handleCopyMenuAction = async (
@@ -636,11 +643,11 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     action: 'username' | 'password' | 'all'
   ) => {
     if (action === 'username') {
-      await handleCopy('username', item.username, '已复制用户名', false, item.id);
+      await handleCopy('username', item.username, 'Username copied', false, item.id);
       return;
     }
     if (action === 'password') {
-      await handleCopy('password', item.password, '已复制密码', true, item.id);
+      await handleCopy('password', item.password, 'Password copied', true, item.id);
       return;
     }
     await handleCopyAll(item);
@@ -660,7 +667,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
   const handleOpenUrl = (rawUrl?: string, itemId?: string) => {
     const url = normalizeVaultUrl(rawUrl);
     if (!url) {
-      showNotice('没有可打开的网址', 'info');
+      showNotice('No URL to open', 'info');
       return;
     }
     const usageId = resolveUsageItemId(itemId);
@@ -674,9 +681,9 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     setBusy(true);
     try {
       await loadItems(vaultKey);
-      showNotice('已刷新', 'success');
+      showNotice('Refreshed', 'success');
     } catch (err) {
-      showNotice(err instanceof Error ? err.message : '刷新失败', 'error');
+      showNotice(err instanceof Error ? err.message : 'Refresh failed', 'error');
     } finally {
       setBusy(false);
     }
@@ -696,7 +703,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
       setView('importPreview');
       touchActivity();
     } catch (err) {
-      showNotice(err instanceof Error ? err.message : '导入失败', 'error');
+      showNotice(err instanceof Error ? err.message : 'Import failed', 'error');
     } finally {
       setBusy(false);
       if (importInputRef.current) importInputRef.current.value = '';
@@ -717,14 +724,14 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
       setMergePlan(null);
       setView('list');
       showNotice(
-        `导入完成：新增 ${mergePlan.adds.length}，更新 ${mergePlan.updates.length}，跳过 ${mergePlan.skips.length}` +
-          (result.failed ? `（失败 ${result.failed}）` : '') +
-          '。请删除导出的明文 JSON 文件',
+        `Import complete: ${mergePlan.adds.length} added, ${mergePlan.updates.length} updated, ${mergePlan.skips.length} skipped` +
+          (result.failed ? ` (${result.failed} failed)` : '') +
+          '. Please delete the unencrypted JSON export file',
         result.failed ? 'error' : 'success'
       );
       touchActivity();
     } catch (err) {
-      showNotice(err instanceof Error ? err.message : '写入失败', 'error');
+      showNotice(err instanceof Error ? err.message : 'Write failed', 'error');
     } finally {
       setBusy(false);
     }
@@ -733,9 +740,9 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
   const handleExport = async () => {
     setHeaderMenuOpen(false);
     const confirmed = await confirmAction({
-      title: '导出为未加密 JSON？',
-      description: '导出文件包含明文密码，请妥善保管并在使用后尽快删除。',
-      confirmLabel: '导出',
+      title: 'Export as unencrypted JSON?',
+      description: 'The export contains passwords in plain text. Keep it safe and delete it when you are done.',
+      confirmLabel: 'Export',
       container: panelRef.current,
     });
     if (!confirmed) return;
@@ -747,7 +754,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     anchor.download = `vault-export-${new Date().toISOString().slice(0, 10)}.json`;
     anchor.click();
     URL.revokeObjectURL(url);
-    showNotice('已导出，请妥善保管文件', 'success');
+    showNotice('Exported. Keep the file safe.', 'success');
     touchActivity();
   };
 
@@ -764,11 +771,11 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     event.preventDefault();
     setNotice(null);
     if (password.length < 8) {
-      showNotice('新主密码至少 8 位', 'error');
+      showNotice('New master password must be at least 8 characters', 'error');
       return;
     }
     if (password !== passwordConfirm) {
-      showNotice('两次输入的新主密码不一致', 'error');
+      showNotice('New master passwords do not match', 'error');
       return;
     }
     setBusy(true);
@@ -782,14 +789,14 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
       setView('list');
       if (failed > 0) {
         showNotice(
-          `主密码已修改，但有 ${failed} 条记录重新加密失败，请保持解锁状态并重新保存`,
+          `Master password changed, but ${failed} item(s) failed to re-encrypt. Stay unlocked and save them again.`,
           'error'
         );
       } else {
-        showNotice('主密码已修改', 'success');
+        showNotice('Master password changed', 'success');
       }
     } catch (err) {
-      showNotice(err instanceof Error ? err.message : '修改主密码失败', 'error');
+      showNotice(err instanceof Error ? err.message : 'Failed to change master password', 'error');
     } finally {
       setBusy(false);
     }
@@ -799,9 +806,9 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     if (!draft) return;
     if (draft.password?.trim()) {
       const confirmed = await confirmAction({
-        title: '替换现有密码？',
-        description: '将用新生成的随机密码覆盖当前密码。',
-        confirmLabel: '替换',
+        title: 'Replace current password?',
+        description: 'This will overwrite the current password with a newly generated one.',
+        confirmLabel: 'Replace',
         container: panelRef.current,
       });
       if (!confirmed) return;
@@ -857,11 +864,11 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     headerBadgeType = selectedItem.type;
   }
 
-  let headerTitle = '保险箱';
+  let headerTitle = 'Vault';
   if (view === 'importPreview') {
-    headerTitle = '导入预览';
+    headerTitle = 'Import preview';
   } else if (view === 'changePassword') {
-    headerTitle = '修改主密码';
+    headerTitle = 'Change master password';
   } else if (view === 'detail' && selectedItem) {
     headerTitle = selectedItem.title;
   } else if (view === 'editor' && draft) {
@@ -869,9 +876,9 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     if (draftTitle) {
       headerTitle = draftTitle;
     } else if (isNewDraft) {
-      headerTitle = `新建${vaultItemTypeLabel(draft.type)}`;
+      headerTitle = `New ${vaultItemTypeLabel(draft.type)}`;
     } else {
-      headerTitle = '编辑';
+      headerTitle = 'Edit';
     }
   }
 
@@ -901,7 +908,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                 type="button"
                 onClick={() => escapeActionRef.current()}
                 className="p-2 sm:p-1.5 rounded-lg hover:bg-white/70 dark:hover:bg-white/10"
-                title="返回"
+                title="Back"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
               </button>
@@ -922,7 +929,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
             )}
             {vaultKey && view === 'list' && (
               <span className="shrink-0 text-xs text-slate-400 dark:text-slate-500">
-                {formatRemainingMs(getVaultSessionRemainingMs())}后锁定
+                Locks in {formatRemainingMs(getVaultSessionRemainingMs())}
               </span>
             )}
           </div>
@@ -944,7 +951,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                   onClick={() => void handleRefresh()}
                   disabled={busy}
                   className="p-2 sm:p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-white/10 disabled:opacity-60"
-                  title="刷新"
+                  title="Refresh"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${busy ? 'animate-spin' : ''}`} />
                 </button>
@@ -952,7 +959,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                   type="button"
                   onClick={() => lockVault(true)}
                   className="p-2 sm:p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-white/10"
-                  title="锁定"
+                  title="Lock"
                 >
                   <Lock className="w-3.5 h-3.5" />
                 </button>
@@ -961,7 +968,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                     type="button"
                     onClick={() => setHeaderMenuOpen((open) => !open)}
                     className="p-2 sm:p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-white/10"
-                    title="更多操作"
+                    title="More actions"
                     aria-expanded={headerMenuOpen}
                   >
                     <EllipsisVertical className="w-3.5 h-3.5" />
@@ -970,7 +977,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                     <div className="absolute right-0 top-full mt-1 z-30 min-w-[11rem] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg py-1">
                       <HeaderMenuItem
                         icon={Upload}
-                        label="从 Bitwarden 导入"
+                        label="Import from Bitwarden"
                         disabled={busy}
                         onClick={() => {
                           setHeaderMenuOpen(false);
@@ -979,13 +986,13 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                       />
                       <HeaderMenuItem
                         icon={Download}
-                        label="导出 JSON"
+                        label="Export JSON"
                         disabled={busy}
                         onClick={() => void handleExport()}
                       />
                       <HeaderMenuItem
                         icon={KeySquare}
-                        label="修改主密码"
+                        label="Change master password"
                         disabled={busy}
                         onClick={openChangePassword}
                       />
@@ -998,7 +1005,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
               type="button"
               onClick={onClose}
               className="p-2 sm:p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-white/70 dark:hover:bg-white/10"
-              title="关闭"
+              title="Close"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -1010,8 +1017,8 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
             <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2.5">
               <p className="text-[15px] leading-snug text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/50 rounded-lg px-2.5 py-2">
                 {hasMeta
-                  ? '解锁后在有效期内保持解锁，刷新页面也无需重复输入。'
-                  : '设置主密码后启用。主密码不可找回。'}
+                  ? 'Stay unlocked for the selected duration — no need to re-enter after refresh.'
+                  : 'Set a master password to enable the vault. It cannot be recovered.'}
               </p>
               {hasMeta === null ? (
                 <div className="flex items-center justify-center py-8 text-slate-400">
@@ -1020,7 +1027,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
               ) : (
                 <FieldGroup>
                   <Field
-                    label="主密码"
+                    label="Master password"
                     value={password}
                     secret
                     revealed={showPassword}
@@ -1031,7 +1038,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                   />
                   {!hasMeta && (
                     <Field
-                      label="确认主密码"
+                      label="Confirm master password"
                       value={passwordConfirm}
                       secret
                       revealed={showPassword}
@@ -1041,7 +1048,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                   )}
                   <div>
                     <span className="block text-sm font-semibold text-slate-500 dark:text-slate-400 mb-1">
-                      解锁有效期
+                      Unlock duration
                     </span>
                     <div className="grid grid-cols-4 gap-1">
                       {VAULT_TTL_OPTIONS.map((option) => (
@@ -1071,7 +1078,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                   className="w-full rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-[15px] font-semibold py-2 disabled:opacity-60 flex items-center justify-center gap-1.5"
                 >
                   {busy && <LoaderCircle className="w-3.5 h-3.5 animate-spin" />}
-                  {hasMeta ? '解锁' : '设置并解锁'}
+                  {hasMeta ? 'Unlock' : 'Set & unlock'}
                 </button>
               </div>
             )}
@@ -1089,7 +1096,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                     setSearchQuery(event.target.value);
                     touchActivity();
                   }}
-                  placeholder="搜索…"
+                  placeholder="Search…"
                   className={`w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 pl-8 py-2 sm:py-1.5 text-base sm:text-[15px] ${
                     searchQuery ? 'pr-8' : 'pr-2.5'
                   }`}
@@ -1103,8 +1110,8 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                       touchActivity();
                     }}
                     className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 sm:p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                    title="清空搜索"
-                    aria-label="清空搜索"
+                    title="Clear search"
+                    aria-label="Clear search"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -1125,7 +1132,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                         : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400'
                     }`}
                   >
-                    {type === 'all' ? '全部' : vaultItemTypeLabel(type)}
+                    {type === 'all' ? 'All' : vaultItemTypeLabel(type)}
                   </button>
                 ))}
               </div>
@@ -1166,7 +1173,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                         {canOpen && (
                           <button
                             type="button"
-                            title="打开网址"
+                            title="Open URL"
                             onClick={() => handleOpenUrl(item.url, item.id)}
                             className="p-2 sm:p-1.5 rounded-md text-slate-500 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/40"
                           >
@@ -1215,23 +1222,23 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                 {selectedItem.type === 'login' && (
                   <>
                     <DetailRow
-                      label="用户名"
+                      label="Username"
                       value={selectedItem.username}
-                      onCopy={() => handleCopy('username', selectedItem.username, '已复制用户名')}
+                      onCopy={() => handleCopy('username', selectedItem.username, 'Username copied')}
                       copied={copiedField === 'username'}
                     />
                     <DetailRow
-                      label="密码"
+                      label="Password"
                       value={selectedItem.password}
                       secret
                       mono
                       onCopy={() =>
-                        handleCopy('password', selectedItem.password, '已复制密码', true)
+                        handleCopy('password', selectedItem.password, 'Password copied', true)
                       }
                       copied={copiedField === 'password'}
                     />
                     <DetailRow
-                      label="网址"
+                      label="URL"
                       value={selectedItem.url}
                       onCopy={() => handleCopy('url', selectedItem.url)}
                       copied={copiedField === 'url'}
@@ -1241,7 +1248,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                             type="button"
                             onClick={() => handleOpenUrl(selectedItem.url)}
                             className="p-1.5 sm:p-1 text-slate-400 hover:text-amber-700 dark:hover:text-amber-300"
-                            title="打开网址"
+                            title="Open URL"
                           >
                             <ExternalLink className="w-4 h-4" />
                           </button>
@@ -1251,7 +1258,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                     {selectedItem.totp?.trim() && (
                       <TotpDetailRow
                         rawSecret={selectedItem.totp}
-                        onCopyCode={(code) => handleCopy('totp', code, '已复制验证码', true)}
+                        onCopyCode={(code) => handleCopy('totp', code, 'Code copied', true)}
                         copied={copiedField === 'totp'}
                       />
                     )}
@@ -1260,21 +1267,21 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
 
                 {selectedItem.type === 'card' && (
                   <>
-                    <DetailRow label="持卡人" value={selectedItem.cardholder} />
-                    <DetailRow label="品牌" value={selectedItem.brand} />
+                    <DetailRow label="Cardholder" value={selectedItem.cardholder} />
+                    <DetailRow label="Brand" value={selectedItem.brand} />
                     <DetailRow
-                      label="卡号"
+                      label="Number"
                       value={formatCardNumber(selectedItem.number)}
                       secret
                       mono
                       onCopy={() =>
-                        handleCopy('number', selectedItem.number, '已复制卡号', true)
+                        handleCopy('number', selectedItem.number, 'Card number copied', true)
                       }
                       copied={copiedField === 'number'}
                     />
                     {(selectedItem.expMonth || selectedItem.expYear) && (
                       <DetailRow
-                        label="有效期"
+                        label="Expires"
                         value={[selectedItem.expMonth, selectedItem.expYear]
                           .filter(Boolean)
                           .join('/')}
@@ -1285,7 +1292,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                       value={selectedItem.cvv}
                       secret
                       mono
-                      onCopy={() => handleCopy('cvv', selectedItem.cvv, '已复制 CVV', true)}
+                      onCopy={() => handleCopy('cvv', selectedItem.cvv, 'CVV copied', true)}
                       copied={copiedField === 'cvv'}
                     />
                   </>
@@ -1293,15 +1300,15 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
 
                 {selectedItem.type === 'identity' && (
                   <>
-                    <DetailRow label="姓名" value={selectedItem.fullName} />
-                    <DetailRow label="证件类型" value={selectedItem.idType} />
+                    <DetailRow label="Name" value={selectedItem.fullName} />
+                    <DetailRow label="ID type" value={selectedItem.idType} />
                     <DetailRow
-                      label="证件号"
+                      label="ID number"
                       value={selectedItem.idNumber}
                       secret
                       mono
                       onCopy={() =>
-                        handleCopy('idNumber', selectedItem.idNumber, '已复制证件号', true)
+                        handleCopy('idNumber', selectedItem.idNumber, 'ID number copied', true)
                       }
                       copied={copiedField === 'idNumber'}
                     />
@@ -1309,20 +1316,20 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                 )}
 
                 {selectedItem.folder?.trim() && (
-                  <DetailRow label="文件夹" value={selectedItem.folder} />
+                  <DetailRow label="Folder" value={selectedItem.folder} />
                 )}
 
                 {(selectedItem.fields?.length ?? 0) > 0 && (
                   <div className="pt-1 border-t border-slate-100 dark:border-slate-800 space-y-2">
-                    <span className="block text-sm font-semibold text-slate-400">自定义字段</span>
+                    <span className="block text-sm font-semibold text-slate-400">Custom fields</span>
                     {selectedItem.fields!.map((field, index) => (
                       <React.Fragment key={index}>
                         <DetailRow
-                          label={field.label || '字段'}
+                          label={field.label || 'Field'}
                           value={field.value}
                           secret={field.secret}
                           onCopy={() =>
-                            handleCopy(`field-${index}`, field.value, '已复制', Boolean(field.secret))
+                            handleCopy(`field-${index}`, field.value, 'Copied', Boolean(field.secret))
                           }
                           copied={copiedField === `field-${index}`}
                         />
@@ -1334,7 +1341,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                 {selectedItem.notes?.trim() && (
                   <div className="pt-1 border-t border-slate-100 dark:border-slate-800">
                     <span className="block text-sm font-semibold text-slate-500 dark:text-slate-400 mb-0.5">
-                      备注
+                      Notes
                     </span>
                     <p className="text-[15px] text-slate-700 dark:text-slate-200 whitespace-pre-wrap break-words">
                       {selectedItem.notes}
@@ -1351,7 +1358,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                 className="px-2.5 py-2 sm:py-1.5 rounded-lg text-sm font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1"
               >
                 <ClipboardCopy className="w-3.5 h-3.5" />
-                复制全部
+                Copy all
               </button>
               <div className="flex-1" />
               <button
@@ -1360,7 +1367,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                 disabled={busy}
                 className="px-2.5 py-2 sm:py-1.5 rounded-lg text-sm font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
               >
-                删除
+                Delete
               </button>
               <button
                 type="button"
@@ -1368,7 +1375,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                 className="px-3.5 py-2 sm:py-1.5 rounded-lg text-sm font-semibold text-white bg-amber-600 hover:bg-amber-500 flex items-center gap-1.5"
               >
                 <Pencil className="w-3.5 h-3.5" />
-                编辑
+                Edit
               </button>
             </div>
           </div>
@@ -1379,7 +1386,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
             <div className="flex-1 min-h-0 overflow-y-auto p-3">
               <div className="rounded-lg border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/50 p-2.5 space-y-2">
                 <Field
-                  label="标题"
+                  label="Title"
                   value={draft.title}
                   onChange={(value) => updateDraft({ title: value })}
                 />
@@ -1387,14 +1394,14 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                 {draft.type === 'login' && (
                   <>
                     <Field
-                      label="用户名"
+                      label="Username"
                       value={draft.username || ''}
                       onChange={(value) => updateDraft({ username: value })}
-                      onCopy={() => handleCopy('username', draft.username, '已复制用户名')}
+                      onCopy={() => handleCopy('username', draft.username, 'Username copied')}
                       copied={copiedField === 'username'}
                     />
                     <Field
-                      label="密码"
+                      label="Password"
                       value={draft.password || ''}
                       secret
                       revealed={Boolean(revealSecrets.password)}
@@ -1405,23 +1412,23 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                         }))
                       }
                       onChange={(value) => updateDraft({ password: value })}
-                      onCopy={() => handleCopy('password', draft.password, '已复制密码', true)}
+                      onCopy={() => handleCopy('password', draft.password, 'Password copied', true)}
                       copied={copiedField === 'password'}
                       action={
                         <button
                           type="button"
                           onClick={() => void handleGeneratePassword()}
                           className="inline-flex items-center gap-0.5 text-sm font-semibold text-amber-700 dark:text-amber-300 hover:opacity-80"
-                          title="生成随机密码"
+                          title="Generate password"
                         >
                           <RefreshCw className="w-3 h-3" />
-                          生成
+                          Generate
                         </button>
                       }
                     />
                     <div className="grid grid-cols-[1fr_auto] gap-1.5 items-end">
                       <Field
-                        label="网址"
+                        label="URL"
                         value={draft.url || ''}
                         onChange={(value) => updateDraft({ url: value })}
                         onCopy={() => handleCopy('url', draft.url)}
@@ -1432,7 +1439,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                         disabled={!draft.url?.trim()}
                         onClick={() => handleOpenUrl(draft.url)}
                         className="mb-0.5 h-9 sm:h-[30px] px-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 disabled:opacity-40"
-                        title="打开网址"
+                        title="Open URL"
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
                       </button>
@@ -1441,7 +1448,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                       label="TOTP"
                       value={draft.totp || ''}
                       onChange={(value) => updateDraft({ totp: value })}
-                      onCopy={() => handleCopy('totp', draft.totp, '已复制', true)}
+                      onCopy={() => handleCopy('totp', draft.totp, 'Copied', true)}
                       copied={copiedField === 'totp'}
                     />
                   </>
@@ -1451,20 +1458,20 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                   <>
                     <div className="grid grid-cols-2 gap-1.5">
                       <Field
-                        label="持卡人"
+                        label="Cardholder"
                         value={draft.cardholder || ''}
                         onChange={(value) => updateDraft({ cardholder: value })}
                         onCopy={() => handleCopy('cardholder', draft.cardholder)}
                         copied={copiedField === 'cardholder'}
                       />
                       <Field
-                        label="品牌"
+                        label="Brand"
                         value={draft.brand || ''}
                         onChange={(value) => updateDraft({ brand: value })}
                       />
                     </div>
                     <Field
-                      label="卡号"
+                      label="Number"
                       value={draft.number || ''}
                       secret
                       revealed={Boolean(revealSecrets.number)}
@@ -1475,17 +1482,17 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                         }))
                       }
                       onChange={(value) => updateDraft({ number: value })}
-                      onCopy={() => handleCopy('number', draft.number, '已复制', true)}
+                      onCopy={() => handleCopy('number', draft.number, 'Copied', true)}
                       copied={copiedField === 'number'}
                     />
                     <div className="grid grid-cols-3 gap-1.5">
                       <Field
-                        label="月"
+                        label="Month"
                         value={draft.expMonth || ''}
                         onChange={(value) => updateDraft({ expMonth: value })}
                       />
                       <Field
-                        label="年"
+                        label="Year"
                         value={draft.expYear || ''}
                         onChange={(value) => updateDraft({ expYear: value })}
                       />
@@ -1501,7 +1508,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                           }))
                         }
                         onChange={(value) => updateDraft({ cvv: value })}
-                        onCopy={() => handleCopy('cvv', draft.cvv, '已复制', true)}
+                        onCopy={() => handleCopy('cvv', draft.cvv, 'Copied', true)}
                         copied={copiedField === 'cvv'}
                       />
                     </div>
@@ -1512,20 +1519,20 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                   <>
                     <div className="grid grid-cols-2 gap-1.5">
                       <Field
-                        label="姓名"
+                        label="Name"
                         value={draft.fullName || ''}
                         onChange={(value) => updateDraft({ fullName: value })}
                         onCopy={() => handleCopy('fullName', draft.fullName)}
                         copied={copiedField === 'fullName'}
                       />
                       <Field
-                        label="证件类型"
+                        label="ID type"
                         value={draft.idType || ''}
                         onChange={(value) => updateDraft({ idType: value })}
                       />
                     </div>
                     <Field
-                      label="证件号"
+                      label="ID number"
                       value={draft.idNumber || ''}
                       secret
                       revealed={Boolean(revealSecrets.idNumber)}
@@ -1536,7 +1543,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                         }))
                       }
                       onChange={(value) => updateDraft({ idNumber: value })}
-                      onCopy={() => handleCopy('idNumber', draft.idNumber, '已复制', true)}
+                      onCopy={() => handleCopy('idNumber', draft.idNumber, 'Copied', true)}
                       copied={copiedField === 'idNumber'}
                     />
                   </>
@@ -1546,7 +1553,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                   value={draft.notes || ''}
                   onChange={(event) => updateDraft({ notes: event.target.value })}
                   rows={6}
-                  placeholder="备注（可选）"
+                  placeholder="Notes (optional)"
                   className="w-full min-h-[9rem] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-2 text-base sm:text-[15px] resize-y"
                   autoComplete="off"
                 />
@@ -1554,7 +1561,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                 {(draft.type === 'custom' || (draft.fields && draft.fields.length > 0)) && (
                   <div className="space-y-1.5 pt-0.5 border-t border-slate-100 dark:border-slate-800">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold text-slate-400">自定义字段</span>
+                      <span className="text-sm font-semibold text-slate-400">Custom fields</span>
                       <button
                         type="button"
                         onClick={() =>
@@ -1564,7 +1571,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                         }
                         className="text-sm font-semibold text-amber-700 dark:text-amber-300"
                       >
-                        + 添加
+                        + Add
                       </button>
                     </div>
                     {(draft.fields || []).map((field, index) => (
@@ -1573,12 +1580,12 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                         className="grid grid-cols-[1fr_1fr_auto_auto] gap-1.5 items-end"
                       >
                         <Field
-                          label="标签"
+                          label="Label"
                           value={field.label}
                           onChange={(value) => updateFieldRow(index, { label: value })}
                         />
                         <Field
-                          label="值"
+                          label="Value"
                           value={field.value}
                           secret={field.secret}
                           revealed={Boolean(revealSecrets[`field-${index}`])}
@@ -1593,7 +1600,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                           }
                           onChange={(value) => updateFieldRow(index, { value })}
                           onCopy={() =>
-                            handleCopy(`field-${index}`, field.value, '已复制', Boolean(field.secret))
+                            handleCopy(`field-${index}`, field.value, 'Copied', Boolean(field.secret))
                           }
                           copied={copiedField === `field-${index}`}
                         />
@@ -1605,7 +1612,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                               ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40'
                               : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
                           }`}
-                          title={field.secret ? '取消隐藏字段' : '设为隐藏字段'}
+                          title={field.secret ? 'Make field visible' : 'Hide field'}
                         >
                           {field.secret ? (
                             <EyeOff className="w-3.5 h-3.5" />
@@ -1621,7 +1628,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                             })
                           }
                           className="p-2 sm:p-1.5 mb-0.5 rounded-md text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40"
-                          title="删除字段"
+                          title="Delete field"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -1641,7 +1648,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                 className="px-3.5 py-2 sm:py-1.5 rounded-lg text-sm font-semibold text-white bg-amber-600 hover:bg-amber-500 disabled:opacity-60 flex items-center gap-1.5"
               >
                 {busy && <LoaderCircle className="w-3.5 h-3.5 animate-spin" />}
-                保存
+                Save
               </button>
             </div>
           </div>
@@ -1651,9 +1658,9 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
           <div className="flex flex-col flex-1 min-h-0">
             <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2">
               <div className="grid grid-cols-3 gap-1.5 text-center">
-                <Stat label="新增" value={mergePlan.adds.length} />
-                <Stat label="更新" value={mergePlan.updates.length} />
-                <Stat label="跳过" value={mergePlan.skips.length} />
+                <Stat label="Added" value={mergePlan.adds.length} />
+                <Stat label="Updated" value={mergePlan.updates.length} />
+                <Stat label="Skipped" value={mergePlan.skips.length} />
               </div>
               <div className="rounded-lg border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800 text-[15px] overflow-hidden">
                 {[...mergePlan.adds, ...mergePlan.updates, ...mergePlan.skips]
@@ -1667,21 +1674,21 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                         {entry.incoming.title}
                       </span>
                       <span className="shrink-0 text-slate-500">
-                        {entry.action === 'add' && '新增'}
-                        {entry.action === 'update' && '更新'}
-                        {entry.action === 'skip' && '跳过'}
+                        {entry.action === 'add' && 'Add'}
+                        {entry.action === 'update' && 'Update'}
+                        {entry.action === 'skip' && 'Skip'}
                       </span>
                     </div>
                   ))}
                 {mergePlan.adds.length + mergePlan.updates.length + mergePlan.skips.length >
                   IMPORT_PREVIEW_LIMIT && (
                   <div className="px-2.5 py-1.5 text-sm text-slate-400 text-center">
-                    还有{' '}
+                    and{' '}
                     {mergePlan.adds.length +
                       mergePlan.updates.length +
                       mergePlan.skips.length -
                       IMPORT_PREVIEW_LIMIT}{' '}
-                    条未显示
+                    more not shown
                   </div>
                 )}
               </div>
@@ -1695,7 +1702,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                 }}
                 className="flex-1 px-3 py-2 rounded-lg text-[15px] font-semibold bg-slate-100 dark:bg-slate-800"
               >
-                取消
+                Cancel
               </button>
               <button
                 type="button"
@@ -1706,7 +1713,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                 className="flex-1 px-3 py-2 rounded-lg text-[15px] font-semibold text-white bg-amber-600 hover:bg-amber-500 disabled:opacity-60 flex items-center justify-center gap-1.5"
               >
                 {busy && <LoaderCircle className="w-3.5 h-3.5 animate-spin" />}
-                确认合并
+                Confirm merge
               </button>
             </div>
           </div>
@@ -1716,11 +1723,11 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
           <form onSubmit={handleChangePassword} className="flex flex-col flex-1 min-h-0">
             <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2.5">
               <p className="text-[15px] leading-snug text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/50 rounded-lg px-2.5 py-2">
-                修改后将用新密钥重新加密全部条目，请勿在过程中关闭页面。新主密码同样不可找回。
+                All items will be re-encrypted with the new key. Do not close this page. The new master password cannot be recovered either.
               </p>
               <FieldGroup>
                 <Field
-                  label="新主密码"
+                  label="New master password"
                   value={password}
                   secret
                   revealed={showPassword}
@@ -1730,7 +1737,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                   autoComplete="new-password"
                 />
                 <Field
-                  label="确认新主密码"
+                  label="Confirm new master password"
                   value={passwordConfirm}
                   secret
                   revealed={showPassword}
@@ -1746,7 +1753,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                 className="w-full rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-[15px] font-semibold py-2 disabled:opacity-60 flex items-center justify-center gap-1.5"
               >
                 {busy && <LoaderCircle className="w-3.5 h-3.5 animate-spin" />}
-                修改主密码
+                Change master password
               </button>
             </div>
           </form>
@@ -1787,7 +1794,7 @@ function VaultNoticeBanner({
         type="button"
         onClick={onDismiss}
         className="shrink-0 p-0.5 rounded hover:opacity-70"
-        title="关闭"
+        title="Close"
       >
         <X className="w-3.5 h-3.5" />
       </button>
@@ -1850,8 +1857,8 @@ function VaultCopyMenu({
     <div className="relative" data-vault-copy-menu>
       <button
         type="button"
-        title="复制"
-        aria-label="复制"
+        title="Copy"
+        aria-label="Copy"
         aria-expanded={open}
         onClick={onToggle}
         className={`inline-flex items-center gap-1 rounded-lg border transition-colors ${
@@ -1863,7 +1870,7 @@ function VaultCopyMenu({
         }`}
       >
         <ClipboardCopy className="w-3.5 h-3.5" />
-        {showLabel && <span>复制</span>}
+        {showLabel && <span>Copy</span>}
         <ChevronDown className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
@@ -1873,16 +1880,16 @@ function VaultCopyMenu({
           }`}
         >
           <CopyMenuItem
-            label="复制用户名"
+            label="Copy username"
             disabled={!canUsername}
             onClick={() => onAction('username')}
           />
           <CopyMenuItem
-            label="复制密码"
+            label="Copy password"
             disabled={!canPassword}
             onClick={() => onAction('password')}
           />
-          <CopyMenuItem label="复制全部" onClick={() => onAction('all')} />
+          <CopyMenuItem label="Copy all" onClick={() => onAction('all')} />
         </div>
       )}
     </div>
@@ -2035,7 +2042,7 @@ function DetailRow({
             type="button"
             onClick={() => setRevealed((current) => !current)}
             className="p-1.5 sm:p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0"
-            title={revealed ? '隐藏' : '显示'}
+            title={revealed ? 'Hide' : 'Show'}
           >
             {revealed ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
@@ -2045,7 +2052,7 @@ function DetailRow({
             type="button"
             onClick={onCopy}
             className="p-1.5 sm:p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0"
-            title="复制"
+            title="Copy"
           >
             {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
           </button>
@@ -2092,12 +2099,12 @@ function TotpDetailRow({
 
   const displayCode = code
     ? `${code.slice(0, Math.ceil(code.length / 2))} ${code.slice(Math.ceil(code.length / 2))}`
-    : '……';
+    : '······';
 
   return (
     <div className="min-w-0">
       <span className="block text-sm font-semibold text-slate-500 dark:text-slate-400 leading-tight">
-        验证码
+        Authenticator code
       </span>
       <div className="flex items-center gap-2">
         <span className="text-lg font-mono font-bold tracking-wider text-slate-900 dark:text-white">
@@ -2108,7 +2115,7 @@ function TotpDetailRow({
           type="button"
           onClick={() => code && onCopyCode(code)}
           className="p-1.5 sm:p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-          title="复制验证码"
+          title="Copy code"
         >
           {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
         </button>
@@ -2144,14 +2151,14 @@ function VaultEmptyState({
   onCreateLogin: () => void;
 }) {
   if (hasItems) {
-    return <div className="py-12 text-center text-[15px] text-slate-400">没有匹配的条目</div>;
+    return <div className="py-12 text-center text-[15px] text-slate-400">No matching items</div>;
   }
   return (
     <div className="py-12 px-6 text-center space-y-3">
       <Shield className="w-9 h-9 mx-auto text-slate-300 dark:text-slate-600" />
-      <p className="text-[15px] font-semibold text-slate-500 dark:text-slate-400">保险箱还是空的</p>
+      <p className="text-[15px] font-semibold text-slate-500 dark:text-slate-400">Your vault is empty</p>
       <p className="text-sm text-slate-400 dark:text-slate-500">
-        点击下方按钮新建条目，或从右上角菜单导入 Bitwarden
+        Create an item below, or import from Bitwarden via the menu
       </p>
       <button
         type="button"
@@ -2159,7 +2166,7 @@ function VaultEmptyState({
         className="inline-flex items-center gap-1 px-3 py-2 sm:py-1.5 rounded-lg text-sm font-semibold text-white bg-amber-600 hover:bg-amber-500"
       >
         <Plus className="w-3.5 h-3.5" />
-        新建登录
+        New login
       </button>
     </div>
   );

@@ -11,7 +11,7 @@ describe('parseBitwardenExport', () => {
   it('rejects encrypted exports', () => {
     assert.throws(
       () => parseBitwardenExport({ encrypted: true, items: [] }),
-      /未加密/
+      /Unencrypted/
     );
   });
 

@@ -24,14 +24,14 @@ describe('formatVaultItemForCopy', () => {
     };
 
     const text = formatVaultItemForCopy(item);
-    assert.match(text, /标题：Gmail/);
-    assert.match(text, /类型：登录/);
-    assert.match(text, /用户名：a@b.com/);
-    assert.match(text, /密码：secret/);
-    assert.match(text, /网址：https:\/\/mail\.google\.com/);
-    assert.match(text, /自定义字段/);
-    assert.match(text, /pin：1234/);
-    assert.match(text, /备注\nprimary account/);
+    assert.match(text, /Title: Gmail/);
+    assert.match(text, /Type: Login/);
+    assert.match(text, /Username: a@b.com/);
+    assert.match(text, /Password: secret/);
+    assert.match(text, /URL: https:\/\/mail\.google\.com/);
+    assert.match(text, /Custom fields/);
+    assert.match(text, /pin: 1234/);
+    assert.match(text, /Notes\nprimary account/);
   });
 
   it('formats card expiry as month/year', () => {
@@ -45,7 +45,7 @@ describe('formatVaultItemForCopy', () => {
       createdAt: 1,
       updatedAt: 1,
     });
-    assert.match(text, /有效期：12\/2030/);
+    assert.match(text, /Expires: 12\/2030/);
   });
 });
 

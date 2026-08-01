@@ -177,15 +177,17 @@ export function mapBitwardenItem(
 
 export function parseBitwardenExport(raw: unknown): VaultItemPlain[] {
   if (!raw || typeof raw !== 'object') {
-    throw new Error('无效的 Bitwarden 导出文件。');
+    throw new Error('Invalid Bitwarden export file.');
   }
 
   const data = raw as BitwardenExport;
   if (data.encrypted === true) {
-    throw new Error('不支持加密的 Bitwarden 导出，请导出「JSON（未加密）」。');
+    throw new Error(
+      'Encrypted Bitwarden exports are not supported. Please export as "JSON (Unencrypted)".'
+    );
   }
   if (!Array.isArray(data.items)) {
-    throw new Error('未找到 items 数组。请使用 Bitwarden 未加密 JSON 导出。');
+    throw new Error('No items array found. Please use an unencrypted Bitwarden JSON export.');
   }
 
   const folderMap = new Map<string, string>();
@@ -272,9 +274,9 @@ export function buildVaultMergePlan(
 }
 
 export function vaultItemTypeLabel(type: VaultItemType): string {
-  if (type === 'login') return '登录';
-  if (type === 'card') return '银行卡';
-  if (type === 'identity') return '证件';
-  if (type === 'note') return '笔记';
-  return '自定义';
+  if (type === 'login') return 'Login';
+  if (type === 'card') return 'Card';
+  if (type === 'identity') return 'Identity';
+  if (type === 'note') return 'Note';
+  return 'Custom';
 }

@@ -10,10 +10,10 @@ const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
 
 export const VAULT_TTL_OPTIONS = [
-  { label: '1小时', ms: HOUR },
-  { label: '1天', ms: DAY },
-  { label: '7天', ms: 7 * DAY },
-  { label: '30天', ms: 30 * DAY },
+  { label: '1 hour', ms: HOUR },
+  { label: '1 day', ms: DAY },
+  { label: '7 days', ms: 7 * DAY },
+  { label: '30 days', ms: 30 * DAY },
 ] as const;
 
 export const DEFAULT_VAULT_TTL_MS = VAULT_TTL_OPTIONS[1].ms;

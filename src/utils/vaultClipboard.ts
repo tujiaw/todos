@@ -4,49 +4,49 @@ import { vaultItemTypeLabel } from './bitwardenImport';
 function pushLine(lines: string[], label: string, value?: string | null) {
   const trimmed = value?.trim();
   if (!trimmed) return;
-  lines.push(`${label}：${trimmed}`);
+  lines.push(`${label}: ${trimmed}`);
 }
 
 /** Build a human-readable plain-text dump of a vault item for clipboard. */
 export function formatVaultItemForCopy(item: VaultItemPlain): string {
   const lines: string[] = [];
 
-  pushLine(lines, '标题', item.title);
-  pushLine(lines, '类型', vaultItemTypeLabel(item.type));
-  pushLine(lines, '文件夹', item.folder);
+  pushLine(lines, 'Title', item.title);
+  pushLine(lines, 'Type', vaultItemTypeLabel(item.type));
+  pushLine(lines, 'Folder', item.folder);
 
   if (item.type === 'login') {
-    pushLine(lines, '用户名', item.username);
-    pushLine(lines, '密码', item.password);
-    pushLine(lines, '网址', item.url);
+    pushLine(lines, 'Username', item.username);
+    pushLine(lines, 'Password', item.password);
+    pushLine(lines, 'URL', item.url);
     pushLine(lines, 'TOTP', item.totp);
   } else if (item.type === 'card') {
-    pushLine(lines, '持卡人', item.cardholder);
-    pushLine(lines, '品牌', item.brand);
-    pushLine(lines, '卡号', item.number);
+    pushLine(lines, 'Cardholder', item.cardholder);
+    pushLine(lines, 'Brand', item.brand);
+    pushLine(lines, 'Number', item.number);
     if (item.expMonth || item.expYear) {
       const month = (item.expMonth || '').trim();
       const year = (item.expYear || '').trim();
-      lines.push(`有效期：${month}${month && year ? '/' : ''}${year}`);
+      lines.push(`Expires: ${month}${month && year ? '/' : ''}${year}`);
     }
     pushLine(lines, 'CVV', item.cvv);
   } else if (item.type === 'identity') {
-    pushLine(lines, '姓名', item.fullName);
-    pushLine(lines, '证件类型', item.idType);
-    pushLine(lines, '证件号', item.idNumber);
+    pushLine(lines, 'Name', item.fullName);
+    pushLine(lines, 'ID type', item.idType);
+    pushLine(lines, 'ID number', item.idNumber);
   }
 
   if (item.fields?.length) {
     const fieldLines = item.fields
       .filter((field) => field.label?.trim() || field.value?.trim())
       .map((field) => {
-        const label = field.label?.trim() || '字段';
+        const label = field.label?.trim() || 'Field';
         const value = field.value?.trim() || '';
-        return `${label}：${value}`;
+        return `${label}: ${value}`;
       });
     if (fieldLines.length > 0) {
       lines.push('');
-      lines.push('自定义字段');
+      lines.push('Custom fields');
       for (const line of fieldLines) lines.push(line);
     }
   }
@@ -54,7 +54,7 @@ export function formatVaultItemForCopy(item: VaultItemPlain): string {
   const notes = item.notes?.trim();
   if (notes) {
     lines.push('');
-    lines.push('备注');
+    lines.push('Notes');
     lines.push(notes);
   }
 
