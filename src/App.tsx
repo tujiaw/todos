@@ -1433,6 +1433,7 @@ export default function App() {
           onEditTask={(task) => setEditingTask(task)}
           onToggleSubtask={handleToggleSubtask}
           selectedDate={selectedDate}
+          onRefresh={refreshFromStorage}
         />
       </main>
 
