@@ -102,14 +102,18 @@ test('global AI preference disables AI UI and uses daily dashboard cache', () =>
   assert.match(aiAssistModal, /Ask or create tasks/);
   assert.match(aiAssistModal, /slide-in-from-right/);
   assert.match(aiAssistModal, /sm:w-\[420px\] lg:w-\[440px\]/);
+  assert.match(aiAssistModal, /sm:rounded-3xl/);
+  assert.match(aiAssistModal, /rounded-full/);
   assert.doesNotMatch(aiAssistModal, /backdrop-blur/);
   assert.match(aiAssistModal, /createdTasks/);
   assert.match(aiAssistModal, /messages\.map/);
+  assert.match(aiAssistModal, /SuggestionChips/);
   assert.match(aiAssistModal, /onCancel/);
   assert.match(aiAssistModal, /onClearMessages/);
   assert.match(aiAssistModal, /onRetry/);
   assert.match(aiAssistModal, /onViewCreatedTasks/);
   assert.match(aiAssistModal, /sendOnClick/);
+  assert.doesNotMatch(aiAssistModal, /showPromptChips/);
   assert.match(app, /handleCancelAiAssist/);
   assert.match(app, /handleRetryAiAssist/);
   assert.match(app, /aiAssistMessages/);
