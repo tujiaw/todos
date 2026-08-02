@@ -49,6 +49,7 @@ export interface AiAssistChatMessage {
   content: string;
   createdTasks?: AiAssistCreatedTask[];
   error?: boolean;
+  stopped?: boolean;
 }
 
 export interface AiAssistSuggestion {
@@ -56,6 +57,8 @@ export interface AiAssistSuggestion {
   label: string;
   hint: string;
   prompt: string;
+  /** When true, clicking the chip sends immediately instead of only filling the input. */
+  sendOnClick?: boolean;
 }
 
 export function createAiAssistMessageId(): string {
@@ -103,20 +106,25 @@ export function getAiAssistSuggestions(options?: {
 }): AiAssistSuggestion[] {
   const focusDate = options?.selectedDate;
   const today = options?.todayDate;
-  const focusLabel =
-    focusDate && today && focusDate === today
-      ? 'today'
-      : focusDate
-        ? focusDate
-        : 'today';
+  const isToday = Boolean(focusDate && today && focusDate === today);
+  const focusLabel = isToday ? 'today' : focusDate || 'today';
+  const createStub = isToday
+    ? 'Create a task today: '
+    : `Create a task on ${focusLabel}: `;
 
   return [
     {
       id: 'create_task',
       label: 'Create task',
-      hint: 'Natural language → task',
-      prompt:
-        'Create a task for tomorrow afternoon: prepare the weekly work report, high priority, category work, with subtasks collect data and draft slides.',
+      hint: 'Fill in what to create, then Send',
+      prompt: createStub,
+    },
+    {
+      id: 'today_focus',
+      label: isToday ? "Today's focus" : 'Day focus',
+      hint: 'Prioritized next steps',
+      prompt: `What should I focus on for ${focusLabel}? Prioritize high-priority pending tasks and suggest an order.`,
+      sendOnClick: true,
     },
     {
       id: 'weekly_minutes',
@@ -124,12 +132,7 @@ export function getAiAssistSuggestions(options?: {
       hint: 'This week overview',
       prompt:
         'Summarize this week’s tasks as meeting-ready weekly minutes. Group by category when helpful.',
-    },
-    {
-      id: 'today_focus',
-      label: "Today's focus",
-      hint: 'What to do first',
-      prompt: `What should I focus on for ${focusLabel}? Prioritize high-priority pending tasks and suggest an order.`,
+      sendOnClick: true,
     },
     {
       id: 'daily_standup',
@@ -137,19 +140,7 @@ export function getAiAssistSuggestions(options?: {
       hint: 'Short briefing',
       prompt:
         'Write a short daily standup: done recently, doing now, next, and any high-priority risks.',
-    },
-    {
-      id: 'backlog_triage',
-      label: 'Backlog triage',
-      hint: 'Keep, defer, or drop',
-      prompt:
-        'Triage my open backlog: what to do now, what to defer, and what to consider dropping.',
-    },
-    {
-      id: 'week_work',
-      label: 'This week · Work',
-      hint: 'Work category only',
-      prompt: 'Summarize this week’s work items (category: work). Include completed and pending.',
+      sendOnClick: true,
     },
   ];
 }

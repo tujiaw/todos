@@ -156,6 +156,8 @@ export default function App() {
   const [aiAssistMessages, setAiAssistMessages] = useState<AiAssistChatMessage[]>([]);
   const [isAiAssistLoading, setIsAiAssistLoading] = useState(false);
   const aiAssistAbortRef = useRef<AbortController | null>(null);
+  const aiAssistLoadingRef = useRef(false);
+  const aiAssistMessagesRef = useRef<AiAssistChatMessage[]>([]);
 
   // Drop Items State
   const [dropItems, setDropItems] = useState<DropItem[]>([]);
@@ -774,13 +776,37 @@ export default function App() {
   );
 
   const appendAiAssistMessage = useCallback((message: AiAssistChatMessage) => {
-    setAiAssistMessages((prev) => [...prev, message]);
+    setAiAssistMessages((prev) => {
+      const next = [...prev, message];
+      aiAssistMessagesRef.current = next;
+      return next;
+    });
   }, []);
+
+  const setAiAssistLoading = useCallback((loading: boolean) => {
+    aiAssistLoadingRef.current = loading;
+    setIsAiAssistLoading(loading);
+  }, []);
+
+  const markAiAssistStopped = useCallback(
+    (restorePrompt?: string) => {
+      appendAiAssistMessage({
+        id: createAiAssistMessageId(),
+        role: 'assistant',
+        content: 'Stopped. Edit below and send again, or tap Retry.',
+        stopped: true,
+      });
+      if (restorePrompt?.trim()) {
+        setAiAssistPrompt(restorePrompt);
+      }
+    },
+    [appendAiAssistMessage]
+  );
 
   const runAiAssist = useCallback(
     async (message: string) => {
       const trimmed = message.trim();
-      if (!trimmed || isAiAssistLoading) return;
+      if (!trimmed || aiAssistLoadingRef.current) return;
 
       aiAssistAbortRef.current?.abort();
       const controller = new AbortController();
@@ -792,7 +818,7 @@ export default function App() {
         content: trimmed,
       });
       setAiAssistPrompt('');
-      setIsAiAssistLoading(true);
+      setAiAssistLoading(true);
 
       const pushError = (content: string) => {
         appendAiAssistMessage({
@@ -805,12 +831,12 @@ export default function App() {
 
       if (!aiEnabled) {
         pushError('AI is off. Enable AI in Settings to use AI Assist.');
-        setIsAiAssistLoading(false);
+        setAiAssistLoading(false);
         return;
       }
       if (!user) {
         pushError('Sign in to use AI Assist.');
-        setIsAiAssistLoading(false);
+        setAiAssistLoading(false);
         return;
       }
 
@@ -848,7 +874,7 @@ export default function App() {
         );
       } finally {
         if (aiAssistAbortRef.current === controller) {
-          setIsAiAssistLoading(false);
+          setAiAssistLoading(false);
         }
       }
     },
@@ -860,35 +886,64 @@ export default function App() {
       selectedDate,
       applyCreatedAiTasks,
       appendAiAssistMessage,
-      isAiAssistLoading,
+      setAiAssistLoading,
     ]
   );
 
   const handleOpenAiAssist = () => {
-    setAiAssistPrompt('');
     setIsAiAssistOpen(true);
   };
 
   const handleCloseAiAssist = () => {
+    const wasLoading = aiAssistLoadingRef.current;
+    const lastUser = [...aiAssistMessagesRef.current]
+      .reverse()
+      .find((item) => item.role === 'user');
     aiAssistAbortRef.current?.abort();
     aiAssistAbortRef.current = null;
-    setIsAiAssistLoading(false);
+    if (wasLoading) {
+      markAiAssistStopped(lastUser?.content);
+    }
+    setAiAssistLoading(false);
     setIsAiAssistOpen(false);
   };
 
-  const handleSubmitAiAssist = () => {
-    void runAiAssist(aiAssistPrompt);
+  const handleSendAiAssist = (text: string) => {
+    void runAiAssist(text);
   };
 
   const handleCancelAiAssist = () => {
+    if (!aiAssistLoadingRef.current) return;
+    const lastUser = [...aiAssistMessagesRef.current]
+      .reverse()
+      .find((item) => item.role === 'user');
     aiAssistAbortRef.current?.abort();
     aiAssistAbortRef.current = null;
-    setIsAiAssistLoading(false);
+    setAiAssistLoading(false);
+    markAiAssistStopped(lastUser?.content);
   };
 
   const handleClearAiAssistMessages = () => {
-    if (isAiAssistLoading) return;
+    if (aiAssistLoadingRef.current) return;
+    aiAssistMessagesRef.current = [];
     setAiAssistMessages([]);
+  };
+
+  const handleRetryAiAssist = (assistantMessageId: string) => {
+    if (aiAssistLoadingRef.current) return;
+    const list = aiAssistMessagesRef.current;
+    const index = list.findIndex((item) => item.id === assistantMessageId);
+    if (index < 0) return;
+    for (let i = index - 1; i >= 0; i -= 1) {
+      if (list[i].role === 'user') {
+        void runAiAssist(list[i].content);
+        return;
+      }
+    }
+  };
+
+  const handleViewCreatedAiTasks = () => {
+    setIsAiAssistOpen(false);
   };
 
   const handleToggleComplete = (taskId: string) => {
@@ -1413,9 +1468,11 @@ export default function App() {
         })}
         messages={aiAssistMessages}
         isLoading={isAiAssistLoading}
-        onSubmit={handleSubmitAiAssist}
+        onSend={handleSendAiAssist}
         onCancel={handleCancelAiAssist}
         onClearMessages={handleClearAiAssistMessages}
+        onRetry={handleRetryAiAssist}
+        onViewCreatedTasks={handleViewCreatedAiTasks}
       />
 
       {/* Mobile Smartphone Bottom Navigation Toolbar */}

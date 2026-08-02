@@ -161,10 +161,15 @@ test('builds client suggestions', () => {
     selectedDate: '2026-07-31',
     todayDate: '2026-07-31',
   });
+  assert.equal(suggestions.length, 4);
   assert.ok(suggestions.some((item) => item.id === 'create_task'));
   assert.ok(suggestions.some((item) => item.id === 'weekly_minutes'));
   assert.match(
-    suggestions.find((item) => item.id === 'week_work')?.prompt || '',
-    /work/i
+    suggestions.find((item) => item.id === 'create_task')?.prompt || '',
+    /Create a task today:/
+  );
+  assert.equal(
+    suggestions.find((item) => item.id === 'today_focus')?.sendOnClick,
+    true
   );
 });
