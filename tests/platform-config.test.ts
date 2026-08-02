@@ -107,6 +107,7 @@ test('global AI preference disables AI UI and uses daily dashboard cache', () =>
   assert.doesNotMatch(aiAssistModal, /backdrop-blur/);
   assert.match(aiAssistModal, /createdTasks/);
   assert.match(aiAssistModal, /messages\.map/);
+  assert.match(aiAssistModal, /MarkdownContent/);
   assert.match(aiAssistModal, /SuggestionChips/);
   assert.match(aiAssistModal, /onCancel/);
   assert.match(aiAssistModal, /onClearMessages/);
@@ -114,6 +115,13 @@ test('global AI preference disables AI UI and uses daily dashboard cache', () =>
   assert.match(aiAssistModal, /onViewCreatedTasks/);
   assert.match(aiAssistModal, /sendOnClick/);
   assert.doesNotMatch(aiAssistModal, /showPromptChips/);
+  const markdownContent = readFileSync(
+    new URL('../src/components/MarkdownContent.tsx', import.meta.url),
+    'utf8'
+  );
+  assert.match(markdownContent, /react-markdown/);
+  assert.match(markdownContent, /remarkGfm|remark-gfm/);
+  assert.match(markdownContent, /select-text/);
   assert.match(app, /handleCancelAiAssist/);
   assert.match(app, /handleRetryAiAssist/);
   assert.match(app, /aiAssistMessages/);

@@ -11,6 +11,7 @@ import {
   X,
 } from 'lucide-react';
 import type { AiAssistChatMessage, AiAssistSuggestion } from '../utils/aiAssist';
+import { MarkdownContent } from './MarkdownContent';
 import { useToast } from './Toast';
 
 interface AiAssistModalProps {
@@ -242,8 +243,8 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
             if (message.role === 'user') {
               return (
                 <div key={message.id} className="flex justify-end">
-                  <div className="max-w-[88%] rounded-3xl bg-indigo-600 text-white px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap shadow-sm">
-                    {message.content}
+                  <div className="max-w-[88%] rounded-3xl bg-indigo-600 text-white px-3.5 py-2.5 text-[13px] leading-relaxed shadow-sm select-text">
+                    <MarkdownContent tone="onDark">{message.content}</MarkdownContent>
                   </div>
                 </div>
               );
@@ -251,17 +252,22 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
 
             const isError = Boolean(message.error);
             const isStopped = Boolean(message.stopped);
+            let bubbleClass =
+              'border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-900';
+            let markdownTone: 'default' | 'error' | 'muted' = 'default';
+            if (isError) {
+              bubbleClass =
+                'border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30';
+              markdownTone = 'error';
+            } else if (isStopped) {
+              bubbleClass =
+                'border-slate-200 dark:border-slate-700 bg-slate-100/80 dark:bg-slate-800/60';
+              markdownTone = 'muted';
+            }
+
             return (
               <div key={message.id} className="flex justify-start">
-                <div
-                  className={`max-w-[92%] rounded-3xl border px-3.5 py-2.5 shadow-sm ${
-                    isError
-                      ? 'border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30'
-                      : isStopped
-                        ? 'border-slate-200 dark:border-slate-700 bg-slate-100/80 dark:bg-slate-800/60'
-                        : 'border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-900'
-                  }`}
-                >
+                <div className={`max-w-[92%] rounded-3xl border px-3.5 py-2.5 shadow-sm ${bubbleClass}`}>
                   {message.createdTasks && message.createdTasks.length > 0 && (
                     <button
                       type="button"
@@ -294,17 +300,7 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
                     </button>
                   )}
                   {message.content && (
-                    <pre
-                      className={`whitespace-pre-wrap text-[13px] leading-relaxed font-sans ${
-                        isError
-                          ? 'text-amber-800 dark:text-amber-200'
-                          : isStopped
-                            ? 'text-slate-500 dark:text-slate-400'
-                            : 'text-slate-700 dark:text-slate-200'
-                      }`}
-                    >
-                      {message.content}
-                    </pre>
+                    <MarkdownContent tone={markdownTone}>{message.content}</MarkdownContent>
                   )}
                   <div className="mt-2 flex flex-wrap items-center gap-3">
                     {!isError && !isStopped && message.content && (
@@ -312,6 +308,7 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
                         type="button"
                         onClick={() => void handleCopy(message.id, message.content)}
                         className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-300 cursor-pointer"
+                        title="Copy markdown source"
                       >
                         {copiedId === message.id ? (
                           <>

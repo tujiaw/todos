@@ -587,8 +587,8 @@ export function getAiAssistSystemPrompt(
     'When the user wants to add/create/schedule a task, call create_task with the best structured fields you can infer.',
     'When the user mentions a time window (this week, today, etc.) or category/priority for questions, pass those filters to query_todos.',
     'Do not invent existing tasks. If query_todos returns nothing, say so clearly.',
-    'Answer in the user language with clear, copy-ready text. Do not mention tools or AI.',
-    'Stop calling tools once you can answer. Final replies must be plain text (no JSON wrapper).',
+    'Answer in the user language with clear, copy-ready Markdown when helpful (headings, lists, bold). Do not mention tools or AI.',
+    'Stop calling tools once you can answer. Final replies must be Markdown or plain text (no JSON wrapper, no outer code fence around the whole reply).',
   ].join('\n');
 }
 
