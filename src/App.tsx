@@ -517,6 +517,14 @@ export default function App() {
     await chained;
   }, [persistCategories, persistTasks, refreshPendingCount, showToast, user]);
 
+  const handleRefresh = useCallback(() => {
+    if (user) {
+      handleSyncWithSupabase();
+    } else {
+      refreshFromStorage();
+    }
+  }, [user, handleSyncWithSupabase, refreshFromStorage]);
+
   const suppressRealtimeSyncUntilRef = useRef(0);
 
   const runFlushOutbox = useCallback(async () => {
@@ -1433,7 +1441,7 @@ export default function App() {
           onEditTask={(task) => setEditingTask(task)}
           onToggleSubtask={handleToggleSubtask}
           selectedDate={selectedDate}
-          onRefresh={refreshFromStorage}
+          onRefresh={handleRefresh}
         />
       </main>
 
