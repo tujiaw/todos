@@ -136,10 +136,47 @@ test('global AI preference disables AI UI and uses daily dashboard cache', () =>
   assert.match(app, /handleRetryAiAssist/);
   assert.match(app, /aiAssistMessages/);
   assert.match(app, /setDashboardCopy\(DEFAULT_DASHBOARD_COPY\)/);
-  assert.match(aiClient, /daily_todos_dashboard_copy_v1/);
-  assert.match(aiClient, /cached\.date !== date/);
+  const dashboardCopyCache = readFileSync(
+    new URL('../src/lib/dashboardCopyCache.ts', import.meta.url),
+    'utf8'
+  );
+  assert.match(dashboardCopyCache, /daily_todos_dashboard_copy_v1/);
+  assert.match(dashboardCopyCache, /cached\.date !== date/);
+  assert.match(aiClient, /dashboardCopyCache/);
   assert.doesNotMatch(taskInput, /onGenerateTaskDraft|aiEnabled/);
   assert.doesNotMatch(taskInput, /Draft with AI|Sparkles/);
+});
+
+test('first-load path lazy-loads heavy modals and keeps vault crypto out of supabase core', () => {
+  assert.match(app, /lazy\(\(\) =>/);
+  assert.match(app, /import\('\.\/components\/VaultModal'\)/);
+  assert.match(app, /import\('\.\/components\/DropModal'\)/);
+  assert.match(app, /import\('\.\/components\/AiAssistModal'\)/);
+  assert.match(app, /import\('\.\/lib\/ai'\)/);
+  assert.doesNotMatch(app, /import \{[^}]*VaultModal[^}]*\} from '\.\/components\/VaultModal'/);
+  assert.doesNotMatch(app, /from '\.\/lib\/ai'/);
+
+  const supabaseClient = readFileSync(
+    new URL('../src/lib/supabase.ts', import.meta.url),
+    'utf8'
+  );
+  assert.doesNotMatch(supabaseClient, /vaultCrypto/);
+  assert.doesNotMatch(supabaseClient, /fetchVaultMeta|decryptVaultItems/);
+
+  const vaultApi = readFileSync(new URL('../src/lib/vaultApi.ts', import.meta.url), 'utf8');
+  assert.match(vaultApi, /from '\.\/vaultCrypto'/);
+  assert.match(vaultApi, /fetchVaultMeta/);
+
+  const vaultModal = readFileSync(
+    new URL('../src/components/VaultModal.tsx', import.meta.url),
+    'utf8'
+  );
+  assert.match(vaultModal, /from '\.\.\/lib\/vaultApi'/);
+
+  const viteConfig = readFileSync(new URL('../vite.config.ts', import.meta.url), 'utf8');
+  assert.match(viteConfig, /manualChunks/);
+  assert.match(viteConfig, /vendor-supabase/);
+  assert.match(viteConfig, /vendor-markdown/);
 });
 
 test('Drop remains a text and file transfer surface without task AI actions', () => {

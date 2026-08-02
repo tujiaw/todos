@@ -38,7 +38,7 @@ import {
   unlockVaultWithPassword,
   upsertVaultItemEncrypted,
   upsertVaultItemsBatch,
-} from '../lib/supabase';
+} from '../lib/vaultApi';
 import { verifyMasterPassword } from '../lib/vaultCrypto';
 import { generateTotpCode, parseTotpInput, totpRemainingSeconds } from '../utils/totp';
 import {

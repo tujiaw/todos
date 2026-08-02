@@ -1,8 +1,14 @@
 import { Category, TaskDraft } from '../types';
 import type { AiAssistRequestPayload, AiAssistResult } from '../utils/aiAssist';
+import type { DashboardCopy } from './dashboardCopyCache';
 import { supabase } from './supabase';
 
 export type { AiAssistResult } from '../utils/aiAssist';
+export type { DashboardCopy } from './dashboardCopyCache';
+export {
+  loadCachedDashboardCopy,
+  saveCachedDashboardCopy,
+} from './dashboardCopyCache';
 
 interface GenerateTaskDraftInput {
   text: string;
@@ -21,17 +27,6 @@ interface GenerateTaskDraftResponse {
     dailyLimit?: number;
   };
 }
-
-export interface DashboardCopy {
-  title: string;
-  subtitle: string;
-}
-
-interface CachedDashboardCopy extends DashboardCopy {
-  date: string;
-}
-
-const DASHBOARD_COPY_STORAGE_KEY = 'daily_todos_dashboard_copy_v1';
 
 function getPlatformErrorCode(body: string): string | undefined {
   return body.match(/\b(?:FUNCTION|EDGE_FUNCTION)_[A-Z0-9_]+\b/)?.[0];
@@ -86,39 +81,6 @@ export async function generateTaskDraft(
   }
   if (!data?.draft) throw new Error('The AI service returned an empty task draft.');
   return data.draft;
-}
-
-export function loadCachedDashboardCopy(date: string): DashboardCopy | null {
-  try {
-    const raw = localStorage.getItem(DASHBOARD_COPY_STORAGE_KEY);
-    if (!raw) return null;
-    const cached = JSON.parse(raw) as CachedDashboardCopy;
-    if (
-      cached.date !== date ||
-      typeof cached.title !== 'string' ||
-      !cached.title.trim() ||
-      cached.title.length > 60 ||
-      typeof cached.subtitle !== 'string' ||
-      !cached.subtitle.trim() ||
-      cached.subtitle.length > 120
-    ) {
-      return null;
-    }
-    return { title: cached.title, subtitle: cached.subtitle };
-  } catch {
-    return null;
-  }
-}
-
-export function saveCachedDashboardCopy(date: string, copy: DashboardCopy): void {
-  try {
-    localStorage.setItem(
-      DASHBOARD_COPY_STORAGE_KEY,
-      JSON.stringify({ date, ...copy } satisfies CachedDashboardCopy)
-    );
-  } catch (error) {
-    console.warn('Failed to cache dashboard copy', error);
-  }
 }
 
 export async function generateDashboardCopy(

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useCallback, useRef } from 'react';
 import { User } from '@supabase/supabase-js';
 import { Category, Task, ThemeMode, DropItem } from './types';
 import {
@@ -22,23 +22,15 @@ import { Github, LoaderCircle, LockKeyhole } from 'lucide-react';
 import { ProgressBar } from './components/ProgressBar';
 import { TaskInput } from './components/TaskInput';
 import { TaskList } from './components/TaskList';
-import { TaskEditModal } from './components/TaskEditModal';
-import { SyncModal } from './components/SyncModal';
-import { CategorySettingsModal } from './components/CategorySettingsModal';
-import { DropModal } from './components/DropModal';
-import { VaultModal } from './components/VaultModal';
-import { AiAssistModal } from './components/AiAssistModal';
-import { EmailAuthForm, type EmailAuthMode } from './components/EmailAuthForm';
+import type { EmailAuthMode } from './components/EmailAuthForm';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { useConfirm } from './components/ConfirmDialog';
 import { useToast } from './components/Toast';
 import {
-  generateAiAssist,
-  generateDashboardCopy,
   loadCachedDashboardCopy,
   saveCachedDashboardCopy,
   type DashboardCopy,
-} from './lib/ai';
+} from './lib/dashboardCopyCache';
 import {
   buildAiAssistCatalog,
   createAiAssistMessageId,
@@ -47,6 +39,40 @@ import {
   type AiAssistCreatedTask,
   type AiAssistLanguage,
 } from './utils/aiAssist';
+
+const TaskEditModal = lazy(() =>
+  import('./components/TaskEditModal').then((module) => ({ default: module.TaskEditModal }))
+);
+const SyncModal = lazy(() =>
+  import('./components/SyncModal').then((module) => ({ default: module.SyncModal }))
+);
+const CategorySettingsModal = lazy(() =>
+  import('./components/CategorySettingsModal').then((module) => ({
+    default: module.CategorySettingsModal,
+  }))
+);
+const DropModal = lazy(() =>
+  import('./components/DropModal').then((module) => ({ default: module.DropModal }))
+);
+const VaultModal = lazy(() =>
+  import('./components/VaultModal').then((module) => ({ default: module.VaultModal }))
+);
+const AiAssistModal = lazy(() =>
+  import('./components/AiAssistModal').then((module) => ({ default: module.AiAssistModal }))
+);
+const EmailAuthForm = lazy(() =>
+  import('./components/EmailAuthForm').then((module) => ({ default: module.EmailAuthForm }))
+);
+
+function prefetchDropModal() {
+  void import('./components/DropModal');
+}
+function prefetchVaultModal() {
+  void import('./components/VaultModal');
+}
+function prefetchAiAssistModal() {
+  void import('./components/AiAssistModal');
+}
 import { mergeCategories, mergeTasksLww, withoutStaleOps } from './utils/mergeSync';
 import {
   moveCategory,
@@ -247,9 +273,15 @@ export default function App() {
   };
 
   const handleOpenDropModal = () => {
+    prefetchDropModal();
     // Mark loading immediately so DropModal does not seed scroll before fetch starts.
     setIsLoadingDropItems(true);
     setIsDropModalOpen(true);
+  };
+
+  const handleOpenVaultModal = () => {
+    prefetchVaultModal();
+    setIsVaultModalOpen(true);
   };
 
   const handleAddDropItem = async (content: string, attachments: File[]) => {
@@ -685,14 +717,17 @@ export default function App() {
     if (!user || isAuthLoading) return;
 
     const controller = new AbortController();
-    generateDashboardCopy(
-      {
-        currentDate,
-        pendingTasks: pendingTasksCount,
-        completedTasks: completedTasksCount,
-      },
-      controller.signal
-    )
+    void import('./lib/ai')
+      .then(({ generateDashboardCopy }) =>
+        generateDashboardCopy(
+          {
+            currentDate,
+            pendingTasks: pendingTasksCount,
+            completedTasks: completedTasksCount,
+          },
+          controller.signal
+        )
+      )
       .then((copy) => {
         if (controller.signal.aborted) return;
         saveCachedDashboardCopy(currentDate, copy);
@@ -704,7 +739,7 @@ export default function App() {
       });
 
     return () => controller.abort();
-  }, [aiEnabled, isAuthLoading, user]);
+  }, [aiEnabled, isAuthLoading, user, pendingTasksCount, completedTasksCount]);
 
   // Calculate streak (consecutive completed days)
   const calculateStreak = useCallback(() => {
@@ -853,6 +888,7 @@ export default function App() {
 
       try {
         const catalog = buildAiAssistCatalog(tasks, categories);
+        const { generateAiAssist } = await import('./lib/ai');
         const result = await generateAiAssist(
           {
             message: trimmed,
@@ -904,6 +940,7 @@ export default function App() {
   );
 
   const handleOpenAiAssist = () => {
+    prefetchAiAssistModal();
     setIsAiAssistOpen(true);
   };
 
@@ -1278,11 +1315,19 @@ export default function App() {
               {authError}
             </div>
           )}
-          <EmailAuthForm
-            isSubmitting={isEmailAuthSubmitting}
-            infoMessage={authInfo}
-            onSubmit={handleEmailAuthSubmit}
-          />
+          <Suspense
+            fallback={
+              <div className="flex items-center justify-center py-8 text-slate-400">
+                <LoaderCircle className="w-5 h-5 animate-spin" />
+              </div>
+            }
+          >
+            <EmailAuthForm
+              isSubmitting={isEmailAuthSubmitting}
+              infoMessage={authInfo}
+              onSubmit={handleEmailAuthSubmit}
+            />
+          </Suspense>
           <div className="flex items-center gap-3 text-[11px] text-slate-400 dark:text-slate-500">
             <div className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
             <span>或</span>
@@ -1338,7 +1383,7 @@ export default function App() {
         onOpenSyncModal={() => setIsSyncModalOpen(true)}
         onOpenCategoryModal={() => setIsCategoryModalOpen(true)}
         onOpenDropModal={handleOpenDropModal}
-        onOpenVaultModal={() => setIsVaultModalOpen(true)}
+        onOpenVaultModal={handleOpenVaultModal}
         user={user}
         onGitHubLogin={handleGitHubLoginClick}
         onLogout={handleLogoutClick}
@@ -1406,90 +1451,100 @@ export default function App() {
         <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" className="hover:text-slate-500 dark:hover:text-slate-400 transition-colors">鄂ICP备17003086号-2</a>
       </footer>
 
-      {/* Edit Modal */}
-      <TaskEditModal
-        task={editingTask}
-        categories={categories}
-        isOpen={!!editingTask}
-        onClose={() => setEditingTask(null)}
-        onSave={handleSaveEditedTask}
-      />
+      <Suspense fallback={null}>
+        {editingTask && (
+          <TaskEditModal
+            task={editingTask}
+            categories={categories}
+            isOpen
+            onClose={() => setEditingTask(null)}
+            onSave={handleSaveEditedTask}
+          />
+        )}
 
-      {/* Sync & Backup Modal */}
-      <SyncModal
-        isOpen={isSyncModalOpen}
-        onClose={() => setIsSyncModalOpen(false)}
-        onRefreshData={refreshFromStorage}
-        user={user}
-        onGitHubLogin={handleGitHubLoginClick}
-        onLogout={handleLogoutClick}
-        onSyncWithSupabase={() => user && handleSyncWithSupabase()}
-        isSyncing={isSyncing}
-        syncError={syncError}
-        pendingSyncCount={pendingSyncCount}
-        onImportData={handleImportData}
-        aiEnabled={aiEnabled}
-        onAiEnabledChange={handleAiEnabledChange}
-      />
+        {isSyncModalOpen && (
+          <SyncModal
+            isOpen
+            onClose={() => setIsSyncModalOpen(false)}
+            onRefreshData={refreshFromStorage}
+            user={user}
+            onGitHubLogin={handleGitHubLoginClick}
+            onLogout={handleLogoutClick}
+            onSyncWithSupabase={() => user && handleSyncWithSupabase()}
+            isSyncing={isSyncing}
+            syncError={syncError}
+            pendingSyncCount={pendingSyncCount}
+            onImportData={handleImportData}
+            aiEnabled={aiEnabled}
+            onAiEnabledChange={handleAiEnabledChange}
+          />
+        )}
 
-      {/* Category Management Settings Modal */}
-      <CategorySettingsModal
-        isOpen={isCategoryModalOpen}
-        onClose={() => setIsCategoryModalOpen(false)}
-        categories={categories}
-        onAddCategory={handleAddCategory}
-        onUpdateCategory={handleUpdateCategory}
-        onDeleteCategory={handleDeleteCategory}
-        onReorderCategory={handleReorderCategory}
-      />
+        {isCategoryModalOpen && (
+          <CategorySettingsModal
+            isOpen
+            onClose={() => setIsCategoryModalOpen(false)}
+            categories={categories}
+            onAddCategory={handleAddCategory}
+            onUpdateCategory={handleUpdateCategory}
+            onDeleteCategory={handleDeleteCategory}
+            onReorderCategory={handleReorderCategory}
+          />
+        )}
 
-      {/* Edge Drop Notepad & File Transfer Modal */}
-      <DropModal
-        isOpen={isDropModalOpen}
-        onClose={() => setIsDropModalOpen(false)}
-        dropItems={dropItems}
-        hasMore={hasMoreDropItems}
-        isLoading={isLoadingDropItems}
-        isLoadingMore={isLoadingMoreDropItems}
-        error={dropError}
-        searchQuery={dropSearchQuery}
-        onSearchChange={setDropSearchQuery}
-        onLoadMore={handleLoadMoreDropItems}
-        onAddDropItem={handleAddDropItem}
-        onDeleteDropItem={handleDeleteDropItem}
-        onClearAllDropItems={handleClearAllDropItems}
-        onRefreshDropItems={() => loadDropItems(dropSearchQuery, 0, false)}
-        onDismissError={() => setDropError(null)}
-        isAuthenticated={Boolean(user)}
-        onSignIn={handleGitHubLoginClick}
-      />
+        {isDropModalOpen && (
+          <DropModal
+            isOpen
+            onClose={() => setIsDropModalOpen(false)}
+            dropItems={dropItems}
+            hasMore={hasMoreDropItems}
+            isLoading={isLoadingDropItems}
+            isLoadingMore={isLoadingMoreDropItems}
+            error={dropError}
+            searchQuery={dropSearchQuery}
+            onSearchChange={setDropSearchQuery}
+            onLoadMore={handleLoadMoreDropItems}
+            onAddDropItem={handleAddDropItem}
+            onDeleteDropItem={handleDeleteDropItem}
+            onClearAllDropItems={handleClearAllDropItems}
+            onRefreshDropItems={() => loadDropItems(dropSearchQuery, 0, false)}
+            onDismissError={() => setDropError(null)}
+            isAuthenticated={Boolean(user)}
+            onSignIn={handleGitHubLoginClick}
+          />
+        )}
 
-      <VaultModal
-        isOpen={isVaultModalOpen}
-        onClose={() => setIsVaultModalOpen(false)}
-        lockToken={vaultLockToken}
-      />
+        {isVaultModalOpen && (
+          <VaultModal
+            isOpen
+            onClose={() => setIsVaultModalOpen(false)}
+            lockToken={vaultLockToken}
+          />
+        )}
 
-      <AiAssistModal
-        isOpen={isAiAssistOpen}
-        onClose={handleCloseAiAssist}
-        prompt={aiAssistPrompt}
-        onPromptChange={setAiAssistPrompt}
-        suggestions={getAiAssistSuggestions({
-          selectedDate,
-          todayDate: getTodayDateString(),
-          language: aiAssistLanguage,
-        })}
-        messages={aiAssistMessages}
-        isLoading={isAiAssistLoading}
-        language={aiAssistLanguage}
-        onLanguageChange={handleAiAssistLanguageChange}
-        onSend={handleSendAiAssist}
-        onCancel={handleCancelAiAssist}
-        onClearMessages={handleClearAiAssistMessages}
-        onRetry={handleRetryAiAssist}
-        onViewCreatedTasks={handleViewCreatedAiTasks}
-      />
+        {isAiAssistOpen && (
+          <AiAssistModal
+            isOpen
+            onClose={handleCloseAiAssist}
+            prompt={aiAssistPrompt}
+            onPromptChange={setAiAssistPrompt}
+            suggestions={getAiAssistSuggestions({
+              selectedDate,
+              todayDate: getTodayDateString(),
+              language: aiAssistLanguage,
+            })}
+            messages={aiAssistMessages}
+            isLoading={isAiAssistLoading}
+            language={aiAssistLanguage}
+            onLanguageChange={handleAiAssistLanguageChange}
+            onSend={handleSendAiAssist}
+            onCancel={handleCancelAiAssist}
+            onClearMessages={handleClearAiAssistMessages}
+            onRetry={handleRetryAiAssist}
+            onViewCreatedTasks={handleViewCreatedAiTasks}
+          />
+        )}
+      </Suspense>
 
       {/* Mobile Smartphone Bottom Navigation Toolbar */}
       <MobileBottomNav
