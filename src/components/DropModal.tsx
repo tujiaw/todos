@@ -7,6 +7,7 @@ import {
   Trash2,
   Paperclip,
   ExternalLink,
+  Link2,
   Download,
   RefreshCw,
   LoaderCircle,
@@ -238,6 +239,7 @@ export const DropModal: React.FC<DropModalProps> = ({
   const [inputText, setInputText] = useState('');
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
@@ -524,6 +526,21 @@ export const DropModal: React.FC<DropModalProps> = ({
       if (refreshed) return refreshed;
     }
     return item.url;
+  };
+
+  const handleCopyLink = async (item: DropItem) => {
+    try {
+      const url = await resolveItemUrl(item);
+      if (!url) {
+        setAttachmentError('No link available for this file.');
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      setCopiedLinkId(item.id);
+      setTimeout(() => setCopiedLinkId(null), 2000);
+    } catch {
+      setAttachmentError('Clipboard access was denied. Please copy the link manually.');
+    }
   };
 
   const handlePreviewImage = async (item: DropItem) => {
@@ -882,6 +899,27 @@ export const DropModal: React.FC<DropModalProps> = ({
                             <>
                               <Copy className="w-3 h-3" />
                               <span>Copy</span>
+                            </>
+                          )}
+                        </button>
+                      )}
+
+                      {(item.url || item.storage_path) && (
+                        <button
+                          type="button"
+                          onClick={() => void handleCopyLink(item)}
+                          className="px-2 py-1.5 sm:py-1 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1"
+                          title="Copy file link"
+                        >
+                          {copiedLinkId === item.id ? (
+                            <>
+                              <Check className="w-3 h-3 text-emerald-500" />
+                              <span className="text-emerald-500 font-semibold">Copied</span>
+                            </>
+                          ) : (
+                            <>
+                              <Link2 className="w-3 h-3" />
+                              <span>Link</span>
                             </>
                           )}
                         </button>
