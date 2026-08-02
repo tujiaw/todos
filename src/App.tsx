@@ -813,12 +813,8 @@ export default function App() {
       if (newTasks[0]?.date && newTasks[0].date !== selectedDate) {
         setSelectedDate(newTasks[0].date);
       }
-      showToast(
-        newTasks.length === 1 ? 'Task created' : `${newTasks.length} tasks created`,
-        'success'
-      );
     },
-    [persistTasks, queueAndFlush, selectedDate, showToast]
+    [persistTasks, queueAndFlush, selectedDate]
   );
 
   const appendAiAssistMessage = useCallback((message: AiAssistChatMessage) => {

@@ -35,6 +35,15 @@ interface AiAssistModalProps {
   onViewCreatedTasks: () => void;
 }
 
+function createdTasksNotice(language: AiAssistLanguage, count: number): string {
+  if (language === 'zh') {
+    if (count === 1) return '已创建任务';
+    return `已创建 ${count} 个任务`;
+  }
+  if (count === 1) return 'Task created';
+  return `${count} tasks created`;
+}
+
 function SuggestionChips({
   suggestions,
   disabled,
@@ -322,35 +331,40 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
               <div key={message.id} className="flex justify-start">
                 <div className={`max-w-[92%] rounded-3xl border px-3.5 py-2.5 shadow-sm ${bubbleClass}`}>
                   {message.createdTasks && message.createdTasks.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={onViewCreatedTasks}
-                      className="mb-2 w-full text-left space-y-1.5 cursor-pointer"
-                      title="View on calendar"
-                    >
-                      {message.createdTasks.map((task, index) => (
-                        <div
-                          key={`${message.id}-task-${index}`}
-                          className="rounded-2xl border border-emerald-100 dark:border-emerald-900/40 bg-emerald-50/80 dark:bg-emerald-950/30 px-2.5 py-1.5 hover:border-emerald-300 dark:hover:border-emerald-700 transition-colors"
-                        >
-                          <div className="text-[13px] font-semibold text-slate-900 dark:text-white">
-                            {task.title}
+                    <div className="mb-2 space-y-1.5">
+                      <p className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+                        {createdTasksNotice(language, message.createdTasks.length)}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={onViewCreatedTasks}
+                        className="w-full text-left space-y-1.5 cursor-pointer"
+                        title="View on calendar"
+                      >
+                        {message.createdTasks.map((task, index) => (
+                          <div
+                            key={`${message.id}-task-${index}`}
+                            className="rounded-2xl border border-emerald-100 dark:border-emerald-900/40 bg-emerald-50/80 dark:bg-emerald-950/30 px-2.5 py-1.5 hover:border-emerald-300 dark:hover:border-emerald-700 transition-colors"
+                          >
+                            <div className="text-[13px] font-semibold text-slate-900 dark:text-white">
+                              {task.title}
+                            </div>
+                            <div className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+                              {task.date}
+                              {task.dueTime ? ` · ${task.dueTime}` : ''}
+                              {` · ${task.category}`}
+                              {` · ${task.priority}`}
+                              {task.subtasks.length > 0
+                                ? ` · ${task.subtasks.length} subtasks`
+                                : ''}
+                              <span className="ml-1 text-emerald-600 dark:text-emerald-400">
+                                · View
+                              </span>
+                            </div>
                           </div>
-                          <div className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
-                            {task.date}
-                            {task.dueTime ? ` · ${task.dueTime}` : ''}
-                            {` · ${task.category}`}
-                            {` · ${task.priority}`}
-                            {task.subtasks.length > 0
-                              ? ` · ${task.subtasks.length} subtasks`
-                              : ''}
-                            <span className="ml-1 text-emerald-600 dark:text-emerald-400">
-                              · View
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </button>
+                        ))}
+                      </button>
+                    </div>
                   )}
                   {message.content && (
                     <MarkdownContent tone={markdownTone}>{message.content}</MarkdownContent>
