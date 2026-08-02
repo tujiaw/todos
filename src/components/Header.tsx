@@ -362,13 +362,13 @@ export const Header: React.FC<HeaderProps> = ({
                   id="btn-more-menu-toggle"
                   onClick={() => setShowMoreMenu(!showMoreMenu)}
                   className="p-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors min-h-[34px] min-w-[34px] flex items-center justify-center"
-                  title="More Options & Settings"
+                  title="More"
                 >
                   <MoreVertical className="w-4 h-4" />
                 </button>
 
                 {showMoreMenu && (
-                  <div className="absolute right-0 mt-1 w-56 bg-white dark:bg-slate-900 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 py-1.5 z-40 space-y-0.5">
+                  <div className="absolute right-0 mt-1 w-40 bg-white dark:bg-slate-900 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 py-1.5 z-40 space-y-0.5">
                     <button
                       onClick={() => {
                         setShowMoreMenu(false);
@@ -377,7 +377,7 @@ export const Header: React.FC<HeaderProps> = ({
                       className="w-full text-left px-3 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
                     >
                       <Send className="w-3.5 h-3.5 text-blue-500" />
-                      <span>Drop (Notes & Files)</span>
+                      <span>Drop</span>
                     </button>
 
                     <button
@@ -399,7 +399,7 @@ export const Header: React.FC<HeaderProps> = ({
                       className="w-full text-left px-3 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
                     >
                       <Tag className="w-3.5 h-3.5 text-emerald-500" />
-                      <span>Manage Categories</span>
+                      <span>Categories</span>
                     </button>
 
                     <button
@@ -410,7 +410,7 @@ export const Header: React.FC<HeaderProps> = ({
                       className="w-full text-left px-3 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
                     >
                       <Database className="w-3.5 h-3.5 text-indigo-500" />
-                      <span>Supabase Sync & Settings</span>
+                      <span>Sync</span>
                     </button>
 
                     <button
@@ -426,7 +426,7 @@ export const Header: React.FC<HeaderProps> = ({
                     >
                       <div className="flex items-center gap-2">
                         <Download className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                        <span>Install App (PWA)</span>
+                        <span>Install</span>
                       </div>
                       {isInstalled && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 font-bold">
