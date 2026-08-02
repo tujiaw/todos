@@ -908,19 +908,14 @@ export const DropModal: React.FC<DropModalProps> = ({
                         <button
                           type="button"
                           onClick={() => void handleCopyLink(item)}
-                          className="px-2 py-1.5 sm:py-1 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1"
+                          className="p-1.5 sm:p-1 rounded text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                           title="Copy file link"
+                          aria-label="Copy file link"
                         >
                           {copiedLinkId === item.id ? (
-                            <>
-                              <Check className="w-3 h-3 text-emerald-500" />
-                              <span className="text-emerald-500 font-semibold">Copied</span>
-                            </>
+                            <Check className="w-3 h-3 text-emerald-500" />
                           ) : (
-                            <>
-                              <Link2 className="w-3 h-3" />
-                              <span>Link</span>
-                            </>
+                            <Link2 className="w-3 h-3" />
                           )}
                         </button>
                       )}
