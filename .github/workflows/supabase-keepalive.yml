@@ -31,6 +31,10 @@ jobs:
           fi
 
       # GitHub disables scheduled workflows after 60 days without repo activity;
-      # this re-enables the workflow via API so the ping never silently stops.
+      # re-enabling via API on every run resets that timer so the ping never
+      # silently stops. Implemented with the preinstalled gh CLI instead of a
+      # third-party action to avoid external dependencies.
       - name: Keep workflow enabled
-        uses: gautamkrishnar/keepalive-workflow@v2
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/supabase-keepalive.yml/enable"
