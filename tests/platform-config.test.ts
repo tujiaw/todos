@@ -82,9 +82,11 @@ test('global AI preference disables AI UI and uses daily dashboard cache', () =>
   assert.match(storage, /daily_todos_ai_enabled_v1/);
   assert.match(syncModal, /role="switch"/);
   assert.match(syncModal, /AI Features/);
-  assert.match(syncModal, /Week menu AI assists/);
+  assert.match(syncModal, /Week AI Assist/);
   assert.match(app, /aiEnabled=\{aiEnabled\}/);
   assert.match(app, /onOpenAiAssist=\{handleOpenAiAssist\}/);
+  assert.match(app, /applyCreatedAiTasks/);
+  assert.match(app, /selectedDate,/);
   const progressBar = readFileSync(
     new URL('../src/components/ProgressBar.tsx', import.meta.url),
     'utf8'
@@ -97,14 +99,16 @@ test('global AI preference disables AI UI and uses daily dashboard cache', () =>
     new URL('../src/components/AiAssistModal.tsx', import.meta.url),
     'utf8'
   );
-  assert.match(aiAssistModal, /Ask about your todos/);
+  assert.match(aiAssistModal, /Ask or create tasks/);
+  assert.match(aiAssistModal, /createdTasks/);
   assert.match(aiAssistModal, /disabled=\{!result\?\.answer\}/);
   assert.match(aiAssistModal, /onCancel/);
   assert.match(app, /handleCancelAiAssist/);
   assert.match(app, /setDashboardCopy\(DEFAULT_DASHBOARD_COPY\)/);
   assert.match(aiClient, /daily_todos_dashboard_copy_v1/);
   assert.match(aiClient, /cached\.date !== date/);
-  assert.match(taskInput, /\{aiEnabled && \(/);
+  assert.doesNotMatch(taskInput, /onGenerateTaskDraft|aiEnabled/);
+  assert.doesNotMatch(taskInput, /Draft with AI|Sparkles/);
 });
 
 test('Drop remains a text and file transfer surface without task AI actions', () => {
@@ -128,18 +132,14 @@ test('Drop remains a text and file transfer surface without task AI actions', ()
   assert.match(dropModal, /sendButtonTitle/);
 });
 
-test('task input adds on Enter and drafts with AI via modifier or button', () => {
-  const addButtonIndex = taskInput.indexOf('id="btn-add-task-submit"');
-  const aiButtonIndex = taskInput.indexOf('aria-label="Generate AI task draft"');
-
-  assert.ok(addButtonIndex >= 0);
-  assert.ok(aiButtonIndex > addButtonIndex);
+test('task input adds on Enter without Add-button AI draft controls', () => {
+  assert.ok(taskInput.includes('id="btn-add-task-submit"'));
+  assert.doesNotMatch(taskInput, /Generate AI task draft|onGenerateTaskDraft|handleGenerateDraft/);
   assert.match(taskInput, /<form onSubmit=\{handleFormSubmit\}>/);
   assert.match(
     taskInput,
     /const handleFormSubmit[\s\S]*event\.preventDefault\(\);[\s\S]*handleAddTask\(\);/
   );
-  assert.match(taskInput, /metaKey \|\| event\.ctrlKey/);
   assert.match(taskInput, /useState<string>\(''\)/);
   assert.match(taskInput, /dueTime: dueTime \|\| undefined/);
   assert.match(taskInput, /Write a task and press Enter\.\.\./);

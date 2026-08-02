@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  executeCreateTask,
   executeQueryTodos,
   getWeekBounds,
   parseQueryTodosArgs,
@@ -73,7 +74,8 @@ test('validates natural-language AI assist request', () => {
     message: 'Summarize this week’s work items',
     timezone: 'Asia/Shanghai',
     todayDate: '2026-07-31',
-    categories: [{ id: 'work', name: 'Work' }],
+    selectedDate: '2026-07-31',
+    categories: [{ id: 'work', name: 'Work', isDefault: true }],
     tasks: [
       {
         title: 'Write report',
@@ -86,7 +88,36 @@ test('validates natural-language AI assist request', () => {
     ],
   });
   assert.equal(request.message, 'Summarize this week’s work items');
+  assert.equal(request.selectedDate, '2026-07-31');
   assert.equal(request.tasks.length, 1);
+});
+
+test('create_task builds a validated task without review step', () => {
+  const created = executeCreateTask(
+    {
+      todayDate: '2026-07-31',
+      selectedDate: '2026-07-31',
+      timezone: 'Asia/Shanghai',
+      categories: [
+        { id: 'work', name: 'Work', isDefault: true },
+        { id: 'life', name: 'Life' },
+      ],
+    },
+    {
+      title: 'Prepare weekly report',
+      date: '2026-08-01',
+      dueTime: '15:00',
+      priority: 'high',
+      category: 'Work',
+      subtasks: ['Collect data', 'Draft slides'],
+    }
+  );
+  assert.equal(created.title, 'Prepare weekly report');
+  assert.equal(created.date, '2026-08-01');
+  assert.equal(created.dueTime, '15:00');
+  assert.equal(created.priority, 'high');
+  assert.equal(created.categoryId, 'work');
+  assert.deepEqual(created.subtasks, ['Collect data', 'Draft slides']);
 });
 
 test('resolves this_week relative range to Monday-Sunday', () => {
@@ -130,6 +161,7 @@ test('builds client suggestions', () => {
     selectedDate: '2026-07-31',
     todayDate: '2026-07-31',
   });
+  assert.ok(suggestions.some((item) => item.id === 'create_task'));
   assert.ok(suggestions.some((item) => item.id === 'weekly_minutes'));
   assert.match(
     suggestions.find((item) => item.id === 'week_work')?.prompt || '',

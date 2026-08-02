@@ -1,8 +1,13 @@
+import { validateTaskDraft, type DraftCategory } from './task-draft.js';
+
 export const AI_ASSIST_MAX_LOOPS = 6;
 export const AI_ASSIST_MAX_MESSAGE = 2000;
 export const AI_ASSIST_MAX_TASKS = 200;
 export const AI_ASSIST_MAX_ANSWER = 6000;
+export const AI_ASSIST_MAX_CREATED_TASKS = 10;
 export const QUERY_TODOS_TOOL_NAME = 'query_todos';
+export const CREATE_TASK_TOOL_NAME = 'create_task';
+const TIME_RE = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const PRIORITIES = ['low', 'medium', 'high'] as const;
@@ -30,12 +35,26 @@ export interface AiAssistTaskBrief {
 export interface AiAssistCategoryBrief {
   id: string;
   name: string;
+  isDefault?: boolean;
+}
+
+export interface AiAssistCreatedTask {
+  title: string;
+  description?: string;
+  date: string;
+  dueTime?: string;
+  estimatedMinutes?: number;
+  categoryId: string;
+  category: string;
+  priority: AiAssistPriority;
+  subtasks: string[];
 }
 
 export interface AiAssistRequest {
   message: string;
   timezone: string;
   todayDate: string;
+  selectedDate: string;
   categories: AiAssistCategoryBrief[];
   tasks: AiAssistTaskBrief[];
 }
@@ -44,6 +63,7 @@ export interface AiAssistResult {
   answer: string;
   loops: number;
   toolCalls: number;
+  createdTasks: AiAssistCreatedTask[];
 }
 
 export interface QueryTodosArgs {
@@ -140,6 +160,61 @@ export const QUERY_TODOS_TOOL = {
           description: 'Max tasks to return (1-80, default 40).',
         },
       },
+      additionalProperties: false,
+    },
+  },
+} as const;
+
+export const CREATE_TASK_TOOL = {
+  type: 'function',
+  function: {
+    name: CREATE_TASK_TOOL_NAME,
+    description:
+      'Create one todo task from the user request. Call once per task. The task is saved immediately — do not ask the user to review or edit it. Prefer this when the user asks to add/create/schedule a task.',
+    parameters: {
+      type: 'object',
+      properties: {
+        title: {
+          type: 'string',
+          description: 'Short actionable task title (required).',
+        },
+        description: {
+          type: 'string',
+          description: 'Optional longer notes.',
+        },
+        date: {
+          type: 'string',
+          description:
+            'Task date YYYY-MM-DD. Use today/tomorrow relative to todayDate when stated; otherwise selectedDate.',
+        },
+        dueTime: {
+          type: 'string',
+          description: 'Optional due time HH:mm in 24-hour format.',
+        },
+        estimatedMinutes: {
+          type: 'integer',
+          description: 'Optional estimate from 1 to 480 minutes.',
+        },
+        category: {
+          type: 'string',
+          description: 'Category name (case-insensitive). Prefer this when the user names a category.',
+        },
+        categoryId: {
+          type: 'string',
+          description: 'Exact category id when known.',
+        },
+        priority: {
+          type: 'string',
+          enum: [...PRIORITIES],
+          description: 'Task priority. Default medium when unclear.',
+        },
+        subtasks: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Optional short checklist steps (max 12).',
+        },
+      },
+      required: ['title'],
       additionalProperties: false,
     },
   },
@@ -256,7 +331,7 @@ function parseCategories(value: unknown): AiAssistCategoryBrief[] {
     if (!id || !name || name.length > 64) {
       throw new Error(`Invalid AI assist request: categories[${index}].`);
     }
-    return { id, name };
+    return { id, name, isDefault: record.isDefault === true };
   });
 }
 
@@ -266,38 +341,124 @@ export function validateAiAssistRequest(value: unknown): AiAssistRequest {
   const message = typeof input.message === 'string' ? input.message.trim() : '';
   const timezone = typeof input.timezone === 'string' ? input.timezone.trim() : '';
   const todayDate = typeof input.todayDate === 'string' ? input.todayDate : '';
+  const selectedDate = typeof input.selectedDate === 'string' ? input.selectedDate : '';
   if (!message || message.length > AI_ASSIST_MAX_MESSAGE) {
     throw new Error('Invalid AI assist request: message.');
   }
-  if (!timezone || timezone.length > 64 || !DATE_RE.test(todayDate)) {
+  if (
+    !timezone ||
+    timezone.length > 64 ||
+    !DATE_RE.test(todayDate) ||
+    !DATE_RE.test(selectedDate)
+  ) {
     throw new Error('Invalid AI assist request.');
+  }
+  const categories = parseCategories(input.categories);
+  if (categories.length === 0) {
+    throw new Error('Invalid AI assist request: categories.');
   }
   return {
     message,
     timezone,
     todayDate,
-    categories: parseCategories(input.categories),
+    selectedDate,
+    categories,
     tasks: parseTaskList(input.tasks),
   };
 }
 
-export function parseQueryTodosArgs(raw: unknown): QueryTodosArgs {
-  let record: Record<string, unknown>;
+function parseJsonObjectArgs(raw: unknown, label: string): Record<string, unknown> {
   if (typeof raw === 'string') {
     try {
       const parsed = JSON.parse(raw);
       if (!parsed || typeof parsed !== 'object') {
-        throw new Error('Invalid query_todos arguments.');
+        throw new Error(`Invalid ${label} arguments.`);
       }
-      record = parsed as Record<string, unknown>;
+      return parsed as Record<string, unknown>;
     } catch {
-      throw new Error('Invalid query_todos arguments.');
+      throw new Error(`Invalid ${label} arguments.`);
     }
-  } else if (raw && typeof raw === 'object') {
-    record = raw as Record<string, unknown>;
-  } else {
-    record = {};
   }
+  if (raw && typeof raw === 'object') return raw as Record<string, unknown>;
+  return {};
+}
+
+function resolveCategoryId(
+  categories: AiAssistCategoryBrief[],
+  categoryId?: string,
+  categoryName?: string
+): string {
+  if (categoryId && categories.some((item) => item.id === categoryId)) return categoryId;
+  if (categoryName) {
+    const needle = categoryName.trim().toLowerCase();
+    const matched = categories.find((item) => item.name.toLowerCase() === needle);
+    if (matched) return matched.id;
+  }
+  return (categories.find((item) => item.isDefault) || categories[0]).id;
+}
+
+export function executeCreateTask(
+  request: Pick<AiAssistRequest, 'todayDate' | 'selectedDate' | 'timezone' | 'categories'>,
+  rawArgs: unknown
+): AiAssistCreatedTask {
+  const record = parseJsonObjectArgs(rawArgs, 'create_task');
+  const title = typeof record.title === 'string' ? record.title.trim() : '';
+  if (!title) throw new Error('create_task requires a title.');
+
+  const categoryId = resolveCategoryId(
+    request.categories,
+    typeof record.categoryId === 'string' ? record.categoryId.trim() : undefined,
+    typeof record.category === 'string' ? record.category.trim() : undefined
+  );
+
+  const draftCategories: DraftCategory[] = request.categories.map((item) => ({
+    id: item.id,
+    name: item.name,
+    isDefault: item.isDefault,
+  }));
+
+  const draft = validateTaskDraft(
+    {
+      title,
+      description: typeof record.description === 'string' ? record.description : undefined,
+      date: typeof record.date === 'string' ? record.date : undefined,
+      dueTime:
+        typeof record.dueTime === 'string' && TIME_RE.test(record.dueTime.trim())
+          ? record.dueTime.trim()
+          : undefined,
+      estimatedMinutes:
+        typeof record.estimatedMinutes === 'number' ? record.estimatedMinutes : undefined,
+      priority: typeof record.priority === 'string' ? record.priority : undefined,
+      categoryId,
+      subtasks: Array.isArray(record.subtasks) ? record.subtasks : undefined,
+    },
+    {
+      text: title,
+      currentDate: request.todayDate,
+      selectedDate: request.selectedDate,
+      timezone: request.timezone,
+      categories: draftCategories,
+    }
+  );
+
+  const categoryName =
+    request.categories.find((item) => item.id === draft.categoryId)?.name || 'Uncategorized';
+
+  return {
+    title: draft.title,
+    ...(draft.description ? { description: draft.description } : {}),
+    date: draft.date,
+    ...(draft.dueTime ? { dueTime: draft.dueTime } : {}),
+    ...(draft.estimatedMinutes ? { estimatedMinutes: draft.estimatedMinutes } : {}),
+    categoryId: draft.categoryId,
+    category: categoryName,
+    priority: draft.priority,
+    subtasks: draft.subtasks,
+  };
+}
+
+export function parseQueryTodosArgs(raw: unknown): QueryTodosArgs {
+  const record = parseJsonObjectArgs(raw, 'query_todos');
 
   const args: QueryTodosArgs = {};
   if (record.relativeRange !== undefined) {
@@ -410,7 +571,7 @@ export function executeQueryTodos(
 }
 
 export function getAiAssistSystemPrompt(
-  request: Pick<AiAssistRequest, 'timezone' | 'todayDate' | 'categories'>
+  request: Pick<AiAssistRequest, 'timezone' | 'todayDate' | 'selectedDate' | 'categories'>
 ): string {
   const categoryList =
     request.categories.length > 0
@@ -418,12 +579,15 @@ export function getAiAssistSystemPrompt(
       : '(none)';
   return [
     'You are a todo assistant for a personal task app.',
-    `Timezone: ${request.timezone}. Today: ${request.todayDate}.`,
+    `Timezone: ${request.timezone}. Today: ${request.todayDate}. Selected calendar date: ${request.selectedDate}.`,
     `Available categories: ${categoryList}.`,
-    'You have one tool: query_todos. Use it to fetch relevant tasks before answering.',
-    'When the user mentions a time window (this week, today, etc.) or category/priority, pass those filters to query_todos.',
-    'Do not invent tasks. If query_todos returns nothing, say so clearly.',
-    'When you have enough data, answer in the user language with clear, copy-ready text. Do not mention tools or AI.',
+    'Tools:',
+    '- query_todos: fetch existing tasks with filters before summarizing or answering.',
+    '- create_task: create one task immediately. Call once per task. Do not ask the user to review or edit afterward.',
+    'When the user wants to add/create/schedule a task, call create_task with the best structured fields you can infer.',
+    'When the user mentions a time window (this week, today, etc.) or category/priority for questions, pass those filters to query_todos.',
+    'Do not invent existing tasks. If query_todos returns nothing, say so clearly.',
+    'Answer in the user language with clear, copy-ready text. Do not mention tools or AI.',
     'Stop calling tools once you can answer. Final replies must be plain text (no JSON wrapper).',
   ].join('\n');
 }
@@ -440,6 +604,7 @@ export async function runAiAssistAgent(
   request: AiAssistRequest
 ): Promise<AiAssistResult> {
   const messages = buildInitialMessages(request);
+  const createdTasks: AiAssistCreatedTask[] = [];
   let loops = 0;
   let toolCalls = 0;
 
@@ -447,7 +612,7 @@ export async function runAiAssistAgent(
     loops += 1;
     const assistant = await provider.chatWithTools({
       messages,
-      tools: [QUERY_TODOS_TOOL],
+      tools: [QUERY_TODOS_TOOL, CREATE_TASK_TOOL],
       maxTokens: 1600,
     });
 
@@ -461,7 +626,7 @@ export async function runAiAssistAgent(
       if (answer.length > AI_ASSIST_MAX_ANSWER) {
         throw new Error('AI returned an assist result that is too long.');
       }
-      return { answer, loops, toolCalls };
+      return { answer, loops, toolCalls, createdTasks };
     }
 
     messages.push({
@@ -474,12 +639,22 @@ export async function runAiAssistAgent(
       toolCalls += 1;
       let content: string;
       try {
-        if (call.function.name !== QUERY_TODOS_TOOL_NAME) {
-          content = JSON.stringify({ error: `Unknown tool: ${call.function.name}` });
-        } else {
+        if (call.function.name === QUERY_TODOS_TOOL_NAME) {
           content = JSON.stringify(
             executeQueryTodos(request.tasks, request.todayDate, call.function.arguments)
           );
+        } else if (call.function.name === CREATE_TASK_TOOL_NAME) {
+          if (createdTasks.length >= AI_ASSIST_MAX_CREATED_TASKS) {
+            content = JSON.stringify({
+              error: `Cannot create more than ${AI_ASSIST_MAX_CREATED_TASKS} tasks in one request.`,
+            });
+          } else {
+            const created = executeCreateTask(request, call.function.arguments);
+            createdTasks.push(created);
+            content = JSON.stringify({ ok: true, created });
+          }
+        } else {
+          content = JSON.stringify({ error: `Unknown tool: ${call.function.name}` });
         }
       } catch (error) {
         content = JSON.stringify({

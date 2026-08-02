@@ -130,7 +130,7 @@ export const SyncModal: React.FC<SyncModalProps> = ({
               <div>
                 <h4 className="font-bold text-slate-800 dark:text-slate-100">AI Features</h4>
                 <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
-                  Task drafting, dashboard copy, and Week menu AI assists.
+                  Dashboard copy and Week AI Assist (query & create tasks).
                 </p>
               </div>
             </div>

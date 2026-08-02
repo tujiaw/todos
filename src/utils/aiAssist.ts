@@ -12,12 +12,26 @@ export interface AiAssistTaskBrief {
 export interface AiAssistCategoryBrief {
   id: string;
   name: string;
+  isDefault?: boolean;
+}
+
+export interface AiAssistCreatedTask {
+  title: string;
+  description?: string;
+  date: string;
+  dueTime?: string;
+  estimatedMinutes?: number;
+  categoryId: string;
+  category: string;
+  priority: Priority;
+  subtasks: string[];
 }
 
 export interface AiAssistRequestPayload {
   message: string;
   timezone: string;
   todayDate: string;
+  selectedDate: string;
   categories: AiAssistCategoryBrief[];
   tasks: AiAssistTaskBrief[];
 }
@@ -26,6 +40,7 @@ export interface AiAssistResult {
   answer: string;
   loops?: number;
   toolCalls?: number;
+  createdTasks?: AiAssistCreatedTask[];
 }
 
 export interface AiAssistSuggestion {
@@ -51,6 +66,7 @@ export function buildAiAssistCatalog(
   const categoryBriefs = categories.map((item) => ({
     id: item.id,
     name: item.name,
+    isDefault: Boolean(item.isDefault),
   }));
   const categoryNameById = new Map(categories.map((item) => [item.id, item.name]));
 
@@ -84,10 +100,18 @@ export function getAiAssistSuggestions(options?: {
 
   return [
     {
+      id: 'create_task',
+      label: 'Create task',
+      hint: 'Natural language → task',
+      prompt:
+        'Create a task for tomorrow afternoon: prepare the weekly work report, high priority, category work, with subtasks collect data and draft slides.',
+    },
+    {
       id: 'weekly_minutes',
       label: 'Weekly summary',
       hint: 'This week overview',
-      prompt: 'Summarize this week’s tasks as meeting-ready weekly minutes. Group by category when helpful.',
+      prompt:
+        'Summarize this week’s tasks as meeting-ready weekly minutes. Group by category when helpful.',
     },
     {
       id: 'today_focus',

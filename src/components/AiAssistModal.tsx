@@ -115,10 +115,10 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
                   id="ai-assist-title"
                   className="text-base font-bold text-slate-900 dark:text-white leading-snug"
                 >
-                  Ask about your todos
+                  Ask or create tasks
                 </h3>
                 <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                  Describe what you need in natural language
+                  Natural language — answers and new tasks, no extra edit step
                 </p>
               </div>
               <button
@@ -139,7 +139,7 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
                   onKeyDown={handleKeyDown}
                   rows={3}
                   maxLength={2000}
-                  placeholder='e.g. Summarize this week’s work items'
+                  placeholder='e.g. Create a high-priority task tomorrow: prepare weekly report'
                   disabled={isLoading}
                   className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2.5 text-base sm:text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 resize-none disabled:opacity-60"
                 />
@@ -162,7 +162,7 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
               {isLoading && (
                 <div className="inline-flex items-center gap-2 rounded-xl border border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/70 dark:bg-indigo-950/30 px-3 py-2 text-xs text-indigo-700 dark:text-indigo-200">
                   <LoaderCircle className="w-3.5 h-3.5 animate-spin" />
-                  Querying todos and drafting a reply…
+                  Working with your todos…
                 </div>
               )}
 
@@ -170,6 +170,35 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
                 <div className="rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 px-3.5 py-3 text-sm text-amber-800 dark:text-amber-200">
                   {error}
                 </div>
+              )}
+
+              {result?.createdTasks && result.createdTasks.length > 0 && (
+                <section className="space-y-1.5">
+                  <h4 className="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                    Created
+                  </h4>
+                  <ul className="space-y-1.5">
+                    {result.createdTasks.map((task, index) => (
+                      <li
+                        key={`${task.title}-${task.date}-${index}`}
+                        className="rounded-xl border border-emerald-100 dark:border-emerald-900/40 bg-emerald-50/70 dark:bg-emerald-950/25 px-3 py-2 text-[13px] text-slate-700 dark:text-slate-200"
+                      >
+                        <div className="font-semibold text-slate-900 dark:text-white">
+                          {task.title}
+                        </div>
+                        <div className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+                          {task.date}
+                          {task.dueTime ? ` · ${task.dueTime}` : ''}
+                          {` · ${task.category}`}
+                          {` · ${task.priority}`}
+                          {task.subtasks.length > 0
+                            ? ` · ${task.subtasks.length} subtasks`
+                            : ''}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
               )}
 
               {result?.answer && (
@@ -185,7 +214,7 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
 
               {!result && !isLoading && !error && (
                 <div className="py-6 text-center text-sm text-slate-500 dark:text-slate-400">
-                  Tip: mention time and category, e.g. “this week” + “work”.
+                  Tip: “Create a task tomorrow afternoon…” or “Summarize this week’s work”.
                 </div>
               )}
             </div>

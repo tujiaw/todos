@@ -33,7 +33,6 @@ import { useToast } from './components/Toast';
 import {
   generateAiAssist,
   generateDashboardCopy,
-  generateTaskDraft,
   loadCachedDashboardCopy,
   saveCachedDashboardCopy,
   type DashboardCopy,
@@ -41,6 +40,7 @@ import {
 import {
   buildAiAssistCatalog,
   getAiAssistSuggestions,
+  type AiAssistCreatedTask,
   type AiAssistResult,
 } from './utils/aiAssist';
 import { mergeCategories, mergeTasksLww, withoutStaleOps } from './utils/mergeSync';
@@ -144,7 +144,6 @@ export default function App() {
 
   // Modals state
   const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [draftTask, setDraftTask] = useState<Task | null>(null);
   const [taskInputResetKey, setTaskInputResetKey] = useState(0);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState<boolean>(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState<boolean>(false);
@@ -315,7 +314,6 @@ export default function App() {
     saveAiEnabled(enabled);
     if (!enabled) {
       setDashboardCopy(DEFAULT_DASHBOARD_COPY);
-      setDraftTask(null);
     }
   };
 
@@ -735,6 +733,46 @@ export default function App() {
     void queueAndFlush('upsert_task', newTask.id, newTask);
   };
 
+  const applyCreatedAiTasks = useCallback(
+    (created: AiAssistCreatedTask[]) => {
+      if (created.length === 0) return;
+      const now = Date.now();
+      const newTasks: Task[] = created.map((draft, index) => ({
+        title: draft.title,
+        description: draft.description,
+        date: draft.date,
+        completed: false,
+        categoryId: draft.categoryId,
+        priority: draft.priority,
+        dueTime: draft.dueTime,
+        estimatedMinutes: draft.estimatedMinutes,
+        subtasks: draft.subtasks.map((title, subIndex) => ({
+          id: `subtask-${now}-${index}-${subIndex}`,
+          title,
+          completed: false,
+        })),
+        pinned: false,
+        id: `task-${now}-${index}-${Math.random().toString(36).substring(2, 7)}`,
+        createdAt: now + index,
+        updatedAt: now + index,
+      }));
+
+      const updatedTasks = [...newTasks, ...tasksRef.current];
+      persistTasks(updatedTasks);
+      for (const task of newTasks) {
+        void queueAndFlush('upsert_task', task.id, task);
+      }
+      if (newTasks[0]?.date && newTasks[0].date !== selectedDate) {
+        setSelectedDate(newTasks[0].date);
+      }
+      showToast(
+        newTasks.length === 1 ? 'Task created' : `${newTasks.length} tasks created`,
+        'success'
+      );
+    },
+    [persistTasks, queueAndFlush, selectedDate, showToast]
+  );
+
   const runAiAssist = useCallback(
     async (message: string) => {
       const trimmed = message.trim();
@@ -766,12 +804,17 @@ export default function App() {
             message: trimmed,
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai',
             todayDate: getTodayDateString(),
+            selectedDate,
             categories: catalog.categories,
             tasks: catalog.tasks,
           },
           controller.signal
         );
         if (aiAssistAbortRef.current !== controller) return;
+        const created = result.createdTasks || [];
+        if (created.length > 0) {
+          applyCreatedAiTasks(created);
+        }
         setAiAssistResult(result);
         setAiAssistError(null);
       } catch (error) {
@@ -789,7 +832,7 @@ export default function App() {
         }
       }
     },
-    [aiEnabled, user, tasks, categories]
+    [aiEnabled, user, tasks, categories, selectedDate, applyCreatedAiTasks]
   );
 
   const handleOpenAiAssist = () => {
@@ -815,59 +858,6 @@ export default function App() {
     aiAssistAbortRef.current = null;
     setIsAiAssistLoading(false);
     setAiAssistError(null);
-  };
-
-  const handleGenerateTaskDraft = async (text: string) => {
-    if (!aiEnabled) throw new Error('AI features are disabled in Settings.');
-    const draft = await generateTaskDraft({
-      text,
-      currentDate: getTodayDateString(),
-      selectedDate,
-      timezone: 'Asia/Shanghai',
-      categories: categories.map(({ id, name, isDefault }) => ({
-        id,
-        name,
-        isDefault,
-      })),
-    });
-    const now = Date.now();
-    setDraftTask({
-      id: `draft-${now}`,
-      title: draft.title,
-      description: draft.description,
-      date: draft.date,
-      completed: false,
-      categoryId: draft.categoryId,
-      priority: draft.priority,
-      dueTime: draft.dueTime,
-      estimatedMinutes: draft.estimatedMinutes,
-      subtasks: draft.subtasks.map((title, index) => ({
-        id: `draft-subtask-${now}-${index}`,
-        title,
-        completed: false,
-      })),
-      pinned: false,
-      createdAt: now,
-      updatedAt: now,
-    });
-  };
-
-  const handleCreateDraftTask = (task: Task) => {
-    const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...taskData } = task;
-    handleAddTask({
-      ...taskData,
-      completed: false,
-      subtasks: taskData.subtasks.map((subtask) => ({
-        ...subtask,
-        completed: false,
-      })),
-    });
-    setTaskInputResetKey((key) => key + 1);
-    setDraftTask(null);
-  };
-
-  const handleCloseDraftTask = () => {
-    setDraftTask(null);
   };
 
   const handleToggleComplete = (taskId: string) => {
@@ -1287,8 +1277,6 @@ export default function App() {
             categories={categories}
             selectedDate={selectedDate}
             onAddTask={handleAddTask}
-            onGenerateTaskDraft={handleGenerateTaskDraft}
-            aiEnabled={aiEnabled}
             resetKey={taskInputResetKey}
           />
         </section>
@@ -1381,16 +1369,6 @@ export default function App() {
         isOpen={isVaultModalOpen}
         onClose={() => setIsVaultModalOpen(false)}
         lockToken={vaultLockToken}
-      />
-
-      {/* AI-generated task review modal */}
-      <TaskEditModal
-        task={draftTask}
-        categories={categories}
-        isOpen={Boolean(draftTask)}
-        mode="create"
-        onClose={handleCloseDraftTask}
-        onSave={handleCreateDraftTask}
       />
 
       <AiAssistModal
