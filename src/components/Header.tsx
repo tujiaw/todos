@@ -42,13 +42,47 @@ interface HeaderProps {
   isOffline?: boolean;
 }
 
+function formatYmd(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 function shiftDate(dateStr: string, days: number): string {
   const d = new Date(dateStr + 'T00:00:00');
   d.setDate(d.getDate() + days);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+  return formatYmd(d);
+}
+
+function parseLocalDate(dateStr: string): Date {
+  const parsed = new Date(`${dateStr}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return new Date();
+  return parsed;
+}
+
+function shiftMonth(year: number, monthIndex: number, delta: number): { year: number; month: number } {
+  const date = new Date(year, monthIndex + delta, 1);
+  return { year: date.getFullYear(), month: date.getMonth() };
+}
+
+const WEEKDAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+
+function buildMonthCells(year: number, monthIndex: number): Array<{ date: string; day: number; inMonth: boolean }> {
+  const first = new Date(year, monthIndex, 1);
+  const startOffset = first.getDay();
+  const gridStart = new Date(year, monthIndex, 1 - startOffset);
+  const cells: Array<{ date: string; day: number; inMonth: boolean }> = [];
+  for (let i = 0; i < 42; i += 1) {
+    const cell = new Date(gridStart);
+    cell.setDate(gridStart.getDate() + i);
+    cells.push({
+      date: formatYmd(cell),
+      day: cell.getDate(),
+      inMonth: cell.getMonth() === monthIndex,
+    });
+  }
+  return cells;
 }
 
 function formatDateDisplay(dateStr: string, todayStr: string) {
@@ -90,7 +124,17 @@ const DateNavigator: React.FC<DateNavigatorProps> = ({
 }) => {
   const formattedDate = formatDateDisplay(selectedDate, todayStr);
   const [open, setOpen] = useState(false);
+  const selected = parseLocalDate(selectedDate);
+  const [viewYear, setViewYear] = useState(selected.getFullYear());
+  const [viewMonth, setViewMonth] = useState(selected.getMonth());
   const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const next = parseLocalDate(selectedDate);
+    setViewYear(next.getFullYear());
+    setViewMonth(next.getMonth());
+  }, [open, selectedDate]);
 
   useEffect(() => {
     if (!open) return;
@@ -121,8 +165,20 @@ const DateNavigator: React.FC<DateNavigatorProps> = ({
     setOpen(false);
   };
 
+  const goMonth = (delta: number) => {
+    const next = shiftMonth(viewYear, viewMonth, delta);
+    setViewYear(next.year);
+    setViewMonth(next.month);
+  };
+
+  const monthLabel = new Date(viewYear, viewMonth, 1).toLocaleDateString('en-US', {
+    month: 'long',
+    year: 'numeric',
+  });
+  const monthCells = buildMonthCells(viewYear, viewMonth);
+
   const navBtnClass =
-    'p-1.5 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-all min-h-[32px] min-w-[32px] flex items-center justify-center shrink-0';
+    'p-1.5 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-all min-h-[32px] min-w-[32px] flex items-center justify-center shrink-0 cursor-pointer';
 
   return (
     <div
@@ -175,48 +231,89 @@ const DateNavigator: React.FC<DateNavigatorProps> = ({
 
       {open && (
         <div
-          className={`absolute top-full z-50 mt-1.5 w-72 max-w-[calc(100vw-1.5rem)] bg-white dark:bg-slate-900 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 p-3 space-y-3 ${
+          className={`absolute top-full z-50 mt-1.5 w-72 max-w-[calc(100vw-1.5rem)] bg-white dark:bg-slate-900 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 p-3 space-y-2.5 ${
             compact ? 'left-0 right-0 mx-auto' : 'left-1/2 -translate-x-1/2'
           }`}
           role="dialog"
           aria-label="Select date"
         >
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-              <CalendarIcon className="w-3.5 h-3.5 text-blue-600" />
-              <span>Select Date</span>
+          <div className="flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => goMonth(-1)}
+              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              title="Previous month"
+              aria-label="Previous month"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <h3 className="text-xs font-bold text-slate-900 dark:text-white tabular-nums">
+              {monthLabel}
             </h3>
             <button
               type="button"
-              onClick={() => setOpen(false)}
-              className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg"
+              onClick={() => goMonth(1)}
+              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              title="Next month"
+              aria-label="Next month"
             >
-              <X className="w-3.5 h-3.5" />
+              <ChevronRight className="w-4 h-4" />
             </button>
           </div>
 
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => {
-              if (e.target.value) selectAndClose(e.target.value);
-            }}
-            className="w-full text-sm p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            autoFocus
-          />
+          <div className="grid grid-cols-7 gap-0.5">
+            {WEEKDAY_LABELS.map((label) => (
+              <div
+                key={label}
+                className="h-7 grid place-items-center text-[10px] font-semibold text-slate-400 dark:text-slate-500"
+              >
+                {label}
+              </div>
+            ))}
+            {monthCells.map((cell) => {
+              const isSelected = cell.date === selectedDate;
+              const isToday = cell.date === todayStr;
+              let dayClass =
+                'h-8 rounded-lg text-xs font-semibold transition-colors cursor-pointer';
+              if (isSelected) {
+                dayClass += ' bg-indigo-600 text-white hover:bg-indigo-500';
+              } else if (isToday) {
+                dayClass +=
+                  ' text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50';
+              } else if (cell.inMonth) {
+                dayClass +=
+                  ' text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800';
+              } else {
+                dayClass +=
+                  ' text-slate-300 dark:text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/60';
+              }
+              return (
+                <button
+                  key={cell.date}
+                  type="button"
+                  onClick={() => selectAndClose(cell.date)}
+                  className={dayClass}
+                  aria-current={isToday ? 'date' : undefined}
+                  aria-pressed={isSelected}
+                >
+                  {cell.day}
+                </button>
+              );
+            })}
+          </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2 pt-0.5">
             <button
               type="button"
               onClick={() => selectAndClose(todayStr)}
-              className="py-1.5 px-3 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-300 text-xs font-semibold rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors"
+              className="py-1.5 px-3 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-300 text-xs font-semibold rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors cursor-pointer"
             >
               Today
             </button>
             <button
               type="button"
               onClick={() => selectAndClose(shiftDate(todayStr, 1))}
-              className="py-1.5 px-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+              className="py-1.5 px-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
             >
               Tomorrow
             </button>
