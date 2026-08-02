@@ -31,7 +31,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 const DROP_STORAGE_BUCKET = 'drop-files';
 const MAX_DROP_FILE_SIZE = 20 * 1024 * 1024;
 const MAX_TASK_IMAGE_SIZE = 5 * 1024 * 1024;
-const DROP_SIGNED_URL_TTL_SECONDS = 4 * 60 * 60;
+const DROP_SIGNED_URL_TTL_SECONDS = 24 * 60 * 60;
 export const STORAGE_PATH_PREFIX = 'storage:';
 const OAUTH_PENDING_KEY = 'auth_oauth_pending';
 
