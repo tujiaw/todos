@@ -11,6 +11,8 @@ import {
   saveThemeMode,
   loadAiEnabled,
   saveAiEnabled,
+  loadAiAssistLanguage,
+  saveAiAssistLanguage,
   clearLocalUserData,
 } from './utils/storage';
 import { getTodayDateString } from './data/initialData';
@@ -43,6 +45,7 @@ import {
   getAiAssistSuggestions,
   type AiAssistChatMessage,
   type AiAssistCreatedTask,
+  type AiAssistLanguage,
 } from './utils/aiAssist';
 import { mergeCategories, mergeTasksLww, withoutStaleOps } from './utils/mergeSync';
 import {
@@ -107,6 +110,9 @@ export default function App() {
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => loadThemeMode());
   const [aiEnabled, setAiEnabled] = useState<boolean>(() => loadAiEnabled());
+  const [aiAssistLanguage, setAiAssistLanguage] = useState<AiAssistLanguage>(() =>
+    loadAiAssistLanguage()
+  );
   const [dashboardCopy, setDashboardCopy] = useState<DashboardCopy>(() =>
     loadAiEnabled()
       ? loadCachedDashboardCopy(getTodayDateString()) || DEFAULT_DASHBOARD_COPY
@@ -317,6 +323,11 @@ export default function App() {
     if (!enabled) {
       setDashboardCopy(DEFAULT_DASHBOARD_COPY);
     }
+  };
+
+  const handleAiAssistLanguageChange = (language: AiAssistLanguage) => {
+    setAiAssistLanguage(language);
+    saveAiAssistLanguage(language);
   };
 
   const refreshPendingCount = useCallback((userId?: string | null) => {
@@ -848,6 +859,7 @@ export default function App() {
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai',
             todayDate: getTodayDateString(),
             selectedDate,
+            language: aiAssistLanguage,
             categories: catalog.categories,
             tasks: catalog.tasks,
           },
@@ -884,6 +896,7 @@ export default function App() {
       tasks,
       categories,
       selectedDate,
+      aiAssistLanguage,
       applyCreatedAiTasks,
       appendAiAssistMessage,
       setAiAssistLoading,
@@ -1465,9 +1478,12 @@ export default function App() {
         suggestions={getAiAssistSuggestions({
           selectedDate,
           todayDate: getTodayDateString(),
+          language: aiAssistLanguage,
         })}
         messages={aiAssistMessages}
         isLoading={isAiAssistLoading}
+        language={aiAssistLanguage}
+        onLanguageChange={handleAiAssistLanguageChange}
         onSend={handleSendAiAssist}
         onCancel={handleCancelAiAssist}
         onClearMessages={handleClearAiAssistMessages}

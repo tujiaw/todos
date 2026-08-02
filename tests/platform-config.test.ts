@@ -80,12 +80,15 @@ test('AI requests use a same-origin Vercel Function and direct DeepSeek provider
 
 test('global AI preference disables AI UI and uses daily dashboard cache', () => {
   assert.match(storage, /daily_todos_ai_enabled_v1/);
+  assert.match(storage, /daily_todos_ai_assist_language_v1/);
+  assert.match(storage, /loadAiAssistLanguage/);
   assert.match(syncModal, /role="switch"/);
   assert.match(syncModal, /AI Features/);
   assert.match(syncModal, /Week AI Assist/);
   assert.match(app, /aiEnabled=\{aiEnabled\}/);
   assert.match(app, /onOpenAiAssist=\{handleOpenAiAssist\}/);
   assert.match(app, /applyCreatedAiTasks/);
+  assert.match(app, /language: aiAssistLanguage/);
   assert.match(app, /selectedDate,/);
   const progressBar = readFileSync(
     new URL('../src/components/ProgressBar.tsx', import.meta.url),
@@ -113,6 +116,8 @@ test('global AI preference disables AI UI and uses daily dashboard cache', () =>
   assert.match(aiAssistModal, /onClearMessages/);
   assert.match(aiAssistModal, /onRetry/);
   assert.match(aiAssistModal, /onViewCreatedTasks/);
+  assert.match(aiAssistModal, /onLanguageChange/);
+  assert.match(aiAssistModal, /Reply language/);
   assert.match(aiAssistModal, /sendOnClick/);
   assert.doesNotMatch(aiAssistModal, /showPromptChips/);
   const markdownContent = readFileSync(

@@ -5,7 +5,10 @@ const TASKS_STORAGE_KEY = 'daily_todos_tasks_v1';
 const CATEGORIES_STORAGE_KEY = 'daily_todos_categories_v1';
 const THEME_STORAGE_KEY = 'daily_todos_theme_v1';
 const AI_ENABLED_STORAGE_KEY = 'daily_todos_ai_enabled_v1';
+const AI_ASSIST_LANGUAGE_STORAGE_KEY = 'daily_todos_ai_assist_language_v1';
 const SYNC_CHANNEL_NAME = 'daily_todos_channel';
+
+export type AiAssistLanguagePreference = 'zh' | 'en';
 
 // Load theme mode
 export const loadThemeMode = (): ThemeMode => {
@@ -90,6 +93,24 @@ export const saveAiEnabled = (enabled: boolean): void => {
     localStorage.setItem(AI_ENABLED_STORAGE_KEY, String(enabled));
   } catch (err) {
     console.error('Failed to save AI preference', err);
+  }
+};
+
+export const loadAiAssistLanguage = (): AiAssistLanguagePreference => {
+  try {
+    const saved = localStorage.getItem(AI_ASSIST_LANGUAGE_STORAGE_KEY);
+    if (saved === 'zh' || saved === 'en') return saved;
+  } catch (err) {
+    console.error('Failed to load AI Assist language', err);
+  }
+  return 'zh';
+};
+
+export const saveAiAssistLanguage = (language: AiAssistLanguagePreference): void => {
+  try {
+    localStorage.setItem(AI_ASSIST_LANGUAGE_STORAGE_KEY, language);
+  } catch (err) {
+    console.error('Failed to save AI Assist language', err);
   }
 };
 

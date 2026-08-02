@@ -22,6 +22,8 @@ const RELATIVE_RANGES = [
 
 export type AiAssistPriority = (typeof PRIORITIES)[number];
 export type AiAssistRelativeRange = (typeof RELATIVE_RANGES)[number];
+export const AI_ASSIST_LANGUAGES = ['zh', 'en'] as const;
+export type AiAssistLanguage = (typeof AI_ASSIST_LANGUAGES)[number];
 
 export interface AiAssistTaskBrief {
   title: string;
@@ -55,6 +57,7 @@ export interface AiAssistRequest {
   timezone: string;
   todayDate: string;
   selectedDate: string;
+  language: AiAssistLanguage;
   categories: AiAssistCategoryBrief[];
   tasks: AiAssistTaskBrief[];
 }
@@ -335,6 +338,13 @@ function parseCategories(value: unknown): AiAssistCategoryBrief[] {
   });
 }
 
+function parseAiAssistLanguage(value: unknown): AiAssistLanguage {
+  if (value === 'zh' || value === 'en') return value;
+  // Backward-compatible default for older clients.
+  if (value === undefined || value === null || value === '') return 'zh';
+  throw new Error('Invalid AI assist request: language.');
+}
+
 export function validateAiAssistRequest(value: unknown): AiAssistRequest {
   if (!value || typeof value !== 'object') throw new Error('Invalid AI assist request.');
   const input = value as Record<string, unknown>;
@@ -342,6 +352,7 @@ export function validateAiAssistRequest(value: unknown): AiAssistRequest {
   const timezone = typeof input.timezone === 'string' ? input.timezone.trim() : '';
   const todayDate = typeof input.todayDate === 'string' ? input.todayDate : '';
   const selectedDate = typeof input.selectedDate === 'string' ? input.selectedDate : '';
+  const language = parseAiAssistLanguage(input.language);
   if (!message || message.length > AI_ASSIST_MAX_MESSAGE) {
     throw new Error('Invalid AI assist request: message.');
   }
@@ -362,6 +373,7 @@ export function validateAiAssistRequest(value: unknown): AiAssistRequest {
     timezone,
     todayDate,
     selectedDate,
+    language,
     categories,
     tasks: parseTaskList(input.tasks),
   };
@@ -570,8 +582,18 @@ export function executeQueryTodos(
   };
 }
 
+function getAnswerLanguageInstruction(language: AiAssistLanguage): string {
+  if (language === 'en') {
+    return 'Always answer in English, even if the user message mixes languages.';
+  }
+  return 'Always answer in Simplified Chinese (简体中文), even if the user message mixes languages.';
+}
+
 export function getAiAssistSystemPrompt(
-  request: Pick<AiAssistRequest, 'timezone' | 'todayDate' | 'selectedDate' | 'categories'>
+  request: Pick<
+    AiAssistRequest,
+    'timezone' | 'todayDate' | 'selectedDate' | 'categories' | 'language'
+  >
 ): string {
   const categoryList =
     request.categories.length > 0
@@ -580,6 +602,7 @@ export function getAiAssistSystemPrompt(
   return [
     'You are a todo assistant for a personal task app.',
     `Timezone: ${request.timezone}. Today: ${request.todayDate}. Selected calendar date: ${request.selectedDate}.`,
+    `Reply language setting: ${request.language}.`,
     `Available categories: ${categoryList}.`,
     'Tools:',
     '- query_todos: fetch existing tasks with filters before summarizing or answering.',
@@ -587,7 +610,8 @@ export function getAiAssistSystemPrompt(
     'When the user wants to add/create/schedule a task, call create_task with the best structured fields you can infer.',
     'When the user mentions a time window (this week, today, etc.) or category/priority for questions, pass those filters to query_todos.',
     'Do not invent existing tasks. If query_todos returns nothing, say so clearly.',
-    'Answer in the user language with clear, copy-ready Markdown when helpful (headings, lists, bold). Do not mention tools or AI.',
+    getAnswerLanguageInstruction(request.language),
+    'Use clear, copy-ready Markdown when helpful (headings, lists, bold). Do not mention tools or AI.',
     'Stop calling tools once you can answer. Final replies must be Markdown or plain text (no JSON wrapper, no outer code fence around the whole reply).',
   ].join('\n');
 }

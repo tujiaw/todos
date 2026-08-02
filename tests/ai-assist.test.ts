@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   executeCreateTask,
   executeQueryTodos,
+  getAiAssistSystemPrompt,
   getWeekBounds,
   parseQueryTodosArgs,
   resolveRelativeRange,
@@ -75,6 +76,7 @@ test('validates natural-language AI assist request', () => {
     timezone: 'Asia/Shanghai',
     todayDate: '2026-07-31',
     selectedDate: '2026-07-31',
+    language: 'en',
     categories: [{ id: 'work', name: 'Work', isDefault: true }],
     tasks: [
       {
@@ -89,7 +91,52 @@ test('validates natural-language AI assist request', () => {
   });
   assert.equal(request.message, 'Summarize this week’s work items');
   assert.equal(request.selectedDate, '2026-07-31');
+  assert.equal(request.language, 'en');
   assert.equal(request.tasks.length, 1);
+});
+
+test('defaults AI assist language to zh and rejects invalid values', () => {
+  const request = validateAiAssistRequest({
+    message: '总结本周任务',
+    timezone: 'Asia/Shanghai',
+    todayDate: '2026-07-31',
+    selectedDate: '2026-07-31',
+    categories: [{ id: 'work', name: 'Work', isDefault: true }],
+    tasks: [],
+  });
+  assert.equal(request.language, 'zh');
+  assert.throws(
+    () =>
+      validateAiAssistRequest({
+        message: 'hello',
+        timezone: 'Asia/Shanghai',
+        todayDate: '2026-07-31',
+        selectedDate: '2026-07-31',
+        language: 'fr',
+        categories: [{ id: 'work', name: 'Work', isDefault: true }],
+        tasks: [],
+      }),
+    /language/
+  );
+});
+
+test('system prompt enforces the selected reply language', () => {
+  const zhPrompt = getAiAssistSystemPrompt({
+    timezone: 'Asia/Shanghai',
+    todayDate: '2026-07-31',
+    selectedDate: '2026-07-31',
+    language: 'zh',
+    categories: [{ id: 'work', name: 'Work', isDefault: true }],
+  });
+  const enPrompt = getAiAssistSystemPrompt({
+    timezone: 'Asia/Shanghai',
+    todayDate: '2026-07-31',
+    selectedDate: '2026-07-31',
+    language: 'en',
+    categories: [{ id: 'work', name: 'Work', isDefault: true }],
+  });
+  assert.match(zhPrompt, /Simplified Chinese/);
+  assert.match(enPrompt, /Always answer in English/);
 });
 
 test('create_task builds a validated task without review step', () => {
@@ -157,19 +204,29 @@ test('parseQueryTodosArgs rejects bad dates', () => {
 });
 
 test('builds client suggestions', () => {
-  const suggestions = getAiAssistSuggestions({
+  const zhSuggestions = getAiAssistSuggestions({
     selectedDate: '2026-07-31',
     todayDate: '2026-07-31',
+    language: 'zh',
   });
-  assert.equal(suggestions.length, 4);
-  assert.ok(suggestions.some((item) => item.id === 'create_task'));
-  assert.ok(suggestions.some((item) => item.id === 'weekly_minutes'));
+  assert.equal(zhSuggestions.length, 4);
   assert.match(
-    suggestions.find((item) => item.id === 'create_task')?.prompt || '',
+    zhSuggestions.find((item) => item.id === 'create_task')?.prompt || '',
+    /今天创建一个任务/
+  );
+  assert.equal(zhSuggestions.find((item) => item.id === 'create_task')?.label, '创建任务');
+
+  const enSuggestions = getAiAssistSuggestions({
+    selectedDate: '2026-07-31',
+    todayDate: '2026-07-31',
+    language: 'en',
+  });
+  assert.match(
+    enSuggestions.find((item) => item.id === 'create_task')?.prompt || '',
     /Create a task today:/
   );
   assert.equal(
-    suggestions.find((item) => item.id === 'today_focus')?.sendOnClick,
+    enSuggestions.find((item) => item.id === 'today_focus')?.sendOnClick,
     true
   );
 });

@@ -10,7 +10,11 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import type { AiAssistChatMessage, AiAssistSuggestion } from '../utils/aiAssist';
+import type {
+  AiAssistChatMessage,
+  AiAssistLanguage,
+  AiAssistSuggestion,
+} from '../utils/aiAssist';
 import { MarkdownContent } from './MarkdownContent';
 import { useToast } from './Toast';
 
@@ -22,6 +26,8 @@ interface AiAssistModalProps {
   suggestions: AiAssistSuggestion[];
   messages: AiAssistChatMessage[];
   isLoading: boolean;
+  language: AiAssistLanguage;
+  onLanguageChange: (language: AiAssistLanguage) => void;
   onSend: (text: string) => void;
   onCancel: () => void;
   onClearMessages: () => void;
@@ -66,6 +72,8 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
   suggestions,
   messages,
   isLoading,
+  language,
+  onLanguageChange,
   onSend,
   onCancel,
   onClearMessages,
@@ -196,7 +204,39 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-1 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <div
+              className="inline-flex items-center rounded-full border border-slate-200 dark:border-slate-700 bg-slate-100/80 dark:bg-slate-800/80 p-0.5"
+              role="group"
+              aria-label="Reply language"
+            >
+              <button
+                type="button"
+                onClick={() => onLanguageChange('zh')}
+                className={`min-w-[2.25rem] px-2 py-1 rounded-full text-[11px] font-semibold transition-colors cursor-pointer ${
+                  language === 'zh'
+                    ? 'bg-white dark:bg-slate-700 text-indigo-700 dark:text-indigo-200 shadow-sm'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                }`}
+                aria-pressed={language === 'zh'}
+                title="用中文回答"
+              >
+                中文
+              </button>
+              <button
+                type="button"
+                onClick={() => onLanguageChange('en')}
+                className={`min-w-[2.25rem] px-2 py-1 rounded-full text-[11px] font-semibold transition-colors cursor-pointer ${
+                  language === 'en'
+                    ? 'bg-white dark:bg-slate-700 text-indigo-700 dark:text-indigo-200 shadow-sm'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                }`}
+                aria-pressed={language === 'en'}
+                title="Reply in English"
+              >
+                EN
+              </button>
+            </div>
             {messages.length > 0 && (
               <button
                 type="button"
