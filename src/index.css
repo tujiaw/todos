@@ -301,11 +301,13 @@ body {
   box-shadow: 0 24px 80px rgb(79 70 229 / 0.25);
 }
 
-.vault-panel button:not(:disabled) {
+.vault-panel button:not(:disabled),
+.drop-panel button:not(:disabled) {
   cursor: pointer;
 }
 
-.vault-panel button:disabled {
+.vault-panel button:disabled,
+.drop-panel button:disabled {
   cursor: not-allowed;
 }
 
