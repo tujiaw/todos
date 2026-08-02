@@ -260,21 +260,34 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
           </div>
         </div>
 
+        <div className="shrink-0 px-4 sm:px-5 py-2.5 border-b border-slate-200/70 dark:border-slate-800/80 bg-white dark:bg-slate-900 shadow-[0_8px_18px_-14px_rgba(15,23,42,0.45)] z-[1]">
+          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+            {language === 'zh' ? '快捷提示' : 'Quick prompts'}
+          </p>
+          <SuggestionChips
+            suggestions={suggestions}
+            disabled={isLoading}
+            onPick={handleSuggestionClick}
+          />
+        </div>
+
         <div
           ref={scrollContainerRef}
           onScroll={handleFeedScroll}
           className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 space-y-3"
         >
           {messages.length === 0 && !isLoading && (
-            <div className="flex flex-col items-center justify-center min-h-[42vh] text-center px-1 py-6">
+            <div className="flex flex-col items-center justify-center min-h-[36vh] text-center px-1 py-6">
               <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-950/50 dark:to-indigo-950/70 text-indigo-600 dark:text-indigo-300 flex items-center justify-center shadow-inner mb-3">
                 <Sparkles className="w-5 h-5" />
               </div>
               <p className="font-semibold text-slate-700 dark:text-slate-300">
-                What do you need?
+                {language === 'zh' ? '需要做什么？' : 'What do you need?'}
               </p>
               <p className="mt-1 text-[12px] text-slate-500 dark:text-slate-400 leading-relaxed max-w-[17rem]">
-                Use the shortcuts below the chat, or type your own request.
+                {language === 'zh'
+                  ? '点顶部快捷提示，或在下方直接输入。'
+                  : 'Tap a quick prompt above, or type your own request below.'}
               </p>
             </div>
           )}
@@ -390,13 +403,7 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
           )}
         </div>
 
-        <div className="px-4 sm:px-5 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:pb-4 space-y-2.5 border-t border-slate-200/70 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/40">
-          <SuggestionChips
-            suggestions={suggestions}
-            disabled={isLoading}
-            onPick={handleSuggestionClick}
-          />
-
+        <div className="px-4 sm:px-5 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:pb-4 border-t border-slate-200/70 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/40">
           <div className="relative flex items-end gap-1.5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-700 focus-within:ring-4 focus-within:ring-indigo-500/10 focus-within:border-indigo-400 transition-all p-2 shadow-sm">
             <textarea
               ref={inputRef}
@@ -405,7 +412,11 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
               onKeyDown={handleKeyDown}
               rows={2}
               maxLength={2000}
-              placeholder="Ask about todos, or create a task…"
+              placeholder={
+                language === 'zh'
+                  ? '询问待办，或创建任务…'
+                  : 'Ask about todos, or create a task…'
+              }
               disabled={isLoading}
               className="min-w-0 flex-1 min-h-[2.5rem] max-h-28 text-base sm:text-[15px] leading-5 px-2.5 py-2 bg-slate-50/80 dark:bg-slate-800/70 rounded-2xl text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none resize-none disabled:opacity-60"
             />
