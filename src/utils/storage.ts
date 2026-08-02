@@ -233,10 +233,15 @@ export const subscribeToSyncEvents = (onSync: (type: string) => void) => {
   };
 };
 
-// Export data as JSON file
-export const exportDataAsJSON = (filter?: { startDate?: string; endDate?: string }) => {
-  const allTasks = loadTasks();
-  const categories = loadCategories();
+// Export data as JSON file. Pass `source` (e.g. freshly fetched from the
+// cloud) to export the full history; the local cache may hold only a recent
+// window after a quota-triggered trim.
+export const exportDataAsJSON = (
+  filter?: { startDate?: string; endDate?: string },
+  source?: { tasks: Task[]; categories: Category[] }
+) => {
+  const allTasks = source?.tasks ?? loadTasks();
+  const categories = source?.categories ?? loadCategories();
 
   const tasks = (filter?.startDate || filter?.endDate)
     ? allTasks.filter((t) => {

@@ -16,6 +16,7 @@ import {
 import { User } from '@supabase/supabase-js';
 import type { Category, Task } from '../types';
 import { exportDataAsJSON, importDataFromJSON } from '../utils/storage';
+import { fetchCategoriesFromSupabase, fetchTasksFromSupabase } from '../lib/supabase';
 import { getTodayDateString } from '../data/initialData';
 
 interface SyncModalProps {
@@ -55,15 +56,34 @@ export const SyncModal: React.FC<SyncModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleExport = () => {
-    exportDataAsJSON({
-      startDate: exportStart || undefined,
-      endDate: exportEnd || undefined,
-    });
+  const handleExport = async () => {
+    // Prefer the full cloud history: after a quota-triggered trim the local
+    // cache may only hold the recent window.
+    let cloudData: { tasks: Task[]; categories: Category[] } | undefined;
+    let sourceNote = '';
+    if (user) {
+      try {
+        const [tasks, categories] = await Promise.all([
+          fetchTasksFromSupabase(),
+          fetchCategoriesFromSupabase(),
+        ]);
+        cloudData = { tasks, categories };
+      } catch {
+        sourceNote = ' (offline — exported the local cache)';
+      }
+    }
+
+    exportDataAsJSON(
+      {
+        startDate: exportStart || undefined,
+        endDate: exportEnd || undefined,
+      },
+      cloudData
+    );
     const range = exportStart || exportEnd
       ? ` (${exportStart || 'earliest'} – ${exportEnd || 'latest'})`
       : '';
-    setFeedback({ success: true, message: `Backup exported successfully!${range}` });
+    setFeedback({ success: true, message: `Backup exported successfully!${range}${sourceNote}` });
   };
 
   const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {

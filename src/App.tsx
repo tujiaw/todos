@@ -150,8 +150,12 @@ export default function App() {
   const confirmAction = useConfirm();
   const { showToast } = useToast();
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString());
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  // Boot from the local cache. Critical for incremental sync: merging pulled
+  // changes into an empty list would overwrite the cache with just the delta.
+  const [tasks, setTasks] = useState<Task[]>(() => loadTasks());
+  const [categories, setCategories] = useState<Category[]>(() =>
+    sortCategoriesByOrder(loadCategories())
+  );
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => loadThemeMode());
   const [aiEnabled, setAiEnabled] = useState<boolean>(() => loadAiEnabled());
@@ -189,8 +193,8 @@ export default function App() {
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
-  const tasksRef = useRef<Task[]>([]);
-  const categoriesRef = useRef<Category[]>([]);
+  const tasksRef = useRef<Task[]>(tasks);
+  const categoriesRef = useRef<Category[]>(categories);
   const realtimeSyncTimerRef = useRef<number | null>(null);
   const syncInFlightRef = useRef<Promise<void> | null>(null);
 
@@ -474,7 +478,9 @@ export default function App() {
 
         // Incremental sync: with a fresh cursor only rows changed since the
         // last sync are pulled; otherwise fall back to a full snapshot.
-        const cursor = loadTaskSyncCursor(user.id);
+        // An empty local list also forces a snapshot — merging a delta into
+        // nothing would make the delta the entire local dataset.
+        const cursor = tasksRef.current.length > 0 ? loadTaskSyncCursor(user.id) : null;
         const [taskChanges, categorySnapshot] = await Promise.all([
           cursor ? fetchTaskChangesFromSupabase(cursor) : fetchTaskSnapshotFromSupabase(),
           fetchCategorySnapshotFromSupabase(),
