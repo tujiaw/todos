@@ -212,7 +212,8 @@ const mapDbRowToTask = (row: any): Task => ({
   updatedAt: Number(row.updated_at),
 });
 
-// Map frontend Task to DB Row
+// Map frontend Task to DB Row. deleted_at is always cleared: an upsert that
+// wins the LWW contest against a tombstone must revive the row.
 const mapTaskToDbRow = (task: Task, userId: string) => ({
   id: task.id,
   user_id: userId,
@@ -229,6 +230,7 @@ const mapTaskToDbRow = (task: Task, userId: string) => ({
   pinned: task.pinned || false,
   created_at: task.createdAt,
   updated_at: task.updatedAt,
+  deleted_at: null,
 });
 
 // Map DB Category row to frontend Category
@@ -243,7 +245,7 @@ const mapDbRowToCategory = (row: any): Category => ({
   isDefault: row.is_default || false,
 });
 
-// Map frontend Category to DB Row
+// Map frontend Category to DB Row (deleted_at cleared so upserts revive tombstones)
 const mapCategoryToDbRow = (cat: Category, userId: string) => ({
   id: cat.id,
   user_id: userId,
@@ -254,13 +256,15 @@ const mapCategoryToDbRow = (cat: Category, userId: string) => ({
   border_class: cat.borderClass,
   sort_order: cat.sortOrder ?? 0,
   is_default: cat.isDefault || false,
+  deleted_at: null,
 });
 
-// Fetch tasks from Supabase
+// Fetch live (non-deleted) tasks from Supabase
 export const fetchTasksFromSupabase = async (): Promise<Task[]> => {
   const { data, error } = await supabase
     .from('todo_tasks')
     .select('*')
+    .is('deleted_at', null)
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -269,6 +273,78 @@ export const fetchTasksFromSupabase = async (): Promise<Task[]> => {
   }
 
   return (data || []).map(mapDbRowToTask);
+};
+
+export interface TaskTombstone {
+  id: string;
+  /** Client timestamp (ms) of the deletion, used for LWW against pending edits. */
+  deletedAt: number;
+}
+
+export interface RemoteTaskChanges {
+  tasks: Task[];
+  tombstones: TaskTombstone[];
+  /** Highest server_updated_at seen; next sync pulls rows at or after it. */
+  cursor: string | null;
+}
+
+const splitTaskRows = (rows: any[]): RemoteTaskChanges => {
+  const tasks: Task[] = [];
+  const tombstones: TaskTombstone[] = [];
+  let cursor: string | null = null;
+
+  for (const row of rows) {
+    const serverUpdatedAt = row.server_updated_at;
+    if (typeof serverUpdatedAt === 'string' && (!cursor || serverUpdatedAt > cursor)) {
+      cursor = serverUpdatedAt;
+    }
+    if (row.deleted_at != null) {
+      tombstones.push({ id: row.id, deletedAt: Number(row.deleted_at) });
+    } else {
+      tasks.push(mapDbRowToTask(row));
+    }
+  }
+
+  return { tasks, tombstones, cursor };
+};
+
+/** Full snapshot including tombstones (first sync / stale-cursor resync). */
+export const fetchTaskSnapshotFromSupabase = async (): Promise<RemoteTaskChanges> => {
+  const { data, error } = await supabase
+    .from('todo_tasks')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching task snapshot from Supabase:', error);
+    throw error;
+  }
+
+  return splitTaskRows(data || []);
+};
+
+/**
+ * Incremental sync: only rows changed at or after the cursor. gte (not gt)
+ * deliberately re-fetches the cursor row itself to close commit-order races;
+ * the merge is idempotent so the overlap is harmless.
+ */
+export const fetchTaskChangesFromSupabase = async (
+  since: string
+): Promise<RemoteTaskChanges> => {
+  const { data, error } = await supabase
+    .from('todo_tasks')
+    .select('*')
+    .gte('server_updated_at', since)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching task changes from Supabase:', error);
+    throw error;
+  }
+
+  const changes = splitTaskRows(data || []);
+  if (!changes.cursor) changes.cursor = since;
+  return changes;
 };
 
 // Upsert a task to Supabase
@@ -281,9 +357,13 @@ export const upsertTaskToSupabase = async (task: Task, user: User) => {
   }
 };
 
-// Delete a task from Supabase
+// Soft-delete a task: mark a tombstone so other devices learn about the
+// deletion via incremental sync. Rows are physically purged after 30 days.
 export const deleteTaskFromSupabase = async (taskId: string) => {
-  const { error } = await supabase.from('todo_tasks').delete().eq('id', taskId);
+  const { error } = await supabase
+    .from('todo_tasks')
+    .update({ deleted_at: Date.now() })
+    .eq('id', taskId);
   if (error) {
     console.error('Error deleting task from Supabase:', error);
     throw error;
@@ -312,7 +392,10 @@ export const syncAllCategoriesToSupabase = async (categories: Category[], user: 
 };
 
 export const deleteCategoryFromSupabase = async (categoryId: string) => {
-  const { error } = await supabase.from('todo_categories').delete().eq('id', categoryId);
+  const { error } = await supabase
+    .from('todo_categories')
+    .update({ deleted_at: Date.now() })
+    .eq('id', categoryId);
   if (error) {
     console.error('Error deleting category from Supabase:', error);
     throw error;
@@ -378,11 +461,12 @@ export const subscribeToTasks = (userId: string, onUpdate: () => void) => {
   };
 };
 
-// Fetch categories from Supabase
+// Fetch live (non-deleted) categories from Supabase
 export const fetchCategoriesFromSupabase = async (): Promise<Category[]> => {
   const { data, error } = await supabase
     .from('todo_categories')
     .select('*')
+    .is('deleted_at', null)
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
 
@@ -394,6 +478,40 @@ export const fetchCategoriesFromSupabase = async (): Promise<Category[]> => {
   return (data || []).map(mapDbRowToCategory);
 };
 
+export interface RemoteCategorySnapshot {
+  categories: Category[];
+  deletedIds: string[];
+}
+
+/**
+ * Categories stay on full-snapshot sync (they are few), but tombstones must be
+ * included so categories deleted on another device are not resurrected here.
+ */
+export const fetchCategorySnapshotFromSupabase =
+  async (): Promise<RemoteCategorySnapshot> => {
+    const { data, error } = await supabase
+      .from('todo_categories')
+      .select('*')
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching category snapshot from Supabase:', error);
+      throw error;
+    }
+
+    const categories: Category[] = [];
+    const deletedIds: string[] = [];
+    for (const row of data || []) {
+      if (row.deleted_at != null) {
+        deletedIds.push(row.id);
+      } else {
+        categories.push(mapDbRowToCategory(row));
+      }
+    }
+    return { categories, deletedIds };
+  };
+
 // Upsert category to Supabase
 export const upsertCategoryToSupabase = async (category: Category, user: User) => {
   const row = mapCategoryToDbRow(category, user.id);
@@ -402,6 +520,84 @@ export const upsertCategoryToSupabase = async (category: Category, user: User) =
     console.error('Error saving category to Supabase:', error);
     throw error;
   }
+};
+
+// Tombstone / Storage garbage collection
+// ==========================================
+
+export const TOMBSTONE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+/** Never touch files younger than this: their task row may still be in the outbox. */
+const ORPHAN_IMAGE_MIN_AGE_MS = 24 * 60 * 60 * 1000;
+const STORAGE_BATCH_SIZE = 100;
+
+const purgeExpiredTombstones = async (): Promise<void> => {
+  const cutoff = Date.now() - TOMBSTONE_RETENTION_MS;
+  for (const table of ['todo_tasks', 'todo_categories'] as const) {
+    const { error } = await supabase
+      .from(table)
+      .delete()
+      .not('deleted_at', 'is', null)
+      .lt('deleted_at', cutoff);
+    if (error) throw error;
+  }
+};
+
+/**
+ * Remove task images in Storage that no task row (live or tombstoned)
+ * references anymore. Covers both images of purged tombstones and the
+ * historical leak where hard-deleted tasks left their images behind.
+ */
+const cleanupOrphanTaskImages = async (userId: string): Promise<void> => {
+  const { data, error } = await supabase
+    .from('todo_tasks')
+    .select('image_url')
+    .like('image_url', `${STORAGE_PATH_PREFIX}%`);
+  if (error) throw error;
+
+  const referencedPaths = new Set(
+    (data || [])
+      .map((row: { image_url: string | null }) =>
+        stripStoragePrefix(row.image_url || undefined)
+      )
+      .filter((path): path is string => Boolean(path))
+  );
+
+  const folder = `${userId}/tasks`;
+  const minAgeCutoff = Date.now() - ORPHAN_IMAGE_MIN_AGE_MS;
+  const orphanPaths: string[] = [];
+
+  for (let offset = 0; ; offset += STORAGE_BATCH_SIZE) {
+    const { data: files, error: listError } = await supabase.storage
+      .from(DROP_STORAGE_BUCKET)
+      .list(folder, { limit: STORAGE_BATCH_SIZE, offset });
+    if (listError) throw listError;
+    if (!files || files.length === 0) break;
+
+    for (const file of files) {
+      if (!file.id) continue; // folder placeholder
+      const createdAtMs = file.created_at ? Date.parse(file.created_at) : NaN;
+      if (!Number.isFinite(createdAtMs) || createdAtMs > minAgeCutoff) continue;
+      const path = `${folder}/${file.name}`;
+      if (!referencedPaths.has(path)) {
+        orphanPaths.push(path);
+      }
+    }
+
+    if (files.length < STORAGE_BATCH_SIZE) break;
+  }
+
+  for (let index = 0; index < orphanPaths.length; index += STORAGE_BATCH_SIZE) {
+    const { error: removeError } = await supabase.storage
+      .from(DROP_STORAGE_BUCKET)
+      .remove(orphanPaths.slice(index, index + STORAGE_BATCH_SIZE));
+    if (removeError) throw removeError;
+  }
+};
+
+/** Best-effort background cleanup; callers throttle it to once per day. */
+export const runStorageGarbageCollection = async (userId: string): Promise<void> => {
+  await purgeExpiredTombstones();
+  await cleanupOrphanTaskImages(userId);
 };
 
 // Edge Drop Items Supabase Integration

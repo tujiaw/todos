@@ -69,6 +69,43 @@ create table if not exists public.todo_tasks (
   updated_at bigint not null
 );
 
+-- Soft delete + incremental sync support.
+-- deleted_at: client-side deletion timestamp (ms). Non-null rows are tombstones
+-- kept for cross-device delete propagation and purged after 30 days.
+-- server_updated_at: server-side change timestamp used as the incremental sync
+-- cursor (immune to client clock skew, unlike the LWW updated_at).
+alter table public.todo_tasks add column if not exists deleted_at bigint;
+alter table public.todo_tasks add column if not exists server_updated_at timestamp with time zone default now() not null;
+alter table public.todo_categories add column if not exists deleted_at bigint;
+alter table public.todo_categories add column if not exists server_updated_at timestamp with time zone default now() not null;
+
+create or replace function public.touch_server_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.server_updated_at = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists todo_tasks_touch_server_updated_at on public.todo_tasks;
+create trigger todo_tasks_touch_server_updated_at
+  before insert or update on public.todo_tasks
+  for each row execute function public.touch_server_updated_at();
+
+drop trigger if exists todo_categories_touch_server_updated_at on public.todo_categories;
+create trigger todo_categories_touch_server_updated_at
+  before insert or update on public.todo_categories
+  for each row execute function public.touch_server_updated_at();
+
+create index if not exists todo_tasks_user_server_updated_idx
+  on public.todo_tasks(user_id, server_updated_at);
+
+create index if not exists todo_tasks_tombstone_idx
+  on public.todo_tasks(user_id, deleted_at)
+  where deleted_at is not null;
+
 -- Enable RLS for todo_tasks
 alter table public.todo_tasks enable row level security;
 

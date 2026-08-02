@@ -1,4 +1,5 @@
 import type { Category, Task } from '../types';
+import type { TaskTombstone } from '../lib/supabase';
 import { sortCategoriesByOrder } from './categories';
 import type { SyncOp } from './syncQueue';
 
@@ -99,6 +100,138 @@ export function mergeTasksLww(
 
   merged.sort((a, b) => b.createdAt - a.createdAt);
   return { merged, toPush, staleOps };
+}
+
+export interface ApplyTombstonesResult {
+  tasks: Task[];
+  staleOps: SyncOp[];
+}
+
+/**
+ * Apply remote tombstones to the local task list before merging.
+ * A pending local edit newer than the deletion wins (the outbox upsert will
+ * revive the row); otherwise the deletion wins and any pending op for the row
+ * is dropped as stale.
+ */
+export function applyTaskTombstones(
+  localTasks: Task[],
+  tombstones: TaskTombstone[],
+  pendingOps: SyncOp[]
+): ApplyTombstonesResult {
+  if (tombstones.length === 0) {
+    return { tasks: localTasks, staleOps: [] };
+  }
+
+  // compactOps guarantees at most one pending op per entity.
+  const pendingByTaskId = new Map(
+    pendingOps
+      .filter((op) => op.type === 'upsert_task' || op.type === 'delete_task')
+      .map((op) => [op.entityId, op])
+  );
+
+  const deletedIds = new Set<string>();
+  const staleOps: SyncOp[] = [];
+
+  for (const tombstone of tombstones) {
+    const pendingOp = pendingByTaskId.get(tombstone.id);
+
+    if (pendingOp?.type === 'upsert_task' && pendingOp.payload) {
+      const pendingTask = pendingOp.payload as Task;
+      if (pendingTask.updatedAt >= tombstone.deletedAt) {
+        continue; // local edit is newer — keep the row, outbox will revive it
+      }
+      staleOps.push(pendingOp);
+    } else if (pendingOp?.type === 'delete_task') {
+      staleOps.push(pendingOp); // remote already deleted; local delete is redundant
+    }
+
+    deletedIds.add(tombstone.id);
+  }
+
+  return {
+    tasks: localTasks.filter((task) => !deletedIds.has(task.id)),
+    staleOps,
+  };
+}
+
+/**
+ * Incremental counterpart of mergeTasksLww: remote rows are only the ones
+ * changed since the sync cursor, so local rows they do not mention stay as-is.
+ */
+export function applyRemoteTaskUpserts(
+  localTasks: Task[],
+  changedRemoteTasks: Task[],
+  pendingOps: SyncOp[]
+): MergeTasksResult {
+  const pendingByTaskId = new Map(
+    pendingOps
+      .filter((op) => op.type === 'upsert_task' || op.type === 'delete_task')
+      .map((op) => [op.entityId, op])
+  );
+
+  const byId = new Map(localTasks.map((task) => [task.id, task]));
+  const toPush: Task[] = [];
+  const staleOps: SyncOp[] = [];
+
+  for (const remote of changedRemoteTasks) {
+    const pendingOp = pendingByTaskId.get(remote.id);
+
+    if (pendingOp?.type === 'delete_task') {
+      if (remote.updatedAt > pendingOp.createdAt) {
+        // Remote edit is newer than the local delete — keep remote.
+        staleOps.push(pendingOp);
+        byId.set(remote.id, remote);
+      } else {
+        byId.delete(remote.id);
+      }
+      continue;
+    }
+
+    if (pendingOp?.type === 'upsert_task' && pendingOp.payload) {
+      const pendingTask = pendingOp.payload as Task;
+      if (pendingTask.updatedAt >= remote.updatedAt) {
+        byId.set(remote.id, pendingTask);
+        toPush.push(pendingTask);
+      } else {
+        staleOps.push(pendingOp);
+        byId.set(remote.id, remote);
+      }
+      continue;
+    }
+
+    const local = byId.get(remote.id);
+    if (!local || remote.updatedAt >= local.updatedAt) {
+      byId.set(remote.id, remote);
+    } else {
+      // Local is newer but has no outbox entry (e.g. a failed outbox write) —
+      // push it so the edit is not silently lost.
+      toPush.push(local);
+    }
+  }
+
+  const merged = Array.from(byId.values()).sort((a, b) => b.createdAt - a.createdAt);
+  return { merged, toPush, staleOps };
+}
+
+/**
+ * Drop locally cached categories that were tombstoned remotely, unless a
+ * pending upsert exists (flushing it revives the category by design).
+ */
+export function withoutTombstonedCategories(
+  localCategories: Category[],
+  deletedIds: string[],
+  pendingOps: SyncOp[]
+): Category[] {
+  if (deletedIds.length === 0) return localCategories;
+
+  const pendingUpsertIds = new Set(
+    pendingOps.filter((op) => op.type === 'upsert_category').map((op) => op.entityId)
+  );
+  const deleted = new Set(deletedIds);
+
+  return localCategories.filter(
+    (cat) => !deleted.has(cat.id) || pendingUpsertIds.has(cat.id)
+  );
 }
 
 function categorySyncSnapshot(cat: Category): string {

@@ -7,6 +7,22 @@ const THEME_STORAGE_KEY = 'daily_todos_theme_v1';
 const AI_ENABLED_STORAGE_KEY = 'daily_todos_ai_enabled_v1';
 const AI_ASSIST_LANGUAGE_STORAGE_KEY = 'daily_todos_ai_assist_language_v1';
 const SYNC_CHANNEL_NAME = 'daily_todos_channel';
+const TASK_SYNC_CURSOR_KEY_PREFIX = 'daily_todos_task_cursor_v1:';
+const GC_LAST_RUN_KEY_PREFIX = 'daily_todos_gc_last_run_v1:';
+
+/**
+ * Force a full resync when the cursor has not been refreshed for this long.
+ * Must stay well below the 30-day tombstone retention, otherwise a device
+ * could miss deletions whose tombstones were already purged.
+ */
+const SYNC_CURSOR_MAX_AGE_MS = 20 * 24 * 60 * 60 * 1000;
+const GC_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+/** Conservative localStorage budget (most browsers grant ~5 MB per origin). */
+const LOCAL_STORAGE_QUOTA_BYTES = 5 * 1024 * 1024;
+const LOCAL_STORAGE_WARN_RATIO = 0.8;
+/** When near quota, the local cache keeps only this recent window of tasks. */
+export const LOCAL_TASK_RETENTION_DAYS = 30;
 
 export type AiAssistLanguagePreference = 'zh' | 'en';
 
@@ -46,14 +62,59 @@ export const loadTasks = (): Task[] => {
   return [];
 };
 
-export type SaveStorageResult = { ok: true } | { ok: false; quotaExceeded: boolean };
+export type SaveStorageResult =
+  | { ok: true; nearQuota: boolean }
+  | { ok: false; quotaExceeded: boolean };
+
+// localStorage counts UTF-16 code units, hence length * 2.
+const estimateLocalStorageBytes = (): number => {
+  let total = 0;
+  for (let index = 0; index < localStorage.length; index += 1) {
+    const key = localStorage.key(index);
+    if (!key) continue;
+    total += (key.length + (localStorage.getItem(key)?.length ?? 0)) * 2;
+  }
+  return total;
+};
+
+const isLocalStorageNearQuota = (): boolean => {
+  try {
+    return (
+      estimateLocalStorageBytes() >
+      LOCAL_STORAGE_QUOTA_BYTES * LOCAL_STORAGE_WARN_RATIO
+    );
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Shrink the local cache to the recent retention window. Tasks in keepIds
+ * (e.g. rows still waiting in the sync outbox) are always retained because
+ * dropping them would lose data the cloud has not received yet.
+ */
+export const trimTasksToRecentWindow = (
+  tasks: Task[],
+  options?: { keepIds?: Set<string>; nowMs?: number }
+): Task[] => {
+  const now = new Date(options?.nowMs ?? Date.now());
+  now.setDate(now.getDate() - LOCAL_TASK_RETENTION_DAYS);
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const cutoffDate = `${year}-${month}-${day}`;
+
+  return tasks.filter(
+    (task) => task.date >= cutoffDate || options?.keepIds?.has(task.id) === true
+  );
+};
 
 // Save tasks to localStorage
 export const saveTasks = (tasks: Task[]): SaveStorageResult => {
   try {
     localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(tasks));
     notifySyncChannel('tasks_updated');
-    return { ok: true };
+    return { ok: true, nearQuota: isLocalStorageNearQuota() };
   } catch (err) {
     console.error('Failed to save tasks to storage', err);
     const quotaExceeded =
@@ -248,5 +309,72 @@ export const clearLocalUserData = (): void => {
     notifySyncChannel('categories_updated');
   } catch (err) {
     console.error('Failed to clear local user data', err);
+  }
+};
+
+// Incremental sync cursor
+// ==========================================
+
+interface StoredSyncCursor {
+  cursor: string;
+  savedAt: number;
+}
+
+/** Returns null when absent or too old — callers must then do a full resync. */
+export const loadTaskSyncCursor = (userId: string): string | null => {
+  try {
+    const raw = localStorage.getItem(`${TASK_SYNC_CURSOR_KEY_PREFIX}${userId}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as StoredSyncCursor;
+    if (typeof parsed.cursor !== 'string' || typeof parsed.savedAt !== 'number') {
+      return null;
+    }
+    if (Date.now() - parsed.savedAt > SYNC_CURSOR_MAX_AGE_MS) {
+      return null;
+    }
+    return parsed.cursor;
+  } catch {
+    return null;
+  }
+};
+
+export const saveTaskSyncCursor = (userId: string, cursor: string): void => {
+  try {
+    const value: StoredSyncCursor = { cursor, savedAt: Date.now() };
+    localStorage.setItem(
+      `${TASK_SYNC_CURSOR_KEY_PREFIX}${userId}`,
+      JSON.stringify(value)
+    );
+  } catch (err) {
+    console.error('Failed to save sync cursor', err);
+  }
+};
+
+export const clearTaskSyncCursor = (userId: string): void => {
+  try {
+    localStorage.removeItem(`${TASK_SYNC_CURSOR_KEY_PREFIX}${userId}`);
+  } catch {
+    // ignore
+  }
+};
+
+// Garbage collection throttle (at most once per day per user)
+// ==========================================
+
+export const shouldRunStorageGc = (userId: string): boolean => {
+  try {
+    const raw = localStorage.getItem(`${GC_LAST_RUN_KEY_PREFIX}${userId}`);
+    const lastRun = raw ? Number(raw) : 0;
+    return !Number.isFinite(lastRun) || Date.now() - lastRun > GC_INTERVAL_MS;
+  } catch {
+    return false;
+  }
+};
+
+export const markStorageGcRun = (userId: string): void => {
+  try {
+    localStorage.setItem(`${GC_LAST_RUN_KEY_PREFIX}${userId}`, String(Date.now()));
+  } catch {
+    // ignore
   }
 };

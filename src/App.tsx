@@ -14,6 +14,13 @@ import {
   loadAiAssistLanguage,
   saveAiAssistLanguage,
   clearLocalUserData,
+  loadTaskSyncCursor,
+  saveTaskSyncCursor,
+  clearTaskSyncCursor,
+  shouldRunStorageGc,
+  markStorageGcRun,
+  trimTasksToRecentWindow,
+  LOCAL_TASK_RETENTION_DAYS,
 } from './utils/storage';
 import { getTodayDateString } from './data/initialData';
 import { Header } from './components/Header';
@@ -73,7 +80,14 @@ function prefetchVaultModal() {
 function prefetchAiAssistModal() {
   void import('./components/AiAssistModal');
 }
-import { mergeCategories, mergeTasksLww, withoutStaleOps } from './utils/mergeSync';
+import {
+  applyRemoteTaskUpserts,
+  applyTaskTombstones,
+  mergeCategories,
+  mergeTasksLww,
+  withoutStaleOps,
+  withoutTombstonedCategories,
+} from './utils/mergeSync';
 import {
   moveCategory,
   normalizeCategoryOrder,
@@ -84,6 +98,7 @@ import {
   countPendingOps,
   enqueueOp,
   loadOutbox,
+  pendingTaskIds,
   replaceOutbox,
 } from './utils/syncQueue';
 import { flushOutbox } from './utils/flushOutbox';
@@ -98,6 +113,10 @@ import {
   logoutSupabase,
   fetchTasksFromSupabase,
   fetchCategoriesFromSupabase,
+  fetchTaskSnapshotFromSupabase,
+  fetchTaskChangesFromSupabase,
+  fetchCategorySnapshotFromSupabase,
+  runStorageGarbageCollection,
   syncAllTasksToSupabase,
   syncAllCategoriesToSupabase,
   DROP_ITEMS_PAGE_SIZE,
@@ -375,11 +394,44 @@ export default function App() {
       setTasks(next);
       tasksRef.current = next;
       const result = saveTasks(next);
-      if (result.ok === false && result.quotaExceeded) {
+
+      const storageFullToast = () =>
         showToast('Local storage is full. Remove large task images or free space.', 'error');
+
+      // Note: `=== true/false` is required for narrowing because strictNullChecks is off.
+      const saveFailed = result.ok === false;
+      const needsTrim =
+        (result.ok === true && result.nearQuota) ||
+        (result.ok === false && result.quotaExceeded);
+      if (!needsTrim) return;
+
+      // Auto-trim only when signed in: the cloud keeps the full history, so
+      // dropping old rows from the local cache loses nothing. Rows still in
+      // the outbox are always kept.
+      if (!user) {
+        if (saveFailed) storageFullToast();
+        return;
       }
+
+      const trimmed = trimTasksToRecentWindow(next, { keepIds: pendingTaskIds(user.id) });
+      if (trimmed.length === next.length) {
+        if (saveFailed) storageFullToast();
+        return;
+      }
+
+      setTasks(trimmed);
+      tasksRef.current = trimmed;
+      const retryResult = saveTasks(trimmed);
+      if (retryResult.ok === false) {
+        storageFullToast();
+        return;
+      }
+      showToast(
+        `Local cache was near its limit. Now caching only the last ${LOCAL_TASK_RETENTION_DAYS} days; full history stays in the cloud.`,
+        'info'
+      );
     },
-    [showToast]
+    [showToast, user]
   );
 
   const persistCategories = useCallback((next: Category[]) => {
@@ -420,24 +472,39 @@ export default function App() {
           }
         }
 
-        const [remoteTasks, remoteCats] = await Promise.all([
-          fetchTasksFromSupabase(),
-          fetchCategoriesFromSupabase(),
+        // Incremental sync: with a fresh cursor only rows changed since the
+        // last sync are pulled; otherwise fall back to a full snapshot.
+        const cursor = loadTaskSyncCursor(user.id);
+        const [taskChanges, categorySnapshot] = await Promise.all([
+          cursor ? fetchTaskChangesFromSupabase(cursor) : fetchTaskSnapshotFromSupabase(),
+          fetchCategorySnapshotFromSupabase(),
         ]);
 
         const pendingOps = loadOutbox(user.id);
-        const {
-          merged: mergedTasks,
-          toPush: tasksToPush,
-          staleOps: staleTaskOps,
-        } = mergeTasksLww(tasksRef.current, remoteTasks, pendingOps);
+
+        const tombstoneResult = applyTaskTombstones(
+          tasksRef.current,
+          taskChanges.tombstones,
+          pendingOps
+        );
+        const taskMerge = cursor
+          ? applyRemoteTaskUpserts(tombstoneResult.tasks, taskChanges.tasks, pendingOps)
+          : mergeTasksLww(tombstoneResult.tasks, taskChanges.tasks, pendingOps);
+        const mergedTasks = taskMerge.merged;
+        const tasksToPush = taskMerge.toPush;
+
+        const localCategories = withoutTombstonedCategories(
+          categoriesRef.current,
+          categorySnapshot.deletedIds,
+          pendingOps
+        );
         let {
           merged: mergedCats,
           toPush: catsToPush,
           staleOps: staleCatOps,
-        } = mergeCategories(categoriesRef.current, remoteCats, pendingOps);
+        } = mergeCategories(localCategories, categorySnapshot.categories, pendingOps);
 
-        const staleOps = [...staleTaskOps, ...staleCatOps];
+        const staleOps = [...tombstoneResult.staleOps, ...taskMerge.staleOps, ...staleCatOps];
         if (staleOps.length > 0) {
           replaceOutbox(user.id, withoutStaleOps(loadOutbox(user.id), staleOps));
           refreshPendingCount(user.id);
@@ -470,6 +537,9 @@ export default function App() {
 
         persistTasks(mergedTasks);
         persistCategories(mergedCats);
+        if (taskChanges.cursor) {
+          saveTaskSyncCursor(user.id, taskChanges.cursor);
+        }
 
         try {
           if (tasksToPush.length > 0) {
@@ -493,6 +563,15 @@ export default function App() {
         refreshPendingCount(user.id);
         if (finalFlush.remaining > 0 && finalFlush.lastError) {
           setSyncError(finalFlush.lastError);
+        }
+
+        // Daily best-effort cleanup: purge expired tombstones and orphaned
+        // task images so free-tier database/storage space is reclaimed.
+        if (shouldRunStorageGc(user.id)) {
+          markStorageGcRun(user.id);
+          void runStorageGarbageCollection(user.id).catch((gcErr) => {
+            console.warn('Storage garbage collection failed:', gcErr);
+          });
         }
       } catch (err) {
         console.error('Supabase sync error:', err);
@@ -606,6 +685,7 @@ export default function App() {
       if (!authenticatedUser) {
         if (syncedUserIdRef.current) {
           clearOutbox(syncedUserIdRef.current);
+          clearTaskSyncCursor(syncedUserIdRef.current);
         }
         syncedUserIdRef.current = null;
         clearLocalUserData();
@@ -1251,7 +1331,10 @@ export default function App() {
         });
         if (!confirmed) return;
       }
-      if (user) clearOutbox(user.id);
+      if (user) {
+        clearOutbox(user.id);
+        clearTaskSyncCursor(user.id);
+      }
       clearLocalUserData();
       setIsVaultModalOpen(false);
       setVaultLockToken((token) => token + 1);
