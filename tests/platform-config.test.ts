@@ -113,7 +113,6 @@ test('global AI preference disables AI UI and uses daily dashboard cache', () =>
   assert.match(aiAssistModal, /MarkdownContent/);
   assert.match(aiAssistModal, /SuggestionChips/);
   assert.match(aiAssistModal, /Quick prompts|快捷提示/);
-  assert.match(aiAssistModal, /shadow-\[0_8px_18px_-14px/);
   assert.match(aiAssistModal, /onCancel/);
   assert.match(aiAssistModal, /onClearMessages/);
   assert.match(aiAssistModal, /onRetry/);
@@ -122,9 +121,11 @@ test('global AI preference disables AI UI and uses daily dashboard cache', () =>
   assert.match(aiAssistModal, /Reply language/);
   assert.match(aiAssistModal, /sendOnClick/);
   assert.doesNotMatch(aiAssistModal, /showPromptChips/);
-  const chipsIndex = aiAssistModal.indexOf('<SuggestionChips');
   const scrollIndex = aiAssistModal.indexOf('ref={scrollContainerRef}');
-  assert.ok(chipsIndex >= 0 && scrollIndex > chipsIndex);
+  const chipsIndex = aiAssistModal.indexOf('<SuggestionChips');
+  const composerIndex = aiAssistModal.indexOf('Ask about todos, or create a task');
+  assert.ok(scrollIndex >= 0 && chipsIndex > scrollIndex);
+  assert.ok(composerIndex > chipsIndex);
   const markdownContent = readFileSync(
     new URL('../src/components/MarkdownContent.tsx', import.meta.url),
     'utf8'
