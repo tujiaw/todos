@@ -1025,7 +1025,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                     <div className="absolute right-0 top-full mt-1 z-30 min-w-[11rem] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg py-1">
                       <HeaderMenuItem
                         icon={Upload}
-                        label="Import from Bitwarden"
+                        label="Import"
                         disabled={busy}
                         onClick={() => {
                           setHeaderMenuOpen(false);
@@ -1034,13 +1034,13 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
                       />
                       <HeaderMenuItem
                         icon={Download}
-                        label="Export JSON"
+                        label="Export"
                         disabled={busy}
                         onClick={() => void handleExport()}
                       />
                       <HeaderMenuItem
                         icon={KeySquare}
-                        label="Change master password"
+                        label="Password"
                         disabled={busy}
                         onClick={openChangePassword}
                       />
