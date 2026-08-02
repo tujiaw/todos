@@ -112,7 +112,9 @@ test('global AI preference disables AI UI and uses daily dashboard cache', () =>
   assert.match(aiAssistModal, /messages\.map/);
   assert.match(aiAssistModal, /MarkdownContent/);
   assert.match(aiAssistModal, /SuggestionChips/);
-  assert.match(aiAssistModal, /Quick prompts|快捷提示/);
+  assert.match(aiAssistModal, /flex-nowrap/);
+  assert.match(aiAssistModal, /overflow-x-auto/);
+  assert.match(aiAssistModal, /aria-label="Quick prompts"/);
   assert.match(aiAssistModal, /onCancel/);
   assert.match(aiAssistModal, /onClearMessages/);
   assert.match(aiAssistModal, /onRetry/);

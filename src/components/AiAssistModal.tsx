@@ -56,7 +56,11 @@ function SuggestionChips({
   className?: string;
 }) {
   return (
-    <div className={`flex flex-wrap gap-1.5 ${className}`}>
+    <div
+      className={`flex flex-nowrap gap-1 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${className}`}
+      role="list"
+      aria-label="Quick prompts"
+    >
       {suggestions.map((item) => (
         <button
           key={item.id}
@@ -64,7 +68,7 @@ function SuggestionChips({
           disabled={disabled}
           onClick={() => onPick(item)}
           title={item.hint}
-          className="px-3 py-1.5 rounded-full text-[11px] font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 hover:border-indigo-200 dark:hover:border-indigo-800 hover:text-indigo-700 dark:hover:text-indigo-300 disabled:opacity-50 cursor-pointer transition-colors"
+          className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold leading-4 border border-slate-200/90 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 hover:border-indigo-200 dark:hover:border-indigo-800 hover:text-indigo-700 dark:hover:text-indigo-300 disabled:opacity-50 cursor-pointer transition-colors"
         >
           {item.label}
         </button>
@@ -406,17 +410,12 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
           )}
         </div>
 
-        <div className="px-4 sm:px-5 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:pb-4 space-y-2.5 border-t border-slate-200/70 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/40">
-          <div>
-            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-              {language === 'zh' ? '快捷提示' : 'Quick prompts'}
-            </p>
-            <SuggestionChips
-              suggestions={suggestions}
-              disabled={isLoading}
-              onPick={handleSuggestionClick}
-            />
-          </div>
+        <div className="px-4 sm:px-5 pt-2 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] sm:pb-3 space-y-1.5 border-t border-slate-200/70 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/40">
+          <SuggestionChips
+            suggestions={suggestions}
+            disabled={isLoading}
+            onPick={handleSuggestionClick}
+          />
 
           <div className="relative flex items-end gap-1.5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-700 focus-within:ring-4 focus-within:ring-indigo-500/10 focus-within:border-indigo-400 transition-all p-2 shadow-sm">
             <textarea
