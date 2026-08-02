@@ -100,10 +100,15 @@ test('global AI preference disables AI UI and uses daily dashboard cache', () =>
     'utf8'
   );
   assert.match(aiAssistModal, /Ask or create tasks/);
+  assert.match(aiAssistModal, /slide-in-from-right/);
+  assert.match(aiAssistModal, /sm:w-\[420px\] lg:w-\[440px\]/);
+  assert.doesNotMatch(aiAssistModal, /backdrop-blur/);
   assert.match(aiAssistModal, /createdTasks/);
-  assert.match(aiAssistModal, /disabled=\{!result\?\.answer\}/);
+  assert.match(aiAssistModal, /messages\.map/);
   assert.match(aiAssistModal, /onCancel/);
+  assert.match(aiAssistModal, /onClearMessages/);
   assert.match(app, /handleCancelAiAssist/);
+  assert.match(app, /aiAssistMessages/);
   assert.match(app, /setDashboardCopy\(DEFAULT_DASHBOARD_COPY\)/);
   assert.match(aiClient, /daily_todos_dashboard_copy_v1/);
   assert.match(aiClient, /cached\.date !== date/);

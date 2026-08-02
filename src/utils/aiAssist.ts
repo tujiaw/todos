@@ -43,11 +43,23 @@ export interface AiAssistResult {
   createdTasks?: AiAssistCreatedTask[];
 }
 
+export interface AiAssistChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdTasks?: AiAssistCreatedTask[];
+  error?: boolean;
+}
+
 export interface AiAssistSuggestion {
   id: string;
   label: string;
   hint: string;
   prompt: string;
+}
+
+export function createAiAssistMessageId(): string {
+  return `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 const MAX_TASKS = 200;
