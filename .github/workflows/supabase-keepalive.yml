@@ -1,0 +1,36 @@
+name: Supabase Keepalive
+
+on:
+  schedule:
+    # Daily ping; Supabase free tier pauses projects after 7 days of inactivity,
+    # so even several missed runs leave a wide safety margin.
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  actions: write
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query Supabase database
+        env:
+          # Publishable key: safe to expose, already shipped in the browser bundle.
+          SUPABASE_URL: https://cywbnbvverbdjbbpvsid.supabase.co
+          SUPABASE_ANON_KEY: sb_publishable_VhadPbA-uUCplS280kingw_BUmYmQAQ
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            "$SUPABASE_URL/rest/v1/todo_tasks?select=id&limit=1")
+          echo "Supabase responded with HTTP $status"
+          if [ "$status" != "200" ]; then
+            echo "Keepalive ping failed" >&2
+            exit 1
+          fi
+
+      # GitHub disables scheduled workflows after 60 days without repo activity;
+      # this re-enables the workflow via API so the ping never silently stops.
+      - name: Keep workflow enabled
+        uses: gautamkrishnar/keepalive-workflow@v2
