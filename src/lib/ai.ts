@@ -1,5 +1,5 @@
 import { Category, TaskDraft } from '../types';
-import type { AiAssistPayload, AiAssistResult } from '../utils/aiAssist';
+import type { AiAssistRequestPayload, AiAssistResult } from '../utils/aiAssist';
 import { supabase } from './supabase';
 
 export type { AiAssistResult } from '../utils/aiAssist';
@@ -164,9 +164,13 @@ export async function generateDashboardCopy(
 }
 
 export async function generateAiAssist(
-  input: AiAssistPayload,
+  input: AiAssistRequestPayload,
   signal?: AbortSignal
 ): Promise<AiAssistResult> {
+  const message = input.message.trim();
+  if (!message) throw new Error('Describe what you need before asking AI assist.');
+  if (message.length > 2000) throw new Error('AI assist input must be 2,000 characters or fewer.');
+
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
   if (sessionError) throw sessionError;
   const accessToken = sessionData.session?.access_token;
@@ -178,7 +182,7 @@ export async function generateAiAssist(
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(input),
+    body: JSON.stringify({ ...input, message }),
     signal,
   });
   const responseBody = await response.text();
@@ -197,6 +201,8 @@ export async function generateAiAssist(
         }).`
     );
   }
-  if (!data?.result) throw new Error('The AI service returned an empty assist result.');
+  if (!data?.result?.answer?.trim()) {
+    throw new Error('The AI service returned an empty assist result.');
+  }
   return data.result;
 }

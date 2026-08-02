@@ -71,6 +71,8 @@ test('AI requests use a same-origin Vercel Function and direct DeepSeek provider
   assert.match(weeklySummaryFunction, /weekly-summary\.js/);
   assert.match(aiAssistFunction, /await authenticate/);
   assert.match(aiAssistFunction, /ai-assist\.js/);
+  assert.match(aiAssistFunction, /runAiAssistAgent/);
+  assert.match(aiProvider, /chatWithTools/);
   assert.match(aiClient, /await response\.text\(\)/);
   assert.match(aiClient, /FUNCTION\|EDGE_FUNCTION/);
   assert.doesNotMatch(aiClient, /supabase\.functions\.invoke/);
@@ -94,8 +96,8 @@ test('global AI preference disables AI UI and uses daily dashboard cache', () =>
     new URL('../src/components/AiAssistModal.tsx', import.meta.url),
     'utf8'
   );
-  assert.match(aiAssistModal, /Copy-ready notes/);
-  assert.match(aiAssistModal, /disabled=\{!result\?\.copyText\}/);
+  assert.match(aiAssistModal, /Ask about your todos/);
+  assert.match(aiAssistModal, /disabled=\{!result\?\.answer\}/);
   assert.match(app, /setDashboardCopy\(DEFAULT_DASHBOARD_COPY\)/);
   assert.match(aiClient, /daily_todos_dashboard_copy_v1/);
   assert.match(aiClient, /cached\.date !== date/);

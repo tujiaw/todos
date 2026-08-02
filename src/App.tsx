@@ -39,17 +39,10 @@ import {
   type DashboardCopy,
 } from './lib/ai';
 import {
-  buildBacklogTriagePayload,
-  buildDailyStandupPayload,
-  buildLocalAiAssistResult,
-  buildTodayFocusPayload,
-  buildWeeklyAssistPayload,
-  getAiAssistLabel,
-  type AiAssistMode,
-  type AiAssistPayload,
+  buildAiAssistCatalog,
+  getAiAssistSuggestions,
   type AiAssistResult,
 } from './utils/aiAssist';
-import { formatWeekDisplayLabel } from './utils/week';
 import { mergeCategories, mergeTasksLww, withoutStaleOps } from './utils/mergeSync';
 import {
   moveCategory,
@@ -159,13 +152,10 @@ export default function App() {
   const [isVaultModalOpen, setIsVaultModalOpen] = useState<boolean>(false);
   const [vaultLockToken, setVaultLockToken] = useState(0);
   const [isAiAssistOpen, setIsAiAssistOpen] = useState(false);
-  const [aiAssistMode, setAiAssistMode] = useState<AiAssistMode | null>(null);
-  const [aiAssistPayload, setAiAssistPayload] = useState<AiAssistPayload | null>(null);
+  const [aiAssistPrompt, setAiAssistPrompt] = useState('');
   const [aiAssistResult, setAiAssistResult] = useState<AiAssistResult | null>(null);
-  const [aiAssistSubtitle, setAiAssistSubtitle] = useState('');
   const [isAiAssistLoading, setIsAiAssistLoading] = useState(false);
   const [aiAssistError, setAiAssistError] = useState<string | null>(null);
-  const [aiAssistUsedFallback, setAiAssistUsedFallback] = useState(false);
   const aiAssistAbortRef = useRef<AbortController | null>(null);
 
   // Drop Items State
@@ -746,81 +736,61 @@ export default function App() {
   };
 
   const runAiAssist = useCallback(
-    async (payload: AiAssistPayload, subtitle: string) => {
+    async (message: string) => {
+      const trimmed = message.trim();
+      if (!trimmed) return;
+
       aiAssistAbortRef.current?.abort();
       const controller = new AbortController();
       aiAssistAbortRef.current = controller;
 
-      const localResult = buildLocalAiAssistResult(payload);
-      setAiAssistMode(payload.mode);
-      setAiAssistPayload(payload);
-      setAiAssistSubtitle(subtitle);
-      setAiAssistResult(localResult);
-      setAiAssistUsedFallback(true);
+      setAiAssistResult(null);
       setAiAssistError(null);
       setIsAiAssistLoading(true);
 
       if (!aiEnabled) {
-        setAiAssistError(
-          'AI is off. A local draft is ready to copy — enable AI in Settings to polish it.'
-        );
+        setAiAssistError('AI is off. Enable AI in Settings to use AI Assist.');
         setIsAiAssistLoading(false);
         return;
       }
       if (!user) {
-        setAiAssistError(
-          'Sign in to polish with AI. A copy-ready local draft is available now.'
-        );
+        setAiAssistError('Sign in to use AI Assist.');
         setIsAiAssistLoading(false);
         return;
       }
 
       try {
-        const result = await generateAiAssist(payload, controller.signal);
+        const catalog = buildAiAssistCatalog(tasks, categories);
+        const result = await generateAiAssist(
+          {
+            message: trimmed,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai',
+            todayDate: getTodayDateString(),
+            categories: catalog.categories,
+            tasks: catalog.tasks,
+          },
+          controller.signal
+        );
         if (controller.signal.aborted) return;
         setAiAssistResult(result);
-        setAiAssistUsedFallback(false);
         setAiAssistError(null);
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') return;
         setAiAssistError(
-          error instanceof Error
-            ? `${error.message} Keeping the local draft.`
-            : 'AI polish failed. Keeping the local draft.'
+          error instanceof Error ? error.message : 'AI assist failed. Please try again.'
         );
-        setAiAssistUsedFallback(true);
       } finally {
         if (!controller.signal.aborted) setIsAiAssistLoading(false);
       }
     },
-    [aiEnabled, user]
+    [aiEnabled, user, tasks, categories]
   );
 
-  const handleOpenAiAssist = (mode: AiAssistMode, weekAnchorDate: string) => {
-    const today = getTodayDateString();
-    let payload: AiAssistPayload;
-    let subtitle = '';
-
-    if (mode === 'weekly_minutes') {
-      payload = buildWeeklyAssistPayload(tasks, categories, weekAnchorDate);
-      if (payload.mode !== 'weekly_minutes') return;
-      subtitle = formatWeekDisplayLabel(payload.startDate, payload.endDate, {
-        preferThisWeek: true,
-        today,
-      });
-    } else if (mode === 'today_focus') {
-      payload = buildTodayFocusPayload(tasks, categories, selectedDate, today);
-      subtitle = selectedDate === today ? 'Today' : selectedDate;
-    } else if (mode === 'daily_standup') {
-      payload = buildDailyStandupPayload(tasks, categories, today);
-      subtitle = today;
-    } else {
-      payload = buildBacklogTriagePayload(tasks, categories, today);
-      subtitle = `${payload.pendingTasks.length} open tasks`;
-    }
-
+  const handleOpenAiAssist = (presetPrompt?: string) => {
+    setAiAssistPrompt(presetPrompt?.trim() || '');
+    setAiAssistResult(null);
+    setAiAssistError(null);
     setIsAiAssistOpen(true);
-    void runAiAssist(payload, subtitle || getAiAssistLabel(mode));
   };
 
   const handleCloseAiAssist = () => {
@@ -828,9 +798,8 @@ export default function App() {
     setIsAiAssistOpen(false);
   };
 
-  const handleRegenerateAiAssist = () => {
-    if (!aiAssistPayload) return;
-    void runAiAssist(aiAssistPayload, aiAssistSubtitle);
+  const handleSubmitAiAssist = () => {
+    void runAiAssist(aiAssistPrompt);
   };
 
   const handleGenerateTaskDraft = async (text: string) => {
@@ -1412,13 +1381,16 @@ export default function App() {
       <AiAssistModal
         isOpen={isAiAssistOpen}
         onClose={handleCloseAiAssist}
-        mode={aiAssistMode}
-        subtitle={aiAssistSubtitle}
+        prompt={aiAssistPrompt}
+        onPromptChange={setAiAssistPrompt}
+        suggestions={getAiAssistSuggestions({
+          selectedDate,
+          todayDate: getTodayDateString(),
+        })}
         result={aiAssistResult}
         isLoading={isAiAssistLoading}
         error={aiAssistError}
-        usedFallback={aiAssistUsedFallback}
-        onGenerate={handleRegenerateAiAssist}
+        onSubmit={handleSubmitAiAssist}
       />
 
       {/* Mobile Smartphone Bottom Navigation Toolbar */}

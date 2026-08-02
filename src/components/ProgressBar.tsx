@@ -14,11 +14,7 @@ import {
 } from 'lucide-react';
 import { Task } from '../types';
 import { getTodayDateString } from '../data/initialData';
-import {
-  getAiAssistHint,
-  getAiAssistLabel,
-  type AiAssistMode,
-} from '../utils/aiAssist';
+import { getAiAssistSuggestions } from '../utils/aiAssist';
 import { formatWeekDisplayLabel, getWeekDays } from '../utils/week';
 
 interface ProgressBarProps {
@@ -27,20 +23,18 @@ interface ProgressBarProps {
   dateStr: string;
   tasks: Task[];
   onDateSelect?: (date: string) => void;
-  onOpenAiAssist?: (mode: AiAssistMode, weekAnchorDate: string) => void;
+  onOpenAiAssist?: (presetPrompt?: string) => void;
 }
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-const AI_MENU_ITEMS: Array<{
-  mode: AiAssistMode;
-  icon: React.ReactNode;
-}> = [
-  { mode: 'weekly_minutes', icon: <FileText className="w-3.5 h-3.5" /> },
-  { mode: 'today_focus', icon: <ListChecks className="w-3.5 h-3.5" /> },
-  { mode: 'daily_standup', icon: <Megaphone className="w-3.5 h-3.5" /> },
-  { mode: 'backlog_triage', icon: <Filter className="w-3.5 h-3.5" /> },
-];
+const AI_MENU_ICONS: Record<string, React.ReactNode> = {
+  weekly_minutes: <FileText className="w-3.5 h-3.5" />,
+  today_focus: <ListChecks className="w-3.5 h-3.5" />,
+  daily_standup: <Megaphone className="w-3.5 h-3.5" />,
+  backlog_triage: <Filter className="w-3.5 h-3.5" />,
+  week_work: <Sparkles className="w-3.5 h-3.5" />,
+};
 
 export const ProgressBar: React.FC<ProgressBarProps> = ({
   totalTasks,
@@ -118,9 +112,14 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   const MAX_BAR_HEIGHT_PX = 56;
   const MIN_BAR_HEIGHT_PX = 4;
 
-  const handleAiSelect = (mode: AiAssistMode) => {
+  const aiSuggestions = getAiAssistSuggestions({
+    selectedDate: dateStr,
+    todayDate: getTodayDateString(),
+  }).filter((item) => item.id !== 'week_work');
+
+  const handleAiSelect = (prompt?: string) => {
     setMenuOpen(false);
-    onOpenAiAssist?.(mode, weekAnchor);
+    onOpenAiAssist?.(prompt);
   };
 
   return (
@@ -215,27 +214,47 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
                 <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800">
                   <p className="text-[11px] font-bold text-slate-700 dark:text-slate-200">AI Assist</p>
                   <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
-                    {weekLabel}
+                    Ask in natural language · {weekLabel}
                   </p>
                 </div>
                 <ul className="py-1">
-                  {AI_MENU_ITEMS.map((item) => (
-                    <li key={item.mode}>
+                  <li>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => handleAiSelect()}
+                      className="w-full flex items-start gap-2.5 px-3 py-2.5 text-left hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
+                    >
+                      <span className="mt-0.5 text-indigo-600 dark:text-indigo-300 shrink-0">
+                        <Sparkles className="w-3.5 h-3.5" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-[12px] font-semibold text-slate-800 dark:text-slate-100">
+                          Open chat
+                        </span>
+                        <span className="block text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                          Write your own request
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                  {aiSuggestions.map((item) => (
+                    <li key={item.id}>
                       <button
                         type="button"
                         role="menuitem"
-                        onClick={() => handleAiSelect(item.mode)}
+                        onClick={() => handleAiSelect(item.prompt)}
                         className="w-full flex items-start gap-2.5 px-3 py-2.5 text-left hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
                       >
                         <span className="mt-0.5 text-indigo-600 dark:text-indigo-300 shrink-0">
-                          {item.icon}
+                          {AI_MENU_ICONS[item.id] || <Sparkles className="w-3.5 h-3.5" />}
                         </span>
                         <span className="min-w-0">
                           <span className="block text-[12px] font-semibold text-slate-800 dark:text-slate-100">
-                            {getAiAssistLabel(item.mode)}
+                            {item.label}
                           </span>
                           <span className="block text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
-                            {getAiAssistHint(item.mode)}
+                            {item.hint}
                           </span>
                         </span>
                       </button>

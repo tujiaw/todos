@@ -1,10 +1,6 @@
 import {
-  buildAiAssistPrompt,
-  getAiAssistMaxTokens,
-  getAiAssistSystemPrompt,
-  normalizeAiAssistOutput,
+  runAiAssistAgent,
   validateAiAssistRequest,
-  type AiAssistResult,
 } from '../server/ai-assist.js';
 import { DeepSeekJsonProvider } from '../server/providers.js';
 import {
@@ -73,7 +69,13 @@ function getStatus(message: string): number {
   if (message.includes('balance')) return 402;
   if (message.includes('rate limited')) return 429;
   if (message.includes('unavailable') || message.includes('timed out')) return 503;
-  if (message.includes('Invalid') || message.includes('Too many')) return 400;
+  if (
+    message.includes('Invalid') ||
+    message.includes('Too many') ||
+    message.includes('maximum number of tool loops')
+  ) {
+    return 400;
+  }
   return 502;
 }
 
@@ -105,54 +107,18 @@ export default async function handler(request: ApiRequest, response: ApiResponse
       apiKey: config.apiKey,
       model: process.env.AI_MODEL || 'deepseek-v4-flash',
       baseUrl: process.env.DEEPSEEK_BASE_URL,
+      timeoutMs: 45_000,
     });
-    const prompt = buildAiAssistPrompt(input);
-    let lastError: unknown;
-    let result: AiAssistResult | undefined;
 
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      try {
-        const retryPrompt =
-          attempt === 0
-            ? prompt
-            : `${prompt}\nThe previous output was invalid. Return corrected JSON only.`;
-        result = normalizeAiAssistOutput(
-          input.mode,
-          await provider.generate(
-            getAiAssistSystemPrompt(input.mode),
-            retryPrompt,
-            getAiAssistMaxTokens(input.mode)
-          )
-        );
-        break;
-      } catch (error) {
-        lastError = error;
-        if (
-          error instanceof Error &&
-          (error.message.includes('authentication') ||
-            error.message.includes('balance') ||
-            error.message.includes('HTTP') ||
-            error.message.includes('rejected') ||
-            error.message.includes('rate limited') ||
-            error.message.includes('unavailable') ||
-            error.message.includes('timed out'))
-        ) {
-          throw error;
-        }
-      }
-    }
-
-    if (!result) {
-      console.error('AI assist validation failed:', lastError);
-      throw new Error('AI returned invalid assist result.');
-    }
+    const result = await runAiAssistAgent(provider, input);
 
     response.status(200).json({
       result,
       meta: {
         provider: provider.name,
         model: provider.model,
-        mode: input.mode,
+        loops: result.loops,
+        toolCalls: result.toolCalls,
         dailyUsage: quota.count,
         dailyLimit: DAILY_AI_LIMIT,
         limitScope: quota.limitScope,
