@@ -91,13 +91,16 @@ test('global AI preference disables AI UI and uses daily dashboard cache', () =>
   );
   assert.match(progressBar, /AI Assist/);
   assert.match(progressBar, /setWeekOffset\(0\)/);
-  assert.match(progressBar, /aria-haspopup="menu"/);
+  assert.match(progressBar, /onOpenAiAssist\(\)/);
+  assert.doesNotMatch(progressBar, /aria-haspopup="menu"/);
   const aiAssistModal = readFileSync(
     new URL('../src/components/AiAssistModal.tsx', import.meta.url),
     'utf8'
   );
   assert.match(aiAssistModal, /Ask about your todos/);
   assert.match(aiAssistModal, /disabled=\{!result\?\.answer\}/);
+  assert.match(aiAssistModal, /onCancel/);
+  assert.match(app, /handleCancelAiAssist/);
   assert.match(app, /setDashboardCopy\(DEFAULT_DASHBOARD_COPY\)/);
   assert.match(aiClient, /daily_todos_dashboard_copy_v1/);
   assert.match(aiClient, /cached\.date !== date/);

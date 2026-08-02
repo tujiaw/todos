@@ -771,23 +771,29 @@ export default function App() {
           },
           controller.signal
         );
-        if (controller.signal.aborted) return;
+        if (aiAssistAbortRef.current !== controller) return;
         setAiAssistResult(result);
         setAiAssistError(null);
       } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') return;
+        if (aiAssistAbortRef.current !== controller) return;
+        if (error instanceof Error && error.name === 'AbortError') {
+          setAiAssistError(null);
+          return;
+        }
         setAiAssistError(
           error instanceof Error ? error.message : 'AI assist failed. Please try again.'
         );
       } finally {
-        if (!controller.signal.aborted) setIsAiAssistLoading(false);
+        if (aiAssistAbortRef.current === controller) {
+          setIsAiAssistLoading(false);
+        }
       }
     },
     [aiEnabled, user, tasks, categories]
   );
 
-  const handleOpenAiAssist = (presetPrompt?: string) => {
-    setAiAssistPrompt(presetPrompt?.trim() || '');
+  const handleOpenAiAssist = () => {
+    setAiAssistPrompt('');
     setAiAssistResult(null);
     setAiAssistError(null);
     setIsAiAssistOpen(true);
@@ -795,11 +801,20 @@ export default function App() {
 
   const handleCloseAiAssist = () => {
     aiAssistAbortRef.current?.abort();
+    aiAssistAbortRef.current = null;
+    setIsAiAssistLoading(false);
     setIsAiAssistOpen(false);
   };
 
   const handleSubmitAiAssist = () => {
     void runAiAssist(aiAssistPrompt);
+  };
+
+  const handleCancelAiAssist = () => {
+    aiAssistAbortRef.current?.abort();
+    aiAssistAbortRef.current = null;
+    setIsAiAssistLoading(false);
+    setAiAssistError(null);
   };
 
   const handleGenerateTaskDraft = async (text: string) => {
@@ -1391,6 +1406,7 @@ export default function App() {
         isLoading={isAiAssistLoading}
         error={aiAssistError}
         onSubmit={handleSubmitAiAssist}
+        onCancel={handleCancelAiAssist}
       />
 
       {/* Mobile Smartphone Bottom Navigation Toolbar */}

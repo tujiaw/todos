@@ -6,6 +6,7 @@ import {
   LoaderCircle,
   Send,
   Sparkles,
+  Square,
   X,
 } from 'lucide-react';
 import type { AiAssistResult, AiAssistSuggestion } from '../utils/aiAssist';
@@ -21,6 +22,7 @@ interface AiAssistModalProps {
   isLoading: boolean;
   error: string | null;
   onSubmit: () => void;
+  onCancel: () => void;
 }
 
 export const AiAssistModal: React.FC<AiAssistModalProps> = ({
@@ -33,6 +35,7 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
   isLoading,
   error,
   onSubmit,
+  onCancel,
 }) => {
   const { showToast } = useToast();
   const [copied, setCopied] = useState(false);
@@ -206,24 +209,26 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
                   </>
                 )}
               </button>
-              <button
-                type="button"
-                onClick={onSubmit}
-                disabled={isLoading || !prompt.trim()}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 min-h-10 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold disabled:opacity-50 transition-colors cursor-pointer disabled:cursor-not-allowed"
-              >
-                {isLoading ? (
-                  <>
-                    <LoaderCircle className="w-3.5 h-3.5 animate-spin" />
-                    Working…
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-3.5 h-3.5" />
-                    Ask
-                  </>
-                )}
-              </button>
+              {isLoading ? (
+                <button
+                  type="button"
+                  onClick={onCancel}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 min-h-10 px-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-sm font-semibold transition-colors cursor-pointer"
+                >
+                  <Square className="w-3 h-3 fill-current" />
+                  Stop
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onSubmit}
+                  disabled={!prompt.trim()}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 min-h-10 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold disabled:opacity-50 transition-colors cursor-pointer disabled:cursor-not-allowed"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  Ask
+                </button>
+              )}
             </div>
           </motion.div>
         </div>
