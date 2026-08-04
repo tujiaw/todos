@@ -219,8 +219,10 @@ export default function App() {
   const [hasMoreDropItems, setHasMoreDropItems] = useState<boolean>(false);
   const [isLoadingDropItems, setIsLoadingDropItems] = useState<boolean>(false);
   const [isLoadingMoreDropItems, setIsLoadingMoreDropItems] = useState<boolean>(false);
+  const [isRefreshingDropItems, setIsRefreshingDropItems] = useState<boolean>(false);
   const [dropSearchQuery, setDropSearchQuery] = useState<string>('');
   const [dropError, setDropError] = useState<string | null>(null);
+  const isRefreshingDropItemsRef = useRef(false);
 
   const loadDropItems = useCallback(
     async (query: string = '', offset: number = 0, isLoadMore: boolean = false) => {
@@ -294,6 +296,19 @@ export default function App() {
       loadDropItems(dropSearchQuery, dropItems.length, true);
     }
   };
+
+  const handleRefreshDropItems = useCallback(async () => {
+    if (isRefreshingDropItemsRef.current) return;
+
+    isRefreshingDropItemsRef.current = true;
+    setIsRefreshingDropItems(true);
+    try {
+      await loadDropItems(dropSearchQuery, 0, false);
+    } finally {
+      isRefreshingDropItemsRef.current = false;
+      setIsRefreshingDropItems(false);
+    }
+  }, [dropSearchQuery, loadDropItems]);
 
   const handleOpenDropModal = () => {
     prefetchDropModal();
@@ -1594,6 +1609,7 @@ export default function App() {
             hasMore={hasMoreDropItems}
             isLoading={isLoadingDropItems}
             isLoadingMore={isLoadingMoreDropItems}
+            isRefreshing={isRefreshingDropItems}
             error={dropError}
             searchQuery={dropSearchQuery}
             onSearchChange={setDropSearchQuery}
@@ -1601,7 +1617,7 @@ export default function App() {
             onAddDropItem={handleAddDropItem}
             onDeleteDropItem={handleDeleteDropItem}
             onClearAllDropItems={handleClearAllDropItems}
-            onRefreshDropItems={() => loadDropItems(dropSearchQuery, 0, false)}
+            onRefreshDropItems={handleRefreshDropItems}
             onDismissError={() => setDropError(null)}
             isAuthenticated={Boolean(user)}
             onSignIn={handleGitHubLoginClick}
