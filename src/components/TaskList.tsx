@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Search, ArrowUpDown, X, RotateCcw, RefreshCw, Inbox, CheckCircle2 } from 'lucide-react';
 import { Category, SortByOption, Task, TaskFilterStatus } from '../types';
@@ -16,7 +16,7 @@ interface TaskListProps {
   onEditTask: (task: Task) => void;
   onToggleSubtask: (taskId: string, subtaskId: string) => void;
   selectedDate: string;
-  onRefresh: () => void;
+  onRefresh: () => void | Promise<void>;
 }
 
 export const TaskList: React.FC<TaskListProps> = ({
@@ -35,6 +35,21 @@ export const TaskList: React.FC<TaskListProps> = ({
   const [filterStatus, setFilterStatus] = useState<TaskFilterStatus>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortByOption>('createdAt');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const refreshInFlightRef = useRef(false);
+
+  const handleRefresh = async () => {
+    if (refreshInFlightRef.current) return;
+
+    refreshInFlightRef.current = true;
+    setIsRefreshing(true);
+    try {
+      await onRefresh();
+    } finally {
+      refreshInFlightRef.current = false;
+      setIsRefreshing(false);
+    }
+  };
 
   // Category map helper
   const categoryMap = new Map<string, Category>(categories.map((c) => [c.id, c]));
@@ -149,11 +164,14 @@ export const TaskList: React.FC<TaskListProps> = ({
 
           <button
             type="button"
-            onClick={onRefresh}
-            className="p-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800/60 text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 shrink-0 min-h-[34px] min-w-[34px] flex items-center justify-center"
-            aria-label="Refresh tasks"
+            onClick={() => void handleRefresh()}
+            disabled={isRefreshing}
+            className="p-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800/60 text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 shrink-0 min-h-[34px] min-w-[34px] flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed"
+            aria-label={isRefreshing ? 'Refreshing tasks' : 'Refresh tasks'}
+            aria-busy={isRefreshing}
+            title={isRefreshing ? 'Refreshing...' : 'Refresh tasks'}
           >
-            <RefreshCw className="w-3.5 h-3.5" />
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
           </button>
 
           <div className="flex items-center gap-0.5 bg-slate-100/80 dark:bg-slate-800/80 p-0.5 rounded-xl text-xs font-medium shrink-0">

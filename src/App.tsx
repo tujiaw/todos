@@ -617,9 +617,9 @@ export default function App() {
     await chained;
   }, [persistCategories, persistTasks, refreshPendingCount, showToast, user]);
 
-  const handleRefresh = useCallback(() => {
+  const handleRefresh = useCallback(async () => {
     if (user) {
-      handleSyncWithSupabase();
+      await handleSyncWithSupabase();
     } else {
       refreshFromStorage();
     }
