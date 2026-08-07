@@ -28,8 +28,47 @@ interface GenerateTaskDraftResponse {
   };
 }
 
+const TOKEN_REFRESH_SKEW_MS = 60_000;
+
+async function getAccessToken(signInMessage: string): Promise<string> {
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
+
+  let session = sessionData.session;
+  const expiresAtMs = (session?.expires_at ?? 0) * 1000;
+  const needsRefresh = !session?.access_token || expiresAtMs <= Date.now() + TOKEN_REFRESH_SKEW_MS;
+
+  if (needsRefresh) {
+    const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+    if (refreshError) {
+      throw new Error('Your session is invalid or expired. Please sign in again.');
+    }
+    session = refreshed.session;
+  }
+
+  if (!session?.access_token || session.user?.is_anonymous) {
+    throw new Error(signInMessage);
+  }
+  return session.access_token;
+}
+
 function getPlatformErrorCode(body: string): string | undefined {
   return body.match(/\b(?:FUNCTION|EDGE_FUNCTION)_[A-Z0-9_]+\b/)?.[0];
+}
+
+function readApiError(
+  response: Response,
+  responseBody: string,
+  data: { error?: string } | null,
+  fallbackSuffix = ''
+): never {
+  const platformCode = getPlatformErrorCode(responseBody);
+  throw new Error(
+    data?.error ||
+      `AI service request failed (HTTP ${response.status}${
+        platformCode ? `: ${platformCode}` : ''
+      }).${fallbackSuffix}`
+  );
 }
 
 export async function generateTaskDraft(
@@ -42,10 +81,9 @@ export async function generateTaskDraft(
     throw new Error('Create a task category before asking AI to draft a task.');
   }
 
-  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-  if (sessionError) throw sessionError;
-  const accessToken = sessionData.session?.access_token;
-  if (!accessToken) throw new Error('Please sign in before asking AI to draft a task.');
+  const accessToken = await getAccessToken(
+    'Please sign in before asking AI to draft a task.'
+  );
 
   const response = await fetch('/api/generate-task-draft', {
     method: 'POST',
@@ -71,13 +109,7 @@ export async function generateTaskDraft(
     // Vercel platform errors can be plain text instead of the API's JSON shape.
   }
   if (!response.ok) {
-    const platformCode = getPlatformErrorCode(responseBody);
-    throw new Error(
-      data?.error ||
-        `AI service request failed (HTTP ${response.status}${
-          platformCode ? `: ${platformCode}` : ''
-        }). Please try again shortly.`
-    );
+    readApiError(response, responseBody, data, ' Please try again shortly.');
   }
   if (!data?.draft) throw new Error('The AI service returned an empty task draft.');
   return data.draft;
@@ -91,10 +123,7 @@ export async function generateDashboardCopy(
   },
   signal?: AbortSignal
 ): Promise<DashboardCopy> {
-  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-  if (sessionError) throw sessionError;
-  const accessToken = sessionData.session?.access_token;
-  if (!accessToken) throw new Error('Please sign in before using AI features.');
+  const accessToken = await getAccessToken('Please sign in before using AI features.');
 
   const response = await fetch('/api/generate-dashboard-copy', {
     method: 'POST',
@@ -113,13 +142,7 @@ export async function generateDashboardCopy(
     // Vercel platform errors can be plain text.
   }
   if (!response.ok) {
-    const platformCode = getPlatformErrorCode(responseBody);
-    throw new Error(
-      data?.error ||
-        `AI service request failed (HTTP ${response.status}${
-          platformCode ? `: ${platformCode}` : ''
-        }).`
-    );
+    readApiError(response, responseBody, data);
   }
   if (!data?.copy) throw new Error('The AI service returned empty dashboard copy.');
   return data.copy;
@@ -133,10 +156,7 @@ export async function generateAiAssist(
   if (!message) throw new Error('Describe what you need before asking AI assist.');
   if (message.length > 2000) throw new Error('AI assist input must be 2,000 characters or fewer.');
 
-  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-  if (sessionError) throw sessionError;
-  const accessToken = sessionData.session?.access_token;
-  if (!accessToken) throw new Error('Please sign in before using AI assist.');
+  const accessToken = await getAccessToken('Please sign in before using AI assist.');
 
   const response = await fetch('/api/generate-ai-assist', {
     method: 'POST',
@@ -155,13 +175,7 @@ export async function generateAiAssist(
     // Vercel platform errors can be plain text.
   }
   if (!response.ok) {
-    const platformCode = getPlatformErrorCode(responseBody);
-    throw new Error(
-      data?.error ||
-        `AI service request failed (HTTP ${response.status}${
-          platformCode ? `: ${platformCode}` : ''
-        }).`
-    );
+    readApiError(response, responseBody, data);
   }
   if (!data?.result?.answer?.trim()) {
     throw new Error('The AI service returned an empty assist result.');

@@ -1,3 +1,4 @@
+import { authenticate, getSupabaseAuthConfig } from '../server/auth.js';
 import { DeepSeekJsonProvider } from '../server/providers.js';
 import {
   DAILY_AI_LIMIT,
@@ -26,40 +27,15 @@ interface ApiResponse {
 
 const dailyLimiter = new InMemoryDailyRateLimiter();
 
-function getHeader(request: ApiRequest, name: string): string | undefined {
-  const value = request.headers[name.toLowerCase()];
-  return Array.isArray(value) ? value[0] : value;
-}
-
 function getConfig() {
-  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-  const supabaseAnonKey =
-    process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+  const { supabaseUrl, supabaseAnonKey } = getSupabaseAuthConfig();
   const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Supabase Auth is not configured on the server.');
-  }
   if (!apiKey) throw new Error('DeepSeek API is not configured on the server.');
   return { supabaseUrl, supabaseAnonKey, apiKey };
 }
 
-async function authenticate(
-  request: ApiRequest,
-  supabaseUrl: string,
-  supabaseAnonKey: string
-): Promise<{ id: string }> {
-  const authorization = getHeader(request, 'authorization');
-  if (!authorization?.startsWith('Bearer ')) throw new Error('Authentication is required.');
-  const authResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
-    headers: { Authorization: authorization, apikey: supabaseAnonKey },
-  });
-  if (!authResponse.ok) throw new Error('Your session is invalid or expired.');
-  const user = await authResponse.json();
-  if (!user?.id || user?.is_anonymous) throw new Error('Authentication is required.');
-  return { id: user.id };
-}
-
 function getStatus(message: string): number {
+  if (message.includes('not configured')) return 500;
   if (
     message.includes('Authentication') ||
     message.includes('session') ||
@@ -87,13 +63,15 @@ export default async function handler(request: ApiRequest, response: ApiResponse
     const input = validateWeeklySummaryRequest(
       typeof request.body === 'string' ? JSON.parse(request.body) : request.body
     );
-    const user = await authenticate(request, config.supabaseUrl, config.supabaseAnonKey);
-    const authorization = getHeader(request, 'authorization') || '';
-    const accessToken = authorization.replace(/^Bearer\s+/i, '');
+    const user = await authenticate(
+      request.headers,
+      config.supabaseUrl,
+      config.supabaseAnonKey
+    );
     const quota = await consumeAiQuota({
       supabaseUrl: config.supabaseUrl,
       supabaseAnonKey: config.supabaseAnonKey,
-      accessToken,
+      accessToken: user.accessToken,
       userId: user.id,
       memoryLimiter: dailyLimiter,
     });

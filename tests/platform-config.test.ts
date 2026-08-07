@@ -53,9 +53,11 @@ test('AI requests use a same-origin Vercel Function and direct DeepSeek provider
   assert.match(vercelFunction, /from '\.\.\/server\/providers\.js'/);
   assert.match(vercelFunction, /from '\.\.\/server\/rate-limit\.js'/);
   assert.match(vercelFunction, /from '\.\.\/server\/task-draft\.js'/);
+  assert.match(vercelFunction, /from '\.\.\/server\/auth\.js'/);
   assert.match(vercelFunction, /await authenticate/);
   assert.match(vercelFunction, /deepseek-v4-flash/);
   assert.match(vercelFunction, /DEEPSEEK_API_KEY/);
+  assert.match(aiClient, /refreshSession/);
   assert.match(aiProvider, /api\.deepseek\.com/);
   assert.match(aiProvider, /response_format: \{ type: 'json_object' \}/);
   assert.match(aiProvider, /thinking: \{ type: 'disabled' \}/);

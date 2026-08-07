@@ -1,3 +1,4 @@
+import { authenticate, getSupabaseAuthConfig } from '../server/auth.js';
 import {
   DeepSeekTaskDraftProvider,
   type TaskDraftProvider,
@@ -28,40 +29,13 @@ interface ApiResponse {
 
 const dailyLimiter = new InMemoryDailyRateLimiter();
 
-function getHeader(request: ApiRequest, name: string): string | undefined {
-  const value = request.headers[name.toLowerCase()];
-  return Array.isArray(value) ? value[0] : value;
-}
-
 function getServerConfig() {
-  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-  const supabaseAnonKey =
-    process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+  const { supabaseUrl, supabaseAnonKey } = getSupabaseAuthConfig();
   const deepSeekApiKey = process.env.DEEPSEEK_API_KEY;
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Supabase Auth is not configured on the server.');
-  }
   if (!deepSeekApiKey) {
     throw new Error('DeepSeek API is not configured on the server.');
   }
   return { supabaseUrl, supabaseAnonKey, deepSeekApiKey };
-}
-
-async function authenticate(
-  request: ApiRequest,
-  supabaseUrl: string,
-  supabaseAnonKey: string
-): Promise<{ id: string }> {
-  const authorization = getHeader(request, 'authorization');
-  if (!authorization?.startsWith('Bearer ')) throw new Error('Authentication is required.');
-
-  const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
-    headers: { Authorization: authorization, apikey: supabaseAnonKey },
-  });
-  if (!response.ok) throw new Error('Your session is invalid or expired.');
-  const user = await response.json();
-  if (!user?.id || user?.is_anonymous) throw new Error('Authentication is required.');
-  return { id: user.id };
 }
 
 function createProvider(apiKey: string): TaskDraftProvider {
@@ -107,6 +81,7 @@ async function generateValidatedDraft(
 }
 
 function getStatus(message: string): number {
+  if (message.includes('not configured')) return 500;
   if (
     message.includes('Authentication') ||
     message.includes('session') ||
@@ -141,17 +116,15 @@ export default async function handler(request: ApiRequest, response: ApiResponse
       typeof request.body === 'string' ? JSON.parse(request.body) : request.body
     );
     const user = await authenticate(
-      request,
+      request.headers,
       config.supabaseUrl,
       config.supabaseAnonKey
     );
-    const authorization = getHeader(request, 'authorization') || '';
-    const accessToken = authorization.replace(/^Bearer\s+/i, '');
     const provider = createProvider(config.deepSeekApiKey);
     const quota = await consumeAiQuota({
       supabaseUrl: config.supabaseUrl,
       supabaseAnonKey: config.supabaseAnonKey,
-      accessToken,
+      accessToken: user.accessToken,
       userId: user.id,
       memoryLimiter: dailyLimiter,
     });
