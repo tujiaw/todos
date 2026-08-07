@@ -58,6 +58,13 @@ test('AI requests use a same-origin Vercel Function and direct DeepSeek provider
   assert.match(vercelFunction, /deepseek-v4-flash/);
   assert.match(vercelFunction, /DEEPSEEK_API_KEY/);
   assert.match(aiClient, /refreshSession/);
+  assert.match(aiClient, /getUser/);
+  const authHelper = readFileSync(
+    new URL('../server/auth.ts', import.meta.url),
+    'utf8'
+  );
+  assert.match(authHelper, /VITE_SUPABASE_URL \|\| process\.env\.SUPABASE_URL/);
+  assert.match(authHelper, /project mismatch/);
   assert.match(aiProvider, /api\.deepseek\.com/);
   assert.match(aiProvider, /response_format: \{ type: 'json_object' \}/);
   assert.match(aiProvider, /thinking: \{ type: 'disabled' \}/);

@@ -18,13 +18,56 @@ export function getSupabaseAuthConfig(): {
   supabaseUrl: string;
   supabaseAnonKey: string;
 } {
-  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  // Prefer VITE_* so the serverless runtime matches the browser bundle.
+  // SUPABASE_* remains a fallback when VITE_* is not set.
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
   const supabaseAnonKey =
-    process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+    process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
   if (!supabaseUrl || !supabaseAnonKey) {
     throw new Error('Supabase Auth is not configured on the server.');
   }
-  return { supabaseUrl, supabaseAnonKey };
+  return {
+    supabaseUrl: supabaseUrl.replace(/\/$/, ''),
+    supabaseAnonKey,
+  };
+}
+
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  const segment = token.split('.')[1];
+  if (!segment) return null;
+  try {
+    const normalized = segment.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
+    const json =
+      typeof atob === 'function'
+        ? atob(padded)
+        : Buffer.from(padded, 'base64').toString('utf8');
+    const payload = JSON.parse(json) as unknown;
+    if (!payload || typeof payload !== 'object') return null;
+    return payload as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function assertTokenMatchesProject(accessToken: string, supabaseUrl: string) {
+  const payload = decodeJwtPayload(accessToken);
+  if (!payload) return;
+
+  const exp = typeof payload.exp === 'number' ? payload.exp : 0;
+  if (exp > 0 && exp * 1000 <= Date.now()) {
+    throw new Error('Your session is invalid or expired.');
+  }
+
+  const issuer = typeof payload.iss === 'string' ? payload.iss : '';
+  if (!issuer) return;
+
+  const expectedIssuer = `${supabaseUrl}/auth/v1`;
+  if (issuer.replace(/\/$/, '') !== expectedIssuer) {
+    throw new Error(
+      'Supabase project mismatch between the browser session and the AI server. Check VITE_SUPABASE_URL / SUPABASE_URL on Vercel.'
+    );
+  }
 }
 
 export async function authenticate(
@@ -41,6 +84,8 @@ export async function authenticate(
   if (!accessToken) {
     throw new Error('Authentication is required.');
   }
+
+  assertTokenMatchesProject(accessToken, supabaseUrl);
 
   let authResponse: Response;
   try {

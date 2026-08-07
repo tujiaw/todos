@@ -28,27 +28,31 @@ interface GenerateTaskDraftResponse {
   };
 }
 
-const TOKEN_REFRESH_SKEW_MS = 60_000;
-
 async function getAccessToken(signInMessage: string): Promise<string> {
-  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-  if (sessionError) throw sessionError;
-
-  let session = sessionData.session;
-  const expiresAtMs = (session?.expires_at ?? 0) * 1000;
-  const needsRefresh = !session?.access_token || expiresAtMs <= Date.now() + TOKEN_REFRESH_SKEW_MS;
-
-  if (needsRefresh) {
-    const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
-    if (refreshError) {
-      throw new Error('Your session is invalid or expired. Please sign in again.');
-    }
-    session = refreshed.session;
+  // Always refresh before AI calls so we never send a stale access token that
+  // the Supabase JS client would silently renew for its own REST requests.
+  const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+  let session = refreshed.session;
+  if (!session?.access_token) {
+    const { data: sessionData } = await supabase.auth.getSession();
+    session = sessionData.session;
   }
 
   if (!session?.access_token || session.user?.is_anonymous) {
-    throw new Error(signInMessage);
+    throw new Error(
+      refreshError
+        ? 'Your session is invalid or expired. Please sign in again.'
+        : signInMessage
+    );
   }
+
+  const { data: userData, error: userError } = await supabase.auth.getUser(
+    session.access_token
+  );
+  if (userError || !userData.user || userData.user.is_anonymous) {
+    throw new Error('Your session is invalid or expired. Please sign in again.');
+  }
+
   return session.access_token;
 }
 

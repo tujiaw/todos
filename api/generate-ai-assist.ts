@@ -33,7 +33,9 @@ function getConfig() {
 }
 
 function getStatus(message: string): number {
-  if (message.includes('not configured')) return 500;
+  if (message.includes('not configured') || message.includes('project mismatch')) {
+    return 500;
+  }
   if (
     message.includes('Authentication') ||
     message.includes('session') ||
