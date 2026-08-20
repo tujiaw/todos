@@ -689,6 +689,22 @@ export const DropModal: React.FC<DropModalProps> = ({
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
+            {/* Visible refresh so users can both reload the feed and recover a
+                dropped realtime channel without digging into the ⋯ menu. */}
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false);
+                void onRefreshDropItems();
+              }}
+              disabled={!isAuthenticated || isLoading || isRefreshing}
+              aria-busy={isRefreshing}
+              className="p-2 text-indigo-500 dark:text-indigo-200 hover:text-indigo-700 dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/10 rounded-xl transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+              title={isRefreshing ? 'Refreshing…' : 'Refresh Drop'}
+              aria-label="Refresh Drop"
+            >
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            </button>
             <div ref={menuRef} className="relative">
               <button
                 type="button"
@@ -717,24 +733,6 @@ export const DropModal: React.FC<DropModalProps> = ({
                   >
                     <Search className="w-3.5 h-3.5 text-indigo-500" />
                     Search
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      void onRefreshDropItems();
-                    }}
-                    disabled={isLoading || isRefreshing}
-                    aria-busy={isRefreshing}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <RefreshCw
-                      className={`w-3.5 h-3.5 text-indigo-500 ${
-                        isRefreshing ? 'animate-spin' : ''
-                      }`}
-                    />
-                    {isRefreshing ? 'Refreshing...' : 'Refresh'}
                   </button>
                   {dropItems.length > 0 && (
                     <button
@@ -1063,7 +1061,7 @@ export const DropModal: React.FC<DropModalProps> = ({
             </div>
           )}
 
-          {/* Single-row input composer */}
+          {/* Two-row input composer */}
           <div className="drop-composer relative flex items-center gap-1.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 focus-within:ring-4 focus-within:ring-indigo-500/10 focus-within:border-indigo-400 transition-all p-1.5 shadow-sm">
             <input
               type="file"
@@ -1096,8 +1094,8 @@ export const DropModal: React.FC<DropModalProps> = ({
                   : 'Sign in to send notes…'
               }
               disabled={!isAuthenticated}
-              rows={1}
-              className="min-w-0 flex-1 h-9 text-base sm:text-[15px] leading-5 px-2 py-2 bg-slate-50/80 dark:bg-slate-800/70 rounded-lg text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none resize-none disabled:cursor-not-allowed disabled:opacity-60"
+              rows={2}
+              className="min-w-0 flex-1 text-base sm:text-[15px] leading-5 px-2 py-2 bg-slate-50/80 dark:bg-slate-800/70 rounded-lg text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none resize-none disabled:cursor-not-allowed disabled:opacity-60"
             />
 
             <button

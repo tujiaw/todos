@@ -223,6 +223,8 @@ export default function App() {
   const [dropSearchQuery, setDropSearchQuery] = useState<string>('');
   const [dropError, setDropError] = useState<string | null>(null);
   const isRefreshingDropItemsRef = useRef(false);
+  // Bump to re-establish the drop_items realtime channel (see handleRefreshDropItems).
+  const [dropRealtimeEpoch, setDropRealtimeEpoch] = useState(0);
 
   const loadDropItems = useCallback(
     async (query: string = '', offset: number = 0, isLoadMore: boolean = false) => {
@@ -279,7 +281,7 @@ export default function App() {
     return () => {
       unsubscribe();
     };
-  }, [loadDropItems, dropSearchQuery, user]);
+  }, [loadDropItems, dropSearchQuery, user, dropRealtimeEpoch]);
 
   // Refresh once whenever Drop opens, then debounce subsequent searches.
   useEffect(() => {
@@ -305,6 +307,11 @@ export default function App() {
     try {
       await loadDropItems(dropSearchQuery, 0, false);
     } finally {
+      // Long-lived tabs can silently lose the realtime channel (idle timeout,
+      // dropped WebSocket, stale token). Bumping the epoch tears the channel down
+      // and re-subscribes, so a manual refresh both reloads the feed and restores
+      // incoming pushes — not just the one-time fetch.
+      setDropRealtimeEpoch((epoch) => epoch + 1);
       isRefreshingDropItemsRef.current = false;
       setIsRefreshingDropItems(false);
     }
