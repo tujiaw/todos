@@ -215,7 +215,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
   const [showPassword, setShowPassword] = useState(false);
   const [sessionTtlMs, setSessionTtlMs] = useState(loadPreferredVaultTtlMs);
   const [searchQuery, setSearchQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState<VaultItemType | 'all'>('login');
+  const [typeFilter, setTypeFilter] = useState<VaultItemType | 'all'>('all');
   const [draft, setDraft] = useState<VaultItemPlain | null>(null);
   const [isNewDraft, setIsNewDraft] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -247,7 +247,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
     setPasswordConfirm('');
     setRevealSecrets({});
     setSearchQuery('');
-    setTypeFilter('login');
+    setTypeFilter('all');
     setCopyMenuFor(null);
     setHeaderMenuOpen(false);
     savedListScrollTopRef.current = null;
