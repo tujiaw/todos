@@ -1075,11 +1075,11 @@ export const DropModal: React.FC<DropModalProps> = ({
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={!isAuthenticated}
-              className="h-9 shrink-0 text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-300 flex items-center gap-1 px-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+              className="h-9 w-9 shrink-0 text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-300 flex items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
               title={isAuthenticated ? 'Attach file or image' : 'Sign in to attach files'}
+              aria-label={isAuthenticated ? 'Attach file or image' : 'Sign in to attach files'}
             >
               <Paperclip className="w-3.5 h-3.5" />
-              <span className="text-[15px]">Attach</span>
             </button>
 
             <textarea
