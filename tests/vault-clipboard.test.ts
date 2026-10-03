@@ -25,7 +25,7 @@ describe('formatVaultItemForCopy', () => {
 
     const text = formatVaultItemForCopy(item);
     assert.match(text, /标题: Gmail/);
-    assert.match(text, /类型: 登录信息/);
+    assert.match(text, /类型: 登录/);
     assert.match(text, /用户名: a@b.com/);
     assert.match(text, /密码: secret/);
     assert.match(text, /网址: https:\/\/mail\.google\.com/);

@@ -177,7 +177,7 @@ function deriveVaultItemTitle(item: VaultItemPlain): string {
     if (name) return name;
     const idType = item.idType?.trim();
     if (idType) return idType;
-    return '身份信息';
+    return '身份';
   }
   return item.title.trim();
 }
@@ -911,7 +911,7 @@ export const VaultModal: React.FC<VaultModalProps> = ({ isOpen, onClose, lockTok
   } else if (view === 'editor' && draft) {
     if (draft.type === 'card' || draft.type === 'identity') {
       const derived = deriveVaultItemTitle(draft);
-      if (derived !== '银行卡' && derived !== '身份信息') {
+      if (derived !== '银行卡' && derived !== '身份') {
         headerTitle = derived;
       } else if (isNewDraft) {
         headerTitle = `New ${vaultItemTypeLabel(draft.type)}`;
