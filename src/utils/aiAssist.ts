@@ -72,7 +72,7 @@ const MAX_TASKS = 200;
 const MAX_TITLE = 120;
 
 function truncateTitle(title: string): string {
-  const trimmed = title.trim() || 'Untitled task';
+  const trimmed = title.trim() || '未命名任务';
   if (trimmed.length <= MAX_TITLE) return trimmed;
   return `${trimmed.slice(0, MAX_TITLE - 1)}…`;
 }
@@ -155,29 +155,29 @@ export function getAiAssistSuggestions(options?: {
   return [
     {
       id: 'create_task',
-      label: 'Create task',
-      hint: 'Fill in what to create, then Send',
+      label: '创建任务',
+      hint: '填写要创建的内容，再点击发送',
       prompt: createStub,
     },
     {
       id: 'today_focus',
-      label: isToday ? "Today's focus" : 'Day focus',
-      hint: 'Prioritized next steps',
+      label: isToday ? '今日焦点' : '当日焦点',
+      hint: '按优先级安排下一步',
       prompt: `What should I focus on for ${focusLabel}? Prioritize high-priority pending tasks and suggest an order.`,
       sendOnClick: true,
     },
     {
       id: 'weekly_minutes',
-      label: 'Weekly summary',
-      hint: 'This week overview',
+      label: '本周总结',
+      hint: '查看本周概况',
       prompt:
         'Summarize this week’s tasks as meeting-ready weekly minutes. Group by category when helpful.',
       sendOnClick: true,
     },
     {
       id: 'daily_standup',
-      label: 'Daily standup',
-      hint: 'Short briefing',
+      label: '每日站会',
+      hint: '简短汇报',
       prompt:
         'Write a short daily standup: done recently, doing now, next, and any high-priority risks.',
       sendOnClick: true,

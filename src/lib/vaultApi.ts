@@ -27,7 +27,7 @@ export const initializeVaultMeta = async (masterPassword: string): Promise<Crypt
   const activeUser = await ensureAuthenticatedUser();
   const existing = await fetchVaultMeta();
   if (existing) {
-    throw new Error('Vault is already initialized. Unlock with your master password.');
+    throw new Error('保险箱已初始化，请使用主密码解锁。');
   }
 
   const salt = generateSalt();
@@ -51,7 +51,7 @@ export const initializeVaultMeta = async (masterPassword: string): Promise<Crypt
 export const unlockVaultWithPassword = async (masterPassword: string): Promise<CryptoKey> => {
   const meta = await fetchVaultMeta();
   if (!meta) {
-    throw new Error('Master password has not been set.');
+    throw new Error('尚未设置主密码。');
   }
 
   const key = await deriveVaultKey(
@@ -64,7 +64,7 @@ export const unlockVaultWithPassword = async (masterPassword: string): Promise<C
     iv: meta.verifier_iv,
   });
   if (!ok) {
-    throw new Error('Incorrect master password');
+    throw new Error('主密码错误');
   }
   return key;
 };
@@ -99,7 +99,7 @@ export const decryptVaultItems = async (
         updatedAt: plain.updatedAt || row.updated_at,
       });
     } catch (err) {
-      console.warn('Failed to decrypt vault item', row.id, err);
+      console.warn('保险箱条目解密失败', row.id, err);
       failed += 1;
     }
   }

@@ -119,20 +119,20 @@ export const TaskList: React.FC<TaskListProps> = ({
     }`;
 
   let emptyIcon = <CheckCircle2 className="w-6 h-6 text-emerald-500" />;
-  let emptyTitle = 'No tasks match this filter';
-  let emptyDescription = 'All clear! No tasks match this filter view.';
+  let emptyTitle = '没有符合筛选条件的任务';
+  let emptyDescription = '没有符合当前筛选条件的任务。';
   if (searchQuery) {
     emptyIcon = <Search className="w-6 h-6" />;
-    emptyTitle = 'No matching tasks found';
-    emptyDescription = 'Try searching with a different keyword or clear the search.';
+    emptyTitle = '未找到匹配的任务';
+    emptyDescription = '请尝试其他关键词，或清除搜索。';
   } else if (tasks.length === 0) {
     emptyIcon = <Inbox className="w-6 h-6" />;
     if (selectedDate === getTodayDateString()) {
-      emptyTitle = 'No tasks for today';
-      emptyDescription = 'Type your first task above to get started!';
+      emptyTitle = '今天还没有任务';
+      emptyDescription = '在上方输入你的第一个任务！';
     } else {
-      emptyTitle = `No tasks for ${selectedDate}`;
-      emptyDescription = 'Add a task for this day, or jump back to Today.';
+      emptyTitle = `此日期暂无任务： ${selectedDate}`;
+      emptyDescription = '为这一天添加任务，或返回今天。';
     }
   }
 
@@ -145,7 +145,7 @@ export const TaskList: React.FC<TaskListProps> = ({
             <input
               type="text"
               id="input-search-tasks"
-              placeholder="Search"
+              placeholder="搜索"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full text-xs pl-8 pr-7 py-2 rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800/60 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 min-h-[34px]"
@@ -155,7 +155,7 @@ export const TaskList: React.FC<TaskListProps> = ({
                 type="button"
                 onClick={() => setSearchQuery('')}
                 className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                aria-label="Clear search"
+                aria-label="清除搜索"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -167,30 +167,30 @@ export const TaskList: React.FC<TaskListProps> = ({
             onClick={() => void handleRefresh()}
             disabled={isRefreshing}
             className="p-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800/60 text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 shrink-0 min-h-[34px] min-w-[34px] flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed"
-            aria-label={isRefreshing ? 'Refreshing tasks' : 'Refresh tasks'}
+            aria-label={isRefreshing ? '正在刷新任务' : '刷新任务'}
             aria-busy={isRefreshing}
-            title={isRefreshing ? 'Refreshing...' : 'Refresh tasks'}
+            title={isRefreshing ? '正在刷新…' : '刷新任务'}
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
           </button>
 
           <div className="flex items-center gap-0.5 bg-slate-100/80 dark:bg-slate-800/80 p-0.5 rounded-xl text-xs font-medium shrink-0">
             <button type="button" onClick={() => setFilterStatus('all')} className={tabClass(filterStatus === 'all')}>
-              All ({tasks.length})
+              全部（{tasks.length})
             </button>
             <button
               type="button"
               onClick={() => setFilterStatus('pending')}
               className={tabClass(filterStatus === 'pending')}
             >
-              Pending ({pendingCount})
+              待完成（{pendingCount})
             </button>
             <button
               type="button"
               onClick={() => setFilterStatus('completed')}
               className={tabClass(filterStatus === 'completed')}
             >
-              Done ({completedCount})
+              已完成（{completedCount})
             </button>
           </div>
 
@@ -203,16 +203,16 @@ export const TaskList: React.FC<TaskListProps> = ({
               className="bg-transparent text-slate-700 dark:text-slate-200 font-semibold focus:outline-none cursor-pointer text-[11px]"
             >
               <option value="createdAt" className="dark:bg-slate-900">
-                Newest
+                最新
               </option>
               <option value="priority" className="dark:bg-slate-900">
-                Priority
+                优先级
               </option>
               <option value="dueTime" className="dark:bg-slate-900">
-                Time
+                时间
               </option>
               <option value="category" className="dark:bg-slate-900">
-                Category
+                分类
               </option>
             </select>
           </div>
@@ -233,7 +233,7 @@ export const TaskList: React.FC<TaskListProps> = ({
                   type="button"
                   onClick={() => onSelectCategory(null)}
                   className="p-0.5 hover:opacity-80 rounded transition-opacity"
-                  title="Clear category filter"
+                  title="清除分类筛选"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -247,7 +247,7 @@ export const TaskList: React.FC<TaskListProps> = ({
                   type="button"
                   onClick={() => setSearchQuery('')}
                   className="p-0.5 hover:bg-amber-100 dark:hover:bg-amber-900 rounded transition-colors"
-                  title="Clear search"
+                  title="清除搜索"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -260,7 +260,7 @@ export const TaskList: React.FC<TaskListProps> = ({
               className="text-[11px] font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 flex items-center gap-1 ml-auto shrink-0 px-1 py-0.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             >
               <RotateCcw className="w-3 h-3" />
-              <span>Reset</span>
+              <span>重置</span>
             </button>
           </div>
         )}

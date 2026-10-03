@@ -13,14 +13,14 @@ interface CategorySettingsModalProps {
 }
 
 const PRESET_COLORS = [
-  { hex: '#3b82f6', name: 'Blue', bg: 'bg-blue-50 dark:bg-blue-950/40', text: 'text-blue-700 dark:text-blue-300', border: 'border-blue-200 dark:border-blue-800/50' },
-  { hex: '#6366f1', name: 'Indigo', bg: 'bg-indigo-50 dark:bg-indigo-950/40', text: 'text-indigo-700 dark:text-indigo-300', border: 'border-indigo-200 dark:border-indigo-800/50' },
-  { hex: '#10b981', name: 'Emerald', bg: 'bg-emerald-50 dark:bg-emerald-950/40', text: 'text-emerald-700 dark:text-emerald-300', border: 'border-emerald-200 dark:border-emerald-800/50' },
-  { hex: '#f43f5e', name: 'Rose', bg: 'bg-rose-50 dark:bg-rose-950/40', text: 'text-rose-700 dark:text-rose-300', border: 'border-rose-200 dark:border-rose-800/50' },
-  { hex: '#f59e0b', name: 'Amber', bg: 'bg-amber-50 dark:bg-amber-950/40', text: 'text-amber-700 dark:text-amber-300', border: 'border-amber-200 dark:border-amber-800/50' },
-  { hex: '#8b5cf6', name: 'Purple', bg: 'bg-purple-50 dark:bg-purple-950/40', text: 'text-purple-700 dark:text-purple-300', border: 'border-purple-200 dark:border-purple-800/50' },
-  { hex: '#06b6d4', name: 'Cyan', bg: 'bg-cyan-50 dark:bg-cyan-950/40', text: 'text-cyan-700 dark:text-cyan-300', border: 'border-cyan-200 dark:border-cyan-800/50' },
-  { hex: '#64748b', name: 'Slate', bg: 'bg-slate-100 dark:bg-slate-800/80', text: 'text-slate-700 dark:text-slate-300', border: 'border-slate-300 dark:border-slate-700' },
+  { hex: '#3b82f6', name: '蓝色', bg: 'bg-blue-50 dark:bg-blue-950/40', text: 'text-blue-700 dark:text-blue-300', border: 'border-blue-200 dark:border-blue-800/50' },
+  { hex: '#6366f1', name: '靛蓝色', bg: 'bg-indigo-50 dark:bg-indigo-950/40', text: 'text-indigo-700 dark:text-indigo-300', border: 'border-indigo-200 dark:border-indigo-800/50' },
+  { hex: '#10b981', name: '翠绿色', bg: 'bg-emerald-50 dark:bg-emerald-950/40', text: 'text-emerald-700 dark:text-emerald-300', border: 'border-emerald-200 dark:border-emerald-800/50' },
+  { hex: '#f43f5e', name: '玫红色', bg: 'bg-rose-50 dark:bg-rose-950/40', text: 'text-rose-700 dark:text-rose-300', border: 'border-rose-200 dark:border-rose-800/50' },
+  { hex: '#f59e0b', name: '琥珀色', bg: 'bg-amber-50 dark:bg-amber-950/40', text: 'text-amber-700 dark:text-amber-300', border: 'border-amber-200 dark:border-amber-800/50' },
+  { hex: '#8b5cf6', name: '紫色', bg: 'bg-purple-50 dark:bg-purple-950/40', text: 'text-purple-700 dark:text-purple-300', border: 'border-purple-200 dark:border-purple-800/50' },
+  { hex: '#06b6d4', name: '青色', bg: 'bg-cyan-50 dark:bg-cyan-950/40', text: 'text-cyan-700 dark:text-cyan-300', border: 'border-cyan-200 dark:border-cyan-800/50' },
+  { hex: '#64748b', name: '灰蓝色', bg: 'bg-slate-100 dark:bg-slate-800/80', text: 'text-slate-700 dark:text-slate-300', border: 'border-slate-300 dark:border-slate-700' },
 ];
 
 function colorFromCategory(cat: Category) {
@@ -57,7 +57,7 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({
       borderClass: selectedColor.border,
     });
 
-    setSuccessMessage(`Created “${newCatName.trim()}”`);
+    setSuccessMessage(`已创建“${newCatName.trim()}”`);
     setNewCatName('');
     setTimeout(() => setSuccessMessage(''), 3000);
   };
@@ -81,7 +81,7 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({
       borderClass: editColor.border,
     });
     setEditingId(null);
-    setSuccessMessage('Category updated');
+    setSuccessMessage('分类已更新');
     setTimeout(() => setSuccessMessage(''), 2500);
   };
 
@@ -93,7 +93,7 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({
             <div className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
               <Tag className="w-4 h-4" />
             </div>
-            <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">Category Management</h3>
+            <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">分类管理</h3>
           </div>
           <button
             type="button"
@@ -114,10 +114,10 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({
 
           <div>
             <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              Existing Categories ({categories.length})
+              现有分类（{categories.length})
             </label>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2">
-              Use the arrows to reorder. The first category is the default.
+              使用箭头调整顺序，首个分类为默认分类。
             </p>
             <div className="space-y-2 max-h-52 overflow-y-auto">
               {categories.map((cat, index) => {
@@ -155,14 +155,14 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({
                             onClick={saveEdit}
                             className="px-2.5 py-1 rounded-lg bg-indigo-600 text-white font-semibold"
                           >
-                            Save
+                            保存
                           </button>
                           <button
                             type="button"
                             onClick={() => setEditingId(null)}
                             className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700"
                           >
-                            Cancel
+                            取消
                           </button>
                         </div>
                       </div>
@@ -173,7 +173,7 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({
                           <span className="truncate">{cat.name}</span>
                           {(cat.isDefault || isFirst) && (
                             <span className="text-[10px] opacity-70 border border-current px-1 rounded shrink-0">
-                              Default
+                              默认
                             </span>
                           )}
                         </div>
@@ -183,8 +183,8 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({
                             onClick={() => onReorderCategory(cat.id, 'up')}
                             disabled={isFirst}
                             className="p-1.5 rounded-lg hover:bg-white/70 dark:hover:bg-slate-900/50 disabled:opacity-30 disabled:pointer-events-none"
-                            aria-label={`Move ${cat.name} up`}
-                            title="Move up"
+                            aria-label={`将“${cat.name}”上移`}
+                            title="上移"
                           >
                             <ChevronUp className="w-3.5 h-3.5" />
                           </button>
@@ -193,8 +193,8 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({
                             onClick={() => onReorderCategory(cat.id, 'down')}
                             disabled={isLast}
                             className="p-1.5 rounded-lg hover:bg-white/70 dark:hover:bg-slate-900/50 disabled:opacity-30 disabled:pointer-events-none"
-                            aria-label={`Move ${cat.name} down`}
-                            title="Move down"
+                            aria-label={`将“${cat.name}”下移`}
+                            title="下移"
                           >
                             <ChevronDown className="w-3.5 h-3.5" />
                           </button>
@@ -202,7 +202,7 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({
                             type="button"
                             onClick={() => startEdit(cat)}
                             className="p-1.5 rounded-lg hover:bg-white/70 dark:hover:bg-slate-900/50"
-                            aria-label={`Edit ${cat.name}`}
+                            aria-label={`编辑 ${cat.name}`}
                           >
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
@@ -210,7 +210,7 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({
                             type="button"
                             onClick={() => onDeleteCategory(cat.id)}
                             className="p-1.5 rounded-lg hover:bg-white/70 dark:hover:bg-slate-900/50 text-rose-600"
-                            aria-label={`Delete ${cat.name}`}
+                            aria-label={`删除 ${cat.name}`}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -228,12 +228,12 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({
           <form onSubmit={handleCreateCategory} className="space-y-3">
             <label className="block font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
               <FolderPlus className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-              <span>Add New Category</span>
+              <span>添加分类</span>
             </label>
             <input
               value={newCatName}
               onChange={(e) => setNewCatName(e.target.value)}
-              placeholder="Category name"
+              placeholder="分类名称"
               className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-xs"
             />
             <div className="flex flex-wrap gap-1.5">
@@ -255,7 +255,7 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({
               disabled={!newCatName.trim()}
               className="w-full min-h-10 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-bold"
             >
-              Create category
+              创建分类
             </button>
           </form>
         </div>

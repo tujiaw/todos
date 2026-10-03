@@ -25,7 +25,7 @@ function mapCustomFields(
   const mapped = fields
     .filter((field) => field.name || field.value)
     .map((field) => ({
-      label: field.name?.trim() || 'Field',
+      label: field.name?.trim() || '字段',
       value: field.value ?? '',
       secret: field.type === 1,
     }));
@@ -46,21 +46,21 @@ function identityExtraFields(item: BitwardenItem): VaultCustomField[] {
   if (!identity) return [];
 
   const pairs: Array<[string, string | null | undefined]> = [
-    ['Title', identity.title],
-    ['Company', identity.company],
-    ['Email', identity.email],
-    ['Phone', identity.phone],
-    ['Username', identity.username],
-    ['SSN', identity.ssn],
-    ['Passport', identity.passportNumber],
-    ['License', identity.licenseNumber],
-    ['Address1', identity.address1],
-    ['Address2', identity.address2],
-    ['Address3', identity.address3],
-    ['City', identity.city],
-    ['State', identity.state],
-    ['Postal Code', identity.postalCode],
-    ['Country', identity.country],
+    ['标题', identity.title],
+    ['公司', identity.company],
+    ['邮箱', identity.email],
+    ['电话', identity.phone],
+    ['用户名', identity.username],
+    ['社会保障号码', identity.ssn],
+    ['护照', identity.passportNumber],
+    ['驾照', identity.licenseNumber],
+    ['地址一', identity.address1],
+    ['地址二', identity.address2],
+    ['地址三', identity.address3],
+    ['城市', identity.city],
+    ['省／州', identity.state],
+    ['邮政编码', identity.postalCode],
+    ['国家', identity.country],
   ];
 
   return pairs
@@ -93,7 +93,7 @@ export function mapBitwardenItem(
   const now = Date.now();
   const createdAt = parseTimestamp(item.creationDate, now);
   const updatedAt = parseTimestamp(item.revisionDate, createdAt);
-  const title = (item.name || 'Untitled').trim() || 'Untitled';
+  const title = (item.name || '未命名').trim() || '未命名';
   const notes = item.notes?.trim() || undefined;
   const fields = mapCustomFields(item.fields);
   const base = {
@@ -142,9 +142,9 @@ export function mapBitwardenItem(
     const idNumber =
       identity?.ssn || identity?.passportNumber || identity?.licenseNumber || undefined;
     let idType: string | undefined;
-    if (identity?.ssn) idType = 'SSN';
-    else if (identity?.passportNumber) idType = 'Passport';
-    else if (identity?.licenseNumber) idType = 'License';
+    if (identity?.ssn) idType = '社会保障号码';
+    else if (identity?.passportNumber) idType = '护照';
+    else if (identity?.licenseNumber) idType = '驾照';
 
     const extras = identityExtraFields(item);
     const mergedFields = [...(fields || []), ...extras];
@@ -159,7 +159,7 @@ export function mapBitwardenItem(
   }
 
   // SSH keys and unknown types → note so data is not dropped.
-  const summaryParts = [`Bitwarden type: ${item.type}`];
+  const summaryParts = [`Bitwarden 类型： ${item.type}`];
   if (item.login) summaryParts.push(`login: ${JSON.stringify(item.login)}`);
   if (item.card) summaryParts.push(`card: ${JSON.stringify(item.card)}`);
   if (item.identity) summaryParts.push(`identity: ${JSON.stringify(item.identity)}`);
@@ -177,17 +177,17 @@ export function mapBitwardenItem(
 
 export function parseBitwardenExport(raw: unknown): VaultItemPlain[] {
   if (!raw || typeof raw !== 'object') {
-    throw new Error('Invalid Bitwarden export file.');
+    throw new Error('Bitwarden 导出文件无效。');
   }
 
   const data = raw as BitwardenExport;
   if (data.encrypted === true) {
     throw new Error(
-      'Encrypted Bitwarden exports are not supported. Please export as "JSON (Unencrypted)".'
+      '不支持加密的 Bitwarden 导出文件，请导出为“JSON（未加密）”。'
     );
   }
   if (!Array.isArray(data.items)) {
-    throw new Error('No items array found. Please use an unencrypted Bitwarden JSON export.');
+    throw new Error('未找到条目数据，请使用未加密的 Bitwarden JSON 导出文件。');
   }
 
   const folderMap = new Map<string, string>();
@@ -238,7 +238,7 @@ export function buildVaultMergePlan(
     if (!match) {
       adds.push({
         action: 'add',
-        reason: 'new item',
+        reason: '新条目',
         incoming,
       });
       continue;
@@ -247,7 +247,7 @@ export function buildVaultMergePlan(
     if (incoming.updatedAt < match.updatedAt) {
       skips.push({
         action: 'skip',
-        reason: `incoming older than local (${matchReason})`,
+        reason: `导入数据早于本地数据（${matchReason}）`,
         incoming,
         existing: match,
       });
@@ -274,9 +274,9 @@ export function buildVaultMergePlan(
 }
 
 export function vaultItemTypeLabel(type: VaultItemType): string {
-  if (type === 'login') return 'Login';
-  if (type === 'card') return 'Card';
-  if (type === 'identity') return 'Identity';
-  if (type === 'note') return 'Note';
-  return 'Custom';
+  if (type === 'login') return '登录信息';
+  if (type === 'card') return '银行卡';
+  if (type === 'identity') return '身份信息';
+  if (type === 'note') return '笔记';
+  return '自定义';
 }

@@ -40,8 +40,8 @@ function createdTasksNotice(language: AiAssistLanguage, count: number): string {
     if (count === 1) return '已创建任务';
     return `已创建 ${count} 个任务`;
   }
-  if (count === 1) return 'Task created';
-  return `${count} tasks created`;
+  if (count === 1) return '已创建任务';
+  return `${count} 个任务已创建`;
 }
 
 function SuggestionChips({
@@ -59,7 +59,7 @@ function SuggestionChips({
     <div
       className={`flex flex-nowrap gap-1 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${className}`}
       role="list"
-      aria-label="Quick prompts"
+      aria-label="快捷提问"
     >
       {suggestions.map((item) => (
         <button
@@ -156,7 +156,7 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
       copyTimerRef.current = window.setTimeout(() => setCopiedId(null), 1800);
     } catch {
       setCopiedId(null);
-      showToast('Clipboard access was denied. Copy the text manually.', 'error');
+      showToast('无法访问剪贴板，请手动复制文本。', 'error');
     }
   };
 
@@ -209,10 +209,10 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
                 id="ai-assist-title"
                 className="text-base font-bold text-slate-800 dark:text-slate-100 tracking-tight"
               >
-                AI Assist
+                智能助手
               </h3>
               <p className="text-sm text-indigo-600/80 dark:text-indigo-300/80 font-medium truncate">
-                Ask or create tasks
+                提问或创建任务
               </p>
             </div>
           </div>
@@ -221,7 +221,7 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
             <div
               className="inline-flex items-center rounded-full border border-slate-200 dark:border-slate-700 bg-slate-100/80 dark:bg-slate-800/80 p-0.5"
               role="group"
-              aria-label="Reply language"
+              aria-label="回复语言"
             >
               <button
                 type="button"
@@ -245,9 +245,9 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
                     : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
                 }`}
                 aria-pressed={language === 'en'}
-                title="Reply in English"
+                title="使用英文回复"
               >
-                EN
+                英文
               </button>
             </div>
             {messages.length > 0 && (
@@ -256,8 +256,8 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
                 onClick={onClearMessages}
                 disabled={isLoading}
                 className="p-2 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-40 cursor-pointer"
-                title="Clear chat"
-                aria-label="Clear chat"
+                title="清空对话"
+                aria-label="清空对话"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -266,7 +266,7 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
               type="button"
               onClick={onClose}
               className="p-2 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-              aria-label="Close AI Assist"
+              aria-label="关闭智能助手"
             >
               <X className="w-4 h-4" />
             </button>
@@ -284,12 +284,12 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
                 <Sparkles className="w-5 h-5" />
               </div>
               <p className="font-semibold text-slate-700 dark:text-slate-300">
-                {language === 'zh' ? '需要做什么？' : 'What do you need?'}
+                {language === 'zh' ? '需要做什么？' : '有什么需要帮忙的？'}
               </p>
               <p className="mt-1 text-[12px] text-slate-500 dark:text-slate-400 leading-relaxed max-w-[17rem]">
                 {language === 'zh'
                   ? '点下方快捷提示，或直接输入。'
-                  : 'Tap a quick prompt below, or type your own request.'}
+                  : '选择下方的快捷提问，或输入你的需求。'}
               </p>
             </div>
           )}
@@ -332,7 +332,7 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
                         type="button"
                         onClick={onViewCreatedTasks}
                         className="w-full text-left space-y-1.5 cursor-pointer"
-                        title="View on calendar"
+                        title="在日历中查看"
                       >
                         {message.createdTasks.map((task, index) => (
                           <div
@@ -348,10 +348,10 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
                               {` · ${task.category}`}
                               {` · ${task.priority}`}
                               {task.subtasks.length > 0
-                                ? ` · ${task.subtasks.length} subtasks`
+                                ? ` · ${task.subtasks.length} 个子任务`
                                 : ''}
                               <span className="ml-1 text-emerald-600 dark:text-emerald-400">
-                                · View
+                                · 查看
                               </span>
                             </div>
                           </div>
@@ -368,17 +368,17 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
                         type="button"
                         onClick={() => void handleCopy(message.id, message.content)}
                         className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-300 cursor-pointer"
-                        title="Copy markdown source"
+                        title="复制原文"
                       >
                         {copiedId === message.id ? (
                           <>
                             <Check className="w-3 h-3" />
-                            Copied
+                            已复制
                           </>
                         ) : (
                           <>
                             <ClipboardCopy className="w-3 h-3" />
-                            Copy
+                            复制
                           </>
                         )}
                       </button>
@@ -391,7 +391,7 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
                         className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-300 hover:text-indigo-700 dark:hover:text-indigo-200 disabled:opacity-50 cursor-pointer"
                       >
                         <RotateCcw className="w-3 h-3" />
-                        Retry
+                        重试
                       </button>
                     )}
                   </div>
@@ -404,7 +404,7 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
             <div className="flex justify-start">
               <div className="inline-flex items-center gap-2 rounded-3xl border border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/80 dark:bg-indigo-950/30 px-3.5 py-2.5 text-xs text-indigo-700 dark:text-indigo-200">
                 <LoaderCircle className="w-3.5 h-3.5 animate-spin" />
-                Working…
+                正在处理…
               </div>
             </div>
           )}
@@ -428,7 +428,7 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
               placeholder={
                 language === 'zh'
                   ? '询问待办，或创建任务…'
-                  : 'Ask about todos, or create a task…'
+                  : '查询待办事项，或创建任务…'
               }
               disabled={isLoading}
               className="min-w-0 flex-1 min-h-[2.5rem] max-h-28 text-base sm:text-[15px] leading-5 px-2.5 py-2 bg-slate-50/80 dark:bg-slate-800/70 rounded-2xl text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none resize-none disabled:opacity-60"
@@ -438,10 +438,10 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
                 type="button"
                 onClick={onCancel}
                 className="h-10 px-3.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-sm rounded-full transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
-                title="Stop"
+                title="停止"
               >
                 <Square className="w-3 h-3 fill-current" />
-                <span>Stop</span>
+                <span>停止</span>
               </button>
             ) : (
               <button
@@ -449,9 +449,9 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
                 onClick={() => onSend(prompt)}
                 disabled={!prompt.trim()}
                 className="h-10 px-3.5 bg-gradient-to-br from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 disabled:opacity-40 text-white font-bold text-sm rounded-full transition-all flex items-center gap-1.5 shadow-md shadow-indigo-500/20 shrink-0 cursor-pointer disabled:cursor-not-allowed"
-                title="Send"
+                title="发送"
               >
-                <span>Send</span>
+                <span>发送</span>
                 <Send className="w-3.5 h-3.5" />
               </button>
             )}

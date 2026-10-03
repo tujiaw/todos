@@ -11,42 +11,42 @@ function pushLine(lines: string[], label: string, value?: string | null) {
 export function formatVaultItemForCopy(item: VaultItemPlain): string {
   const lines: string[] = [];
 
-  pushLine(lines, 'Title', item.title);
-  pushLine(lines, 'Type', vaultItemTypeLabel(item.type));
-  pushLine(lines, 'Folder', item.folder);
+  pushLine(lines, '标题', item.title);
+  pushLine(lines, '类型', vaultItemTypeLabel(item.type));
+  pushLine(lines, '文件夹', item.folder);
 
   if (item.type === 'login') {
-    pushLine(lines, 'Username', item.username);
-    pushLine(lines, 'Password', item.password);
-    pushLine(lines, 'URL', item.url);
-    pushLine(lines, 'TOTP', item.totp);
+    pushLine(lines, '用户名', item.username);
+    pushLine(lines, '密码', item.password);
+    pushLine(lines, '网址', item.url);
+    pushLine(lines, '动态验证码', item.totp);
   } else if (item.type === 'card') {
-    pushLine(lines, 'Cardholder', item.cardholder);
-    pushLine(lines, 'Brand', item.brand);
-    pushLine(lines, 'Number', item.number);
+    pushLine(lines, '持卡人', item.cardholder);
+    pushLine(lines, '卡片品牌', item.brand);
+    pushLine(lines, '卡号', item.number);
     if (item.expMonth || item.expYear) {
       const month = (item.expMonth || '').trim();
       const year = (item.expYear || '').trim();
-      lines.push(`Expires: ${month}${month && year ? '/' : ''}${year}`);
+      lines.push(`有效期: ${month}${month && year ? '/' : ''}${year}`);
     }
-    pushLine(lines, 'CVV', item.cvv);
+    pushLine(lines, '安全码', item.cvv);
   } else if (item.type === 'identity') {
-    pushLine(lines, 'Name', item.fullName);
-    pushLine(lines, 'ID type', item.idType);
-    pushLine(lines, 'ID number', item.idNumber);
+    pushLine(lines, '姓名', item.fullName);
+    pushLine(lines, '证件类型', item.idType);
+    pushLine(lines, '证件号码', item.idNumber);
   }
 
   if (item.fields?.length) {
     const fieldLines = item.fields
       .filter((field) => field.label?.trim() || field.value?.trim())
       .map((field) => {
-        const label = field.label?.trim() || 'Field';
+        const label = field.label?.trim() || '字段';
         const value = field.value?.trim() || '';
         return `${label}: ${value}`;
       });
     if (fieldLines.length > 0) {
       lines.push('');
-      lines.push('Custom fields');
+      lines.push('自定义字段');
       for (const line of fieldLines) lines.push(line);
     }
   }
@@ -54,7 +54,7 @@ export function formatVaultItemForCopy(item: VaultItemPlain): string {
   const notes = item.notes?.trim();
   if (notes) {
     lines.push('');
-    lines.push('Notes');
+    lines.push('备注');
     lines.push(notes);
   }
 

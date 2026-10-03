@@ -41,7 +41,7 @@ async function getAccessToken(signInMessage: string): Promise<string> {
   if (!session?.access_token || session.user?.is_anonymous) {
     throw new Error(
       refreshError
-        ? 'Your session is invalid or expired. Please sign in again.'
+        ? '登录状态已失效或过期，请重新登录。'
         : signInMessage
     );
   }
@@ -50,7 +50,7 @@ async function getAccessToken(signInMessage: string): Promise<string> {
     session.access_token
   );
   if (userError || !userData.user || userData.user.is_anonymous) {
-    throw new Error('Your session is invalid or expired. Please sign in again.');
+    throw new Error('登录状态已失效或过期，请重新登录。');
   }
 
   return session.access_token;
@@ -69,7 +69,7 @@ function readApiError(
   const platformCode = getPlatformErrorCode(responseBody);
   throw new Error(
     data?.error ||
-      `AI service request failed (HTTP ${response.status}${
+      `智能服务请求失败（HTTP ${response.status}${
         platformCode ? `: ${platformCode}` : ''
       }).${fallbackSuffix}`
   );
@@ -79,14 +79,14 @@ export async function generateTaskDraft(
   input: GenerateTaskDraftInput
 ): Promise<TaskDraft> {
   const text = input.text.trim();
-  if (!text) throw new Error('Enter some text before asking AI to create a task.');
-  if (text.length > 4000) throw new Error('AI task input must be 4,000 characters or fewer.');
+  if (!text) throw new Error('请输入内容，再让智能助手创建任务。');
+  if (text.length > 4000) throw new Error('任务输入内容不能超过 4,000 个字符。');
   if (input.categories.length === 0) {
-    throw new Error('Create a task category before asking AI to draft a task.');
+    throw new Error('请先创建任务分类。');
   }
 
   const accessToken = await getAccessToken(
-    'Please sign in before asking AI to draft a task.'
+    '请登录后生成任务草稿。'
   );
 
   const response = await fetch('/api/generate-task-draft', {
@@ -113,9 +113,9 @@ export async function generateTaskDraft(
     // Vercel platform errors can be plain text instead of the API's JSON shape.
   }
   if (!response.ok) {
-    readApiError(response, responseBody, data, ' Please try again shortly.');
+    readApiError(response, responseBody, data, ' 请稍后重试。');
   }
-  if (!data?.draft) throw new Error('The AI service returned an empty task draft.');
+  if (!data?.draft) throw new Error('智能服务返回了空的任务草稿。');
   return data.draft;
 }
 
@@ -127,7 +127,7 @@ export async function generateDashboardCopy(
   },
   signal?: AbortSignal
 ): Promise<DashboardCopy> {
-  const accessToken = await getAccessToken('Please sign in before using AI features.');
+  const accessToken = await getAccessToken('请登录后使用智能功能。');
 
   const response = await fetch('/api/generate-dashboard-copy', {
     method: 'POST',
@@ -148,7 +148,7 @@ export async function generateDashboardCopy(
   if (!response.ok) {
     readApiError(response, responseBody, data);
   }
-  if (!data?.copy) throw new Error('The AI service returned empty dashboard copy.');
+  if (!data?.copy) throw new Error('智能服务返回了空的首页文案。');
   return data.copy;
 }
 
@@ -157,10 +157,10 @@ export async function generateAiAssist(
   signal?: AbortSignal
 ): Promise<AiAssistResult> {
   const message = input.message.trim();
-  if (!message) throw new Error('Describe what you need before asking AI assist.');
-  if (message.length > 2000) throw new Error('AI assist input must be 2,000 characters or fewer.');
+  if (!message) throw new Error('请先描述你的需求。');
+  if (message.length > 2000) throw new Error('输入内容不能超过 2,000 个字符。');
 
-  const accessToken = await getAccessToken('Please sign in before using AI assist.');
+  const accessToken = await getAccessToken('请登录后使用智能助手。');
 
   const response = await fetch('/api/generate-ai-assist', {
     method: 'POST',
@@ -182,7 +182,7 @@ export async function generateAiAssist(
     readApiError(response, responseBody, data);
   }
   if (!data?.result?.answer?.trim()) {
-    throw new Error('The AI service returned an empty assist result.');
+    throw new Error('智能助手返回了空的结果。');
   }
   return data.result;
 }

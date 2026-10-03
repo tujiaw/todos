@@ -4,8 +4,8 @@ export interface DashboardCopy {
 }
 
 const DEFAULT_DASHBOARD_COPY: DashboardCopy = {
-  title: 'Make today feel lighter.',
-  subtitle: 'Choose what matters, give it a place, and let the rest wait.',
+  title: '让今天更从容。',
+  subtitle: '安排重要的事，其余的慢慢来。',
 };
 
 export function getDefaultDashboardCopy(): DashboardCopy {
@@ -23,8 +23,8 @@ export function buildDashboardCopyPrompt(input: {
     `Pending tasks: ${input.pendingTasks}`,
     `Completed tasks: ${input.completedTasks}`,
     'Return one JSON object with exactly these string fields: title, subtitle.',
-    'The title must be 3-8 English words and at most 60 characters.',
-    'The subtitle must be one English sentence, 8-18 words, and at most 120 characters.',
+    '标题必须使用简体中文，简洁自然，不超过 60 个字符。',
+    '副标题必须使用简体中文，写成一句自然的话，不超过 120 个字符。',
     'Use an encouraging but restrained tone. Do not mention AI, task counts, dates, quotes, emojis, or markdown.',
     'Avoid repeating this fallback copy:',
     JSON.stringify(DEFAULT_DASHBOARD_COPY),

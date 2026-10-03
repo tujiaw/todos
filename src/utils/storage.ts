@@ -286,7 +286,7 @@ export const importDataFromJSON = (jsonText: string): ImportDataResult => {
   try {
     const data = JSON.parse(jsonText);
     if (!data.tasks || !Array.isArray(data.tasks)) {
-      return { success: false, message: 'Invalid backup file: Missing tasks array.' };
+      return { success: false, message: '备份文件无效，缺少任务数据。' };
     }
     const tasks = data.tasks as Task[];
     const categories = Array.isArray(data.categories)
@@ -296,12 +296,12 @@ export const importDataFromJSON = (jsonText: string): ImportDataResult => {
     saveCategories(categories);
     return {
       success: true,
-      message: `Imported ${tasks.length} tasks locally. Syncing to cloud…`,
+      message: `Imported ${tasks.length} 个任务到本地，正在同步到云端…`,
       tasks,
       categories,
     };
   } catch {
-    return { success: false, message: 'Failed to parse JSON file. Please verify file format.' };
+    return { success: false, message: '无法解析 JSON 文件，请检查文件格式。' };
   }
 };
 

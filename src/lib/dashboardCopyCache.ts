@@ -7,7 +7,7 @@ interface CachedDashboardCopy extends DashboardCopy {
   date: string;
 }
 
-const DASHBOARD_COPY_STORAGE_KEY = 'daily_todos_dashboard_copy_v1';
+const DASHBOARD_COPY_STORAGE_KEY = 'daily_todos_dashboard_copy_zh_v2';
 
 export function loadCachedDashboardCopy(date: string): DashboardCopy | null {
   try {

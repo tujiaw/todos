@@ -40,7 +40,7 @@ async function flushOutboxUnlocked(user: User): Promise<FlushOutboxResult> {
       }
     } catch (err) {
       remaining.push(op);
-      lastError = err instanceof Error ? err.message : 'Sync failed';
+      lastError = err instanceof Error ? err.message : '同步失败';
     }
   }
 

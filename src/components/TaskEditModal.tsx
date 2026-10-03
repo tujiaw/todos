@@ -91,7 +91,7 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
     e.target.value = '';
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
-      showToast('Image file size cannot exceed 5MB', 'error');
+      showToast('图片大小不能超过 5 MB', 'error');
       return;
     }
     setIsUploadingImage(true);
@@ -101,7 +101,7 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
       const preview = await resolveMediaUrl(storageRef);
       setImagePreview(preview || URL.createObjectURL(file));
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to upload image', 'error');
+      showToast(err instanceof Error ? err.message : '图片上传失败', 'error');
     } finally {
       setIsUploadingImage(false);
     }
@@ -129,9 +129,9 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
 
   const handleRemoveSubtask = async (stId: string) => {
     const confirmed = await confirmAction({
-      title: 'Delete this subtask?',
-      description: 'The subtask will be permanently removed when you save the task.',
-      confirmLabel: 'Delete subtask',
+      title: '删除此子任务？',
+      description: '保存任务后将永久删除此子任务。',
+      confirmLabel: '删除子任务',
     });
     if (!confirmed) return;
     setSubtasks(subtasks.filter((st) => st.id !== stId));
@@ -139,9 +139,9 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
 
   const handleRemoveImage = async () => {
     const confirmed = await confirmAction({
-      title: 'Remove this image?',
-      description: 'The image attachment will be removed when you save the task.',
-      confirmLabel: 'Remove',
+      title: '移除此图片？',
+      description: '保存任务后将移除此图片附件。',
+      confirmLabel: '移除',
     });
     if (!confirmed) return;
     setImageUrl('');
@@ -155,7 +155,7 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
         <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/40">
           <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
             {mode === 'create' && <Sparkles className="w-4 h-4 text-indigo-500" />}
-            {mode === 'create' ? 'Review AI Task Draft' : 'Edit Task'}
+            {mode === 'create' ? '确认智能生成的任务草稿' : '编辑任务'}
           </h3>
           <button
             onClick={onClose}
@@ -170,7 +170,7 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
           {/* Title */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">
-              Task Title <span className="text-rose-500">*</span>
+              任务标题 <span className="text-rose-500">*</span>
             </label>
             <input
               type="text"
@@ -183,13 +183,13 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
 
           {/* Description */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">Description</label>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">描述</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
               rows={2}
-              placeholder="Add extra notes..."
+              placeholder="添加备注…"
             />
           </div>
 
@@ -199,7 +199,7 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1 flex items-center gap-1">
                 <Tag className="w-3.5 h-3.5 text-slate-400" />
-                Category Tag
+                分类标签
               </label>
               <select
                 value={categoryId}
@@ -218,16 +218,16 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1 flex items-center gap-1">
                 <Flag className="w-3.5 h-3.5 text-slate-400" />
-                Priority
+                优先级
               </label>
               <select
                 value={priority}
                 onChange={(e) => setPriority(e.target.value as Priority)}
                 className="w-full text-xs p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/20 min-h-[38px]"
               >
-                <option value="low" className="dark:bg-slate-900">Low</option>
-                <option value="medium" className="dark:bg-slate-900">Medium</option>
-                <option value="high" className="dark:bg-slate-900">High</option>
+                <option value="low" className="dark:bg-slate-900">低</option>
+                <option value="medium" className="dark:bg-slate-900">中</option>
+                <option value="high" className="dark:bg-slate-900">高</option>
               </select>
             </div>
 
@@ -235,7 +235,7 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1 flex items-center gap-1">
                 <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                Task Date
+                任务日期
               </label>
               <input
                 type="date"
@@ -250,7 +250,7 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1 flex items-center gap-1">
                 <Clock className="w-3.5 h-3.5 text-slate-400" />
-                Due Time / Est.
+                截止时间／预计用时
               </label>
               <div className="grid grid-cols-2 gap-1">
                 <input
@@ -258,17 +258,17 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
                   value={dueTime}
                   onChange={(e) => setDueTime(e.target.value)}
                   className="w-full text-xs p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 min-h-[38px]"
-                  title="Due Time"
+                  title="截止时间"
                 />
                 <input
                   type="number"
-                  placeholder="Mins"
+                  placeholder="分钟"
                   value={estimatedMinutes}
                   onChange={(e) =>
                     setEstimatedMinutes(e.target.value ? parseInt(e.target.value, 10) : '')
                   }
                   className="w-full text-xs p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 min-h-[38px]"
-                  title="Duration (Minutes)"
+                  title="时长（分钟）"
                 />
               </div>
             </div>
@@ -279,7 +279,7 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1">
                 <ImageIcon className="w-3.5 h-3.5 text-slate-400" />
-                Image Attachment
+                图片附件
               </label>
               {!showImageInput && (
                 <button
@@ -288,7 +288,7 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
                   className="text-xs text-blue-600 dark:text-blue-400 font-medium hover:underline flex items-center gap-1"
                 >
                   <Plus className="w-3 h-3" />
-                  Add Image
+                  添加图片
                 </button>
               )}
             </div>
@@ -300,7 +300,7 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
                     <Link className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                     <input
                       type="url"
-                      placeholder="Image URL..."
+                      placeholder="图片链接…"
                       value={imageUrl.startsWith('storage:') ? '' : imageUrl}
                       onChange={(e) => {
                         setImageUrl(e.target.value);
@@ -328,7 +328,7 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
                     ) : (
                       <Upload className="w-3.5 h-3.5" />
                     )}
-                    Upload
+                    上传
                   </button>
 
                   {imageUrl && (
@@ -336,7 +336,7 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
                       type="button"
                       onClick={handleRemoveImage}
                       className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg"
-                      title="Remove image"
+                      title="移除图片"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -347,7 +347,7 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
                   <div className="relative rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 max-h-32 bg-slate-100 dark:bg-slate-900">
                     <img
                       src={imagePreview || imageUrl}
-                      alt="Preview"
+                      alt="预览"
                       className="h-28 w-full object-cover"
                     />
                   </div>
@@ -359,12 +359,12 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
           {/* Subtasks Section */}
           <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1.5">
-              Subtasks ({subtasks.length})
+              子任务（{subtasks.length})
             </label>
             <div className="flex gap-1.5 mb-2">
               <input
                 type="text"
-                placeholder="Add subtask step..."
+                placeholder="添加子任务步骤…"
                 value={newSubtaskTitle}
                 onChange={(e) => setNewSubtaskTitle(e.target.value)}
                 onKeyDown={(e) => {
@@ -424,14 +424,14 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({
               onClick={onClose}
               className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium rounded-xl transition-colors min-h-[40px]"
             >
-              Cancel
+              取消
             </button>
             <button
               type="submit"
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-xs transition-colors flex items-center gap-1.5 min-h-[40px]"
             >
               <Save className="w-4 h-4" />
-              {mode === 'create' ? 'Create Task' : 'Save Changes'}
+              {mode === 'create' ? '创建任务' : '保存修改'}
             </button>
           </div>
         </form>

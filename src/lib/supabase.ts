@@ -405,10 +405,10 @@ export const deleteCategoryFromSupabase = async (categoryId: string) => {
 export const uploadTaskImage = async (file: File): Promise<string> => {
   const activeUser = await ensureAuthenticatedUser();
   if (file.size > MAX_TASK_IMAGE_SIZE) {
-    throw new Error('Task images must be 5 MB or smaller.');
+    throw new Error('任务图片不能超过 5 MB。');
   }
   if (!file.type.startsWith('image/')) {
-    throw new Error('Only image files can be attached to tasks.');
+    throw new Error('任务附件仅支持图片文件。');
   }
 
   const objectId =
@@ -791,7 +791,7 @@ export const addDropItemToSupabase = async (
 ): Promise<DropItem> => {
   const activeUser = await ensureAuthenticatedUser();
   if (attachment && attachment.size > MAX_DROP_FILE_SIZE) {
-    throw new Error('Attachments must be 20 MB or smaller.');
+    throw new Error('附件不能超过 20 MB。');
   }
 
   let uploadedPath: string | undefined;
@@ -851,7 +851,7 @@ export const deleteDropItemFromSupabase = async (id: string) => {
     .eq('user_id', activeUser.id)
     .select('id,file_path');
   if (error) throw error;
-  if (!data?.length) throw new Error('Drop item was not found or you no longer have permission to delete it.');
+  if (!data?.length) throw new Error('笔记不存在，或你已无权删除。');
   await removeStoredAttachments(data.map((row: any) => row.file_path));
 };
 

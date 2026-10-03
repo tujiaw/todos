@@ -10,7 +10,7 @@ export class AppErrorBoundary extends React.Component {
   static getDerivedStateFromError(error) {
     return {
       hasError: true,
-      message: error instanceof Error ? error.message : 'Unexpected render error',
+      message: error instanceof Error ? error.message : '界面加载异常',
     };
   }
 
@@ -27,7 +27,7 @@ export class AppErrorBoundary extends React.Component {
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-6">
         <div className="max-w-md w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 space-y-4 text-center">
           <h1 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-            Something went wrong
+            出现了一些问题
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">
             {this.state.message}
@@ -37,7 +37,7 @@ export class AppErrorBoundary extends React.Component {
             onClick={() => window.location.reload()}
             className="w-full min-h-11 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-500"
           >
-            Reload app
+            重新加载应用
           </button>
         </div>
       </div>

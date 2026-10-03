@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Confirm your email</title>
+    <title>确认你的邮箱</title>
   </head>
   <body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#0f172a;">
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f1f5f9;padding:32px 12px;">
@@ -13,20 +13,20 @@
             <tr>
               <td style="padding:28px 28px 12px 28px;">
                 <p style="margin:0 0 4px 0;font-size:12px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#2563eb;">
-                  Daily TODOs
+                  每日待办
                 </p>
                 <h1 style="margin:0;font-size:22px;line-height:1.3;font-weight:700;color:#0f172a;">
-                  Confirm your email
+                  确认你的邮箱
                 </h1>
               </td>
             </tr>
             <tr>
               <td style="padding:8px 28px 0 28px;">
                 <p style="margin:0 0 12px 0;font-size:15px;line-height:1.6;color:#334155;">
-                  Hi — we received a sign-up request for <strong style="color:#0f172a;">{{ .Email }}</strong>.
+                  你好，我们收到了以下邮箱的注册申请： <strong style="color:#0f172a;">{{ .Email }}</strong>.
                 </p>
                 <p style="margin:0 0 24px 0;font-size:15px;line-height:1.6;color:#334155;">
-                  Click the button below to confirm this address and finish creating your Daily TODOs account.
+                  点击下方按钮确认此邮箱，完成每日待办账户注册。
                 </p>
                 <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 24px 0;">
                   <tr>
@@ -37,26 +37,26 @@
                         rel="noopener noreferrer"
                         style="display:inline-block;padding:12px 22px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:10px;"
                       >
-                        Confirm email address
+                        确认邮箱地址
                       </a>
                     </td>
                   </tr>
                 </table>
                 <p style="margin:0 0 8px 0;font-size:13px;line-height:1.6;color:#64748b;">
-                  If the button doesn’t work, copy and paste this link into your browser:
+                  如果按钮无法打开，请复制以下链接并粘贴到浏览器中：
                 </p>
                 <p style="margin:0 0 24px 0;font-size:12px;line-height:1.5;word-break:break-all;">
                   <a href="{{ .ConfirmationURL }}" style="color:#2563eb;text-decoration:underline;">{{ .ConfirmationURL }}</a>
                 </p>
                 <p style="margin:0;font-size:12px;line-height:1.6;color:#94a3b8;">
-                  If you didn’t create a Daily TODOs account, you can safely ignore this email.
+                  如果你没有注册每日待办账户，请忽略此邮件。
                 </p>
               </td>
             </tr>
             <tr>
               <td style="padding:20px 28px 28px 28px;border-top:1px solid #f1f5f9;">
                 <p style="margin:0;font-size:12px;line-height:1.5;color:#94a3b8;">
-                  Daily TODOs ·
+                  每日待办 ·
                   <a href="https://todo.ningto.com" style="color:#64748b;text-decoration:none;">todo.ningto.com</a>
                 </p>
               </td>

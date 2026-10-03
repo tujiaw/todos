@@ -63,14 +63,14 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         return (
           <span className="task-pill inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 text-[10px] font-semibold">
             <Flag className="w-2.5 h-2.5 text-rose-500 fill-rose-500" />
-            High
+            高
           </span>
         );
       case 'medium':
         return (
           <span className="task-pill inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 text-[10px] font-medium">
             <Flag className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />
-            Medium
+            中
           </span>
         );
       case 'low':
@@ -78,7 +78,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         return (
           <span className="task-pill inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 text-[10px] font-medium">
             <Flag className="w-2.5 h-2.5 text-slate-400" />
-            Low
+            低
           </span>
         );
     }
@@ -111,7 +111,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                 ? 'bg-emerald-500 border-emerald-500 text-white'
                 : 'border-slate-300 dark:border-slate-600 hover:border-blue-500 bg-white dark:bg-slate-800 hover:bg-blue-50/50'
             }`}
-            title={task.completed ? 'Mark as incomplete' : 'Mark as complete'}
+            title={task.completed ? '标记为未完成' : '标记为已完成'}
           >
             {task.completed && (
               <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 400 }}>
@@ -136,7 +136,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
               {task.pinned && (
                 <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-[10px] font-bold">
                   <Pin className="w-2.5 h-2.5 fill-current" />
-                  Pinned
+                  已置顶
                 </span>
               )}
             </div>
@@ -162,7 +162,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                   <Clock className="w-2.5 h-2.5 text-slate-400 dark:text-slate-500 shrink-0" />
                   {task.dueTime && <span>{task.dueTime}</span>}
                   {task.dueTime && task.estimatedMinutes && <span>•</span>}
-                  {task.estimatedMinutes && <span>{task.estimatedMinutes} mins</span>}
+                  {task.estimatedMinutes && <span>{task.estimatedMinutes} 分钟</span>}
                 </span>
               )}
             </div>
@@ -183,12 +183,12 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                 >
                   <img
                     src={resolvedImageUrl}
-                    alt="Task attachment"
+                    alt="任务附件"
                     className="object-cover max-h-36 w-full transition-transform duration-300 group-hover/img:scale-105"
                   />
                   <div className="absolute inset-0 bg-black/30 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-medium gap-1">
                     <Maximize2 className="w-4 h-4" />
-                    <span>View Image</span>
+                    <span>查看图片</span>
                   </div>
                 </div>
               </div>
@@ -204,7 +204,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                 >
                   <CheckSquare className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                   <span>
-                    Subtasks ({completedSubtasksCount}/{totalSubtasksCount})
+                    子任务（{completedSubtasksCount}/{totalSubtasksCount})
                   </span>
                   <ChevronDown
                     className={`w-3.5 h-3.5 transition-transform duration-200 ${
@@ -260,7 +260,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                   ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-300'
                   : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
               }`}
-              title={task.pinned ? 'Unpin task' : 'Pin task'}
+              title={task.pinned ? '取消置顶' : '置顶任务'}
             >
               <Pin className={`w-3.5 h-3.5 ${task.pinned ? 'fill-blue-600 dark:fill-blue-400' : ''}`} />
             </button>
@@ -270,7 +270,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
               type="button"
               onClick={() => onEditTask(task)}
               className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors min-h-[32px] min-w-[32px] flex items-center justify-center"
-              title="Edit task"
+              title="编辑任务"
             >
               <Edit3 className="w-3.5 h-3.5" />
             </button>
@@ -280,7 +280,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
               type="button"
               onClick={() => onDeleteTask(task.id)}
               className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors min-h-[32px] min-w-[32px] flex items-center justify-center"
-              title="Delete task"
+              title="删除任务"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
@@ -306,13 +306,13 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                 type="button"
                 onClick={() => setShowImageModal(false)}
                 className="absolute top-3 right-3 z-10 p-2 bg-black/60 hover:bg-black text-white rounded-full transition-colors"
-                title="Close"
+                title="关闭"
               >
                 <X className="w-5 h-5" />
               </button>
               <img
                 src={resolvedImageUrl}
-                alt="Enlarged attachment"
+                alt="放大的附件"
                 className="max-h-[85vh] max-w-full object-contain rounded-xl mx-auto"
               />
               <div className="p-2 text-center text-xs text-slate-300 font-medium truncate">

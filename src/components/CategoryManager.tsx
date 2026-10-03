@@ -28,7 +28,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
       <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
         <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider shrink-0 mr-1 flex items-center gap-1">
           <Filter className="w-3 h-3" />
-          <span>Category:</span>
+          <span>分类：</span>
         </span>
 
         {/* All Categories Pill */}
@@ -42,7 +42,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
           }`}
         >
           <Folder className="w-3 h-3" />
-          <span>All</span>
+          <span>全部</span>
           <span
             className={`px-1.5 py-0.2 text-[10px] rounded-full font-semibold ${
               activeCategoryId === null ? 'bg-slate-800 dark:bg-blue-700 text-slate-200' : 'bg-slate-200/80 dark:bg-slate-700 text-slate-600 dark:text-slate-300'

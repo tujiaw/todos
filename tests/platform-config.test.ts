@@ -92,8 +92,8 @@ test('global AI preference disables AI UI and uses daily dashboard cache', () =>
   assert.match(storage, /daily_todos_ai_assist_language_v1/);
   assert.match(storage, /loadAiAssistLanguage/);
   assert.match(syncModal, /role="switch"/);
-  assert.match(syncModal, /AI Features/);
-  assert.match(syncModal, /Week AI Assist/);
+  assert.match(syncModal, /智能功能/);
+  assert.match(syncModal, /本周智能助手/);
   assert.match(app, /aiEnabled=\{aiEnabled\}/);
   assert.match(app, /onOpenAiAssist=\{handleOpenAiAssist\}/);
   assert.match(app, /applyCreatedAiTasks/);
@@ -103,7 +103,7 @@ test('global AI preference disables AI UI and uses daily dashboard cache', () =>
     new URL('../src/components/ProgressBar.tsx', import.meta.url),
     'utf8'
   );
-  assert.match(progressBar, /AI Assist/);
+  assert.match(progressBar, /智能助手/);
   assert.match(progressBar, /setWeekOffset\(0\)/);
   assert.match(progressBar, /onOpenAiAssist\(\)/);
   assert.doesNotMatch(progressBar, /aria-haspopup="menu"/);
@@ -111,7 +111,7 @@ test('global AI preference disables AI UI and uses daily dashboard cache', () =>
     new URL('../src/components/AiAssistModal.tsx', import.meta.url),
     'utf8'
   );
-  assert.match(aiAssistModal, /Ask or create tasks/);
+  assert.match(aiAssistModal, /提问或创建任务/);
   assert.match(aiAssistModal, /slide-in-from-right/);
   assert.match(aiAssistModal, /sm:w-\[420px\] lg:w-\[440px\]/);
   assert.match(aiAssistModal, /sm:rounded-3xl/);
@@ -123,18 +123,18 @@ test('global AI preference disables AI UI and uses daily dashboard cache', () =>
   assert.match(aiAssistModal, /SuggestionChips/);
   assert.match(aiAssistModal, /flex-nowrap/);
   assert.match(aiAssistModal, /overflow-x-auto/);
-  assert.match(aiAssistModal, /aria-label="Quick prompts"/);
+  assert.match(aiAssistModal, /aria-label="快捷提问"/);
   assert.match(aiAssistModal, /onCancel/);
   assert.match(aiAssistModal, /onClearMessages/);
   assert.match(aiAssistModal, /onRetry/);
   assert.match(aiAssistModal, /onViewCreatedTasks/);
   assert.match(aiAssistModal, /onLanguageChange/);
-  assert.match(aiAssistModal, /Reply language/);
+  assert.match(aiAssistModal, /回复语言/);
   assert.match(aiAssistModal, /sendOnClick/);
   assert.doesNotMatch(aiAssistModal, /showPromptChips/);
   const scrollIndex = aiAssistModal.indexOf('ref={scrollContainerRef}');
   const chipsIndex = aiAssistModal.indexOf('<SuggestionChips');
-  const composerIndex = aiAssistModal.indexOf('Ask about todos, or create a task');
+  const composerIndex = aiAssistModal.indexOf('查询待办事项，或创建任务');
   assert.ok(scrollIndex >= 0 && chipsIndex > scrollIndex);
   assert.ok(composerIndex > chipsIndex);
   const markdownContent = readFileSync(
@@ -152,7 +152,7 @@ test('global AI preference disables AI UI and uses daily dashboard cache', () =>
     new URL('../src/lib/dashboardCopyCache.ts', import.meta.url),
     'utf8'
   );
-  assert.match(dashboardCopyCache, /daily_todos_dashboard_copy_v1/);
+  assert.match(dashboardCopyCache, /daily_todos_dashboard_copy_zh_v2/);
   assert.match(dashboardCopyCache, /cached\.date !== date/);
   assert.match(aiClient, /dashboardCopyCache/);
   assert.doesNotMatch(taskInput, /onGenerateTaskDraft|aiEnabled/);
@@ -202,10 +202,10 @@ test('Drop remains a text and file transfer surface without task AI actions', ()
   assert.match(dropModal, /sm:w-\[420px\] lg:w-\[440px\]/);
   assert.match(dropModal, /rows=\{1\}/);
   assert.match(dropModal, /Search stays hidden by default/);
-  assert.match(dropModal, /You can still write below/);
-  assert.match(dropModal, /Write a note below, paste an image/);
+  assert.match(dropModal, /你仍可在下方编辑/);
+  assert.match(dropModal, /在下方写笔记、粘贴图片/);
 
-  const attachIndex = dropModal.indexOf("title={isAuthenticated ? 'Attach file or image'");
+  const attachIndex = dropModal.indexOf("title={isAuthenticated ? '添加文件或图片'");
   const inputIndex = dropModal.indexOf('<textarea', attachIndex);
   const sendIndex = dropModal.indexOf('title={sendButtonTitle}', inputIndex);
   assert.ok(attachIndex >= 0 && inputIndex > attachIndex && sendIndex > inputIndex);
@@ -222,5 +222,5 @@ test('task input adds on Enter without Add-button AI draft controls', () => {
   );
   assert.match(taskInput, /useState<string>\(''\)/);
   assert.match(taskInput, /dueTime: dueTime \|\| undefined/);
-  assert.match(taskInput, /Write a task and press Enter\.\.\./);
+  assert.match(taskInput, /输入待办任务，按回车添加…/);
 });

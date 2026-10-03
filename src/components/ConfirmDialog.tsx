@@ -93,7 +93,7 @@ function ConfirmDialog({
             type="button"
             onClick={onCancel}
             className="-mr-1 -mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-xl text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-            aria-label="Close confirmation"
+            aria-label="关闭确认窗口"
           >
             <X className="h-4 w-4" />
           </button>
@@ -106,7 +106,7 @@ function ConfirmDialog({
             onClick={onCancel}
             className="h-9 rounded-xl border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
           >
-            {options.cancelLabel || 'Cancel'}
+            {options.cancelLabel || '取消'}
           </button>
           <button
             type="button"
@@ -114,7 +114,7 @@ function ConfirmDialog({
             className="flex h-9 items-center gap-1.5 rounded-xl bg-rose-600 px-4 text-xs font-bold text-white shadow-lg shadow-rose-500/20 transition-colors hover:bg-rose-700"
           >
             <Trash2 className="h-3.5 w-3.5" />
-            {options.confirmLabel || 'Delete'}
+            {options.confirmLabel || '删除'}
           </button>
         </div>
       </div>

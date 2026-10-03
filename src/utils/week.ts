@@ -31,10 +31,10 @@ export function formatWeekDisplayLabel(
 ): string {
   if (options?.preferThisWeek && options.today) {
     const todayWeek = getWeekDays(options.today);
-    if (todayWeek[0] === startDate && todayWeek[6] === endDate) return 'This Week';
+    if (todayWeek[0] === startDate && todayWeek[6] === endDate) return '本周';
   }
   const formatShort = (dateStr: string) =>
-    new Date(`${dateStr}T00:00:00`).toLocaleDateString('en-US', {
+    new Date(`${dateStr}T00:00:00`).toLocaleDateString('zh-CN', {
       month: 'short',
       day: 'numeric',
     });

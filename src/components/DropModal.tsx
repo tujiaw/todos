@@ -184,8 +184,8 @@ function CollapsibleDropText({ content }: { content: string }) {
             type="button"
             onClick={() => setExpanded((value) => !value)}
             className="inline-flex items-center justify-center w-8 h-8 sm:w-7 sm:h-7 rounded-lg text-indigo-600 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
-            title={expanded ? 'Show less' : 'Show more'}
-            aria-label={expanded ? 'Show less' : 'Show more'}
+            title={expanded ? '收起' : '展开'}
+            aria-label={expanded ? '收起' : '展开'}
             aria-expanded={expanded}
           >
             {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -379,11 +379,11 @@ export const DropModal: React.FC<DropModalProps> = ({
 
   if (!isOpen) return null;
 
-  let sendButtonTitle = 'Sign in before sending';
+  let sendButtonTitle = '请先登录再发送';
   if (isSubmitting) {
     sendButtonTitle = 'Sending…';
   } else if (isAuthenticated) {
-    sendButtonTitle = 'Send drop note';
+    sendButtonTitle = '发送笔记';
   }
 
   const openSearch = () => {
@@ -449,7 +449,7 @@ export const DropModal: React.FC<DropModalProps> = ({
     }
     if (oversizedFiles.length > 0) {
       setAttachmentError(
-        `${oversizedFiles.length} file${oversizedFiles.length > 1 ? 's were' : ' was'} skipped. Each attachment must be 20 MB or smaller.`
+        `已跳过 ${oversizedFiles.length} 个文件，每个附件不能超过 20 MB。`
       );
     }
   };
@@ -518,7 +518,7 @@ export const DropModal: React.FC<DropModalProps> = ({
       setCopiedId(id);
       setTimeout(() => setCopiedId(null), 2000);
     } catch {
-      setAttachmentError('Clipboard access was denied. Please copy the text manually.');
+      setAttachmentError('无法访问剪贴板，请手动复制文本。');
     }
   };
 
@@ -534,14 +534,14 @@ export const DropModal: React.FC<DropModalProps> = ({
     try {
       const url = await resolveItemUrl(item);
       if (!url) {
-        setAttachmentError('No link available for this file.');
+        setAttachmentError('此文件没有可用链接。');
         return;
       }
       await navigator.clipboard.writeText(url);
       setCopiedLinkId(item.id);
       setTimeout(() => setCopiedLinkId(null), 2000);
     } catch {
-      setAttachmentError('Clipboard access was denied. Please copy the link manually.');
+      setAttachmentError('无法访问剪贴板，请手动复制链接。');
     }
   };
 
@@ -561,7 +561,7 @@ export const DropModal: React.FC<DropModalProps> = ({
         response = url ? await fetch(url) : null;
       }
       if (!response?.ok || !url) {
-        throw new Error(`Download failed with status ${response?.status ?? 'unknown'}.`);
+        throw new Error(`下载失败，状态码： ${response?.status ?? '未知'}.`);
       }
 
       const objectUrl = URL.createObjectURL(await response.blob());
@@ -575,7 +575,7 @@ export const DropModal: React.FC<DropModalProps> = ({
       setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
     } catch (error) {
       console.error('Failed to download Drop attachment:', error);
-      setAttachmentError('Could not download the attachment. Please try again.');
+      setAttachmentError('附件下载失败，请重试。');
     } finally {
       setDownloadingId(null);
     }
@@ -583,9 +583,9 @@ export const DropModal: React.FC<DropModalProps> = ({
 
   const handleDelete = async (id: string) => {
     const confirmed = await confirmAction({
-      title: 'Delete this Drop item?',
-      description: 'The note and its attachment will be permanently deleted.',
-      confirmLabel: 'Delete item',
+      title: '删除此笔记？',
+      description: '此笔记及其附件将被永久删除。',
+      confirmLabel: '删除条目',
       container: panelRef.current,
     });
     if (!confirmed) return;
@@ -602,9 +602,9 @@ export const DropModal: React.FC<DropModalProps> = ({
 
   const handleClearConfirm = async () => {
     const confirmed = await confirmAction({
-      title: 'Clear your Drop space?',
-      description: 'Every note and attachment in Edge Drop will be permanently deleted.',
-      confirmLabel: 'Delete all',
+      title: '清空随手记？',
+      description: '随手记中的所有笔记及附件将被永久删除。',
+      confirmLabel: '全部删除',
       container: panelRef.current,
     });
     if (!confirmed) return;
@@ -630,7 +630,7 @@ export const DropModal: React.FC<DropModalProps> = ({
     try {
       const date = new Date(raw);
       if (isNaN(date.getTime())) return '';
-      return date.toLocaleString('en-US', {
+      return date.toLocaleString('zh-CN', {
         month: 'short',
         day: 'numeric',
         hour: '2-digit',
@@ -666,7 +666,7 @@ export const DropModal: React.FC<DropModalProps> = ({
             <span className="grid place-items-center w-12 h-12 rounded-2xl bg-white dark:bg-slate-900 shadow-lg mb-2">
               <Paperclip className="w-5 h-5" />
             </span>
-            Drop files
+            拖放文件
           </div>
         )}
 
@@ -680,10 +680,10 @@ export const DropModal: React.FC<DropModalProps> = ({
                 id="edge-drop-title"
                 className="text-base font-bold text-slate-800 dark:text-slate-100 tracking-tight"
               >
-                Edge Drop
+                随手记
               </h3>
               <p className="text-sm text-indigo-600/80 dark:text-indigo-300/80 font-medium truncate">
-                Notes & files across devices
+                跨设备同步笔记与文件
               </p>
             </div>
           </div>
@@ -700,8 +700,8 @@ export const DropModal: React.FC<DropModalProps> = ({
               disabled={!isAuthenticated || isLoading || isRefreshing}
               aria-busy={isRefreshing}
               className="p-2 text-indigo-500 dark:text-indigo-200 hover:text-indigo-700 dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/10 rounded-xl transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-              title={isRefreshing ? 'Refreshing…' : 'Refresh Drop'}
-              aria-label="Refresh Drop"
+              title={isRefreshing ? '正在刷新…' : '刷新随手记'}
+              aria-label="刷新随手记"
             >
               <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             </button>
@@ -714,7 +714,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                     ? 'bg-white/60 dark:bg-white/10 text-indigo-700 dark:text-white'
                     : 'text-indigo-500 dark:text-indigo-200 hover:text-indigo-700 dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/10'
                 }`}
-                title="More actions"
+                title="更多操作"
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}
               >
@@ -732,7 +732,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                     className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
                   >
                     <Search className="w-3.5 h-3.5 text-indigo-500" />
-                    Search
+                    搜索
                   </button>
                   {dropItems.length > 0 && (
                     <button
@@ -746,7 +746,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                       className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm font-medium text-rose-600 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/30 disabled:opacity-50"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
-                      Clear all
+                      清空全部
                     </button>
                   )}
                 </div>
@@ -756,7 +756,7 @@ export const DropModal: React.FC<DropModalProps> = ({
               type="button"
               onClick={onClose}
               className="drop-header-action p-2 text-indigo-500 dark:text-indigo-200 hover:text-indigo-700 dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/10 rounded-xl transition-colors"
-              aria-label="Close Edge Drop"
+              aria-label="关闭随手记"
             >
               <X className="w-4 h-4" />
             </button>
@@ -776,7 +776,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                 setAttachmentError(null);
               }}
               className="shrink-0 p-1 sm:p-0.5 rounded hover:bg-rose-100 dark:hover:bg-rose-900"
-              aria-label="Dismiss error"
+              aria-label="关闭错误提示"
             >
               <X className="w-3 h-3" />
             </button>
@@ -791,7 +791,7 @@ export const DropModal: React.FC<DropModalProps> = ({
               <input
                 ref={searchInputRef}
                 type="text"
-                placeholder="Search"
+                placeholder="搜索"
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
                 className="w-full text-base sm:text-sm pl-8 pr-8 py-2 rounded-xl border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 shadow-sm"
@@ -801,7 +801,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                   type="button"
                   onClick={() => onSearchChange('')}
                   className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 -m-1.5 sm:p-0 sm:m-0 text-slate-400 hover:text-slate-600"
-                  aria-label="Clear search"
+                  aria-label="清除搜索"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -813,7 +813,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                 onClick={() => setShowToolbar(false)}
                 className="text-[15px] font-medium text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 px-2 py-2 sm:py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0"
               >
-                Hide
+                隐藏
               </button>
             )}
           </div>
@@ -827,8 +827,8 @@ export const DropModal: React.FC<DropModalProps> = ({
           {isLoading && dropItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-slate-400 text-sm gap-2 py-12">
               <RefreshCw className="w-6 h-6 animate-spin text-indigo-500" />
-              <span>Syncing notes…</span>
-              <span className="text-slate-400 dark:text-slate-500">You can still write below.</span>
+              <span>正在同步笔记…</span>
+              <span className="text-slate-400 dark:text-slate-500">你仍可在下方编辑。</span>
             </div>
           ) : dropItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-slate-400 text-sm gap-3 py-12 text-center">
@@ -837,12 +837,12 @@ export const DropModal: React.FC<DropModalProps> = ({
               </div>
               <div className="space-y-1.5 max-w-xs">
                 <p className="font-semibold text-slate-700 dark:text-slate-300">
-                  {hasSearchQuery ? 'No matches' : 'Nothing here yet'}
+                  {hasSearchQuery ? '没有匹配结果' : '这里还没有内容'}
                 </p>
                 <p className="text-[15px] text-slate-500 dark:text-slate-400 leading-relaxed">
                   {hasSearchQuery
-                    ? 'Try another keyword, or clear the search to see everything.'
-                    : 'Write a note below, paste an image, or drop a file here.'}
+                    ? '尝试其他关键词，或清除搜索查看全部内容。'
+                    : '在下方写笔记、粘贴图片，或将文件拖到这里。'}
                 </p>
               </div>
               {hasSearchQuery && (
@@ -851,7 +851,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                   onClick={() => onSearchChange('')}
                   className="mt-1 px-3 py-1.5 rounded-xl text-[15px] font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors"
                 >
-                  Clear search
+                  清除搜索
                 </button>
               )}
             </div>
@@ -869,10 +869,10 @@ export const DropModal: React.FC<DropModalProps> = ({
                     {isLoadingMore ? (
                       <>
                         <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>Loading...</span>
+                        <span>正在加载…</span>
                       </>
                     ) : (
-                      <span>Load more</span>
+                      <span>加载更多</span>
                     )}
                   </button>
                 </div>
@@ -893,17 +893,17 @@ export const DropModal: React.FC<DropModalProps> = ({
                           type="button"
                           onClick={() => handleCopy(item.id, item.content)}
                           className="px-2 py-1.5 sm:py-1 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1"
-                          title="Copy content"
+                          title="复制内容"
                         >
                           {copiedId === item.id ? (
                             <>
                               <Check className="w-3 h-3 text-emerald-500" />
-                              <span className="text-emerald-500 font-semibold">Copied</span>
+                              <span className="text-emerald-500 font-semibold">已复制</span>
                             </>
                           ) : (
                             <>
                               <Copy className="w-3 h-3" />
-                              <span>Copy</span>
+                              <span>复制</span>
                             </>
                           )}
                         </button>
@@ -914,17 +914,17 @@ export const DropModal: React.FC<DropModalProps> = ({
                           type="button"
                           onClick={() => void handleCopyLink(item)}
                           className="px-2 py-1.5 sm:py-1 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1"
-                          title="Copy file link"
+                          title="复制文件链接"
                         >
                           {copiedLinkId === item.id ? (
                             <>
                               <Check className="w-3 h-3 text-emerald-500" />
-                              <span className="text-emerald-500 font-semibold">Copied</span>
+                              <span className="text-emerald-500 font-semibold">已复制</span>
                             </>
                           ) : (
                             <>
                               <Link2 className="w-3 h-3" />
-                              <span>Link</span>
+                              <span>链接</span>
                             </>
                           )}
                         </button>
@@ -936,7 +936,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                         onClick={() => handleDelete(item.id)}
                         disabled={deletingId === item.id}
                         className="p-1.5 sm:p-1 rounded text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
-                        title="Delete drop item"
+                        title="删除笔记"
                       >
                         <Trash2 className="w-3 h-3" />
                       </button>
@@ -953,7 +953,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                           <div className="relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-900/5 dark:bg-slate-900/40 max-h-56 group/img">
                             <img
                               src={item.url}
-                              alt={item.file_name || 'Drop attachment'}
+                              alt={item.file_name || '笔记附件'}
                               className="w-full h-full object-contain max-h-56 rounded-xl cursor-pointer hover:opacity-95 transition-opacity"
                               onClick={() => void handlePreviewImage(item)}
                               onLoad={() => {
@@ -982,7 +982,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                           type="button"
                           onClick={() => handleDownload(item)}
                           disabled={downloadingId === item.id}
-                          title={`Download ${item.file_name || 'attachment'}`}
+                          title={`Download ${item.file_name || '附件'}`}
                           className="drop-file-tile w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-sm hover:bg-indigo-50/60 dark:hover:bg-indigo-950/20 transition-colors disabled:cursor-wait disabled:opacity-60"
                         >
                           <div className="flex items-center gap-2 min-w-0 text-left">
@@ -992,7 +992,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                             />
                             <div className="min-w-0">
                               <span className="block font-semibold text-slate-700 dark:text-slate-200 truncate">
-                                {item.file_name || 'Attached File'}
+                                {item.file_name || '附件'}
                               </span>
                               {item.file_size !== undefined && (
                                 <span className="block text-sm text-slate-400 dark:text-slate-500">
@@ -1025,7 +1025,7 @@ export const DropModal: React.FC<DropModalProps> = ({
               onClick={onSignIn}
               className="w-full px-3 py-2 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 text-sm font-semibold text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors"
             >
-              Sign in to Drop
+              登录使用随手记
             </button>
           )}
 
@@ -1052,7 +1052,7 @@ export const DropModal: React.FC<DropModalProps> = ({
                     type="button"
                     onClick={() => handleRemoveAttachedFile(index)}
                     className="p-1.5 sm:p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                    aria-label={`Remove ${file.name || 'attachment'}`}
+                    aria-label={`移除 ${file.name || '附件'}`}
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -1076,8 +1076,8 @@ export const DropModal: React.FC<DropModalProps> = ({
               onClick={() => fileInputRef.current?.click()}
               disabled={!isAuthenticated}
               className="h-9 w-9 shrink-0 text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-300 flex items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
-              title={isAuthenticated ? 'Attach file or image' : 'Sign in to attach files'}
-              aria-label={isAuthenticated ? 'Attach file or image' : 'Sign in to attach files'}
+              title={isAuthenticated ? '添加文件或图片' : '登录后添加附件'}
+              aria-label={isAuthenticated ? '添加文件或图片' : '登录后添加附件'}
             >
               <Paperclip className="w-3.5 h-3.5" />
             </button>
@@ -1090,8 +1090,8 @@ export const DropModal: React.FC<DropModalProps> = ({
               onPaste={handlePaste}
               placeholder={
                 isAuthenticated
-                  ? 'Drop a note or paste an image...'
-                  : 'Sign in to send notes…'
+                  ? '输入笔记或粘贴图片…'
+                  : '登录后发送笔记…'
               }
               disabled={!isAuthenticated}
               rows={2}
@@ -1113,11 +1113,11 @@ export const DropModal: React.FC<DropModalProps> = ({
               {isSubmitting ? (
                 <>
                   <LoaderCircle className="w-3.5 h-3.5 animate-spin" />
-                  <span>Sending</span>
+                  <span>正在发送</span>
                 </>
               ) : (
                 <>
-                  <span>Send</span>
+                  <span>发送</span>
                   <Send className="w-3.5 h-3.5" />
                 </>
               )}
@@ -1133,7 +1133,7 @@ export const DropModal: React.FC<DropModalProps> = ({
           onClick={() => setPreviewImage(null)}
         >
           <div className="relative max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl">
-            <img src={previewImage} alt="Preview" className="max-w-full max-h-[90vh] object-contain rounded-2xl" />
+            <img src={previewImage} alt="预览" className="max-w-full max-h-[90vh] object-contain rounded-2xl" />
             <button
               type="button"
               onClick={() => setPreviewImage(null)}

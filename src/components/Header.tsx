@@ -67,7 +67,7 @@ function shiftMonth(year: number, monthIndex: number, delta: number): { year: nu
   return { year: date.getFullYear(), month: date.getMonth() };
 }
 
-const WEEKDAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+const WEEKDAY_LABELS = ['日', '一', '二', '三', '四', '五', '六'];
 
 function buildMonthCells(year: number, monthIndex: number): Array<{ date: string; day: number; inMonth: boolean }> {
   const first = new Date(year, monthIndex, 1);
@@ -92,19 +92,19 @@ function formatDateDisplay(dateStr: string, todayStr: string) {
 
   const todayDate = new Date(`${todayStr}T00:00:00`);
   const diffDays = Math.round((d.getTime() - todayDate.getTime()) / (1000 * 3600 * 24));
-  const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
-  const monthDay = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const dayName = d.toLocaleDateString('zh-CN', { weekday: 'short' });
+  const monthDay = d.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
   // Keep label length stable so prev/next stay clickable in the same spot.
   const base = `${dayName}, ${monthDay}`;
 
   if (diffDays === 0) {
-    return { full: `Today · ${monthDay}`, short: `Today · ${monthDay}`, isToday: true };
+    return { full: `今天 · ${monthDay}`, short: `今天 · ${monthDay}`, isToday: true };
   }
   if (diffDays === -1) {
-    return { full: `Yest. · ${monthDay}`, short: `Yest. · ${monthDay}`, isToday: false };
+    return { full: `昨天 · ${monthDay}`, short: `昨天 · ${monthDay}`, isToday: false };
   }
   if (diffDays === 1) {
-    return { full: `Tom. · ${monthDay}`, short: `Tom. · ${monthDay}`, isToday: false };
+    return { full: `明天 · ${monthDay}`, short: `明天 · ${monthDay}`, isToday: false };
   }
 
   return { full: base, short: base, isToday: false };
@@ -174,7 +174,7 @@ const DateNavigator: React.FC<DateNavigatorProps> = ({
     setViewMonth(next.month);
   };
 
-  const monthLabel = new Date(viewYear, viewMonth, 1).toLocaleDateString('en-US', {
+  const monthLabel = new Date(viewYear, viewMonth, 1).toLocaleDateString('zh-CN', {
     month: 'long',
     year: 'numeric',
   });
@@ -197,7 +197,7 @@ const DateNavigator: React.FC<DateNavigatorProps> = ({
         id={compact ? 'btn-prev-day-mobile' : 'btn-prev-day-desktop'}
         onClick={() => onSelectDate(shiftDate(selectedDate, -1))}
         className={navBtnClass}
-        title="Previous Day"
+        title="前一天"
       >
         <ChevronLeft className="w-4 h-4" />
       </button>
@@ -212,7 +212,7 @@ const DateNavigator: React.FC<DateNavigatorProps> = ({
             ? 'text-indigo-700 dark:text-indigo-300'
             : 'text-slate-800 dark:text-slate-100'
         }`}
-        title="Click to select date"
+        title="点击选择日期"
         aria-expanded={open}
         aria-haspopup="dialog"
       >
@@ -227,7 +227,7 @@ const DateNavigator: React.FC<DateNavigatorProps> = ({
         id={compact ? 'btn-next-day-mobile' : 'btn-next-day-desktop'}
         onClick={() => onSelectDate(shiftDate(selectedDate, 1))}
         className={navBtnClass}
-        title="Next Day"
+        title="后一天"
       >
         <ChevronRight className="w-4 h-4" />
       </button>
@@ -238,15 +238,15 @@ const DateNavigator: React.FC<DateNavigatorProps> = ({
             compact ? 'left-0 right-0 mx-auto' : 'left-1/2 -translate-x-1/2'
           }`}
           role="dialog"
-          aria-label="Select date"
+          aria-label="选择日期"
         >
           <div className="flex items-center justify-between gap-2">
             <button
               type="button"
               onClick={() => goMonth(-1)}
               className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-              title="Previous month"
-              aria-label="Previous month"
+              title="上个月"
+              aria-label="上个月"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -257,8 +257,8 @@ const DateNavigator: React.FC<DateNavigatorProps> = ({
               type="button"
               onClick={() => goMonth(1)}
               className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-              title="Next month"
-              aria-label="Next month"
+              title="下个月"
+              aria-label="下个月"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -299,7 +299,7 @@ const DateNavigator: React.FC<DateNavigatorProps> = ({
                   className={dayClass}
                   aria-current={isToday ? 'date' : undefined}
                   aria-pressed={isSelected}
-                  aria-label={`${cell.date}${hasTasks ? ', has tasks' : ''}`}
+                  aria-label={`${cell.date}${hasTasks ? '，有待办任务' : ''}`}
                 >
                   <span>{cell.day}</span>
                   {hasTasks && (
@@ -325,14 +325,14 @@ const DateNavigator: React.FC<DateNavigatorProps> = ({
               onClick={() => selectAndClose(todayStr)}
               className="py-1.5 px-3 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-300 text-xs font-semibold rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors cursor-pointer"
             >
-              Today
+              今天
             </button>
             <button
               type="button"
               onClick={() => selectAndClose(shiftDate(todayStr, 1))}
               className="py-1.5 px-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
             >
-              Tomorrow
+              明天
             </button>
           </div>
         </div>
@@ -394,7 +394,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.2]" />
               </div>
               <h1 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight leading-none whitespace-nowrap">
-                Daily <span className="text-indigo-600 dark:text-indigo-400">TODOs</span>
+                每日 <span className="text-indigo-600 dark:text-indigo-400">待办</span>
               </h1>
             </div>
 
@@ -412,7 +412,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <button
                   onClick={onOpenSyncModal}
                   className="flex items-center gap-1.5 p-1 sm:pr-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors min-h-[34px]"
-                  title="Connected to Supabase. Click to manage sync."
+                  title="已连接云端，点击管理同步。"
                 >
                   <img
                     src={
@@ -421,13 +421,13 @@ export const Header: React.FC<HeaderProps> = ({
                         user.email || user.id
                       )}`
                     }
-                    alt="Profile"
+                    alt="头像"
                     className="w-5 h-5 rounded-lg object-cover"
                   />
                   <span className="hidden sm:inline text-xs font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[90px]">
                     {user.user_metadata?.full_name?.split(' ')[0] ||
                       user.email?.split('@')[0] ||
-                      'Account'}
+                      '账户'}
                   </span>
                   <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
                 </button>
@@ -435,10 +435,10 @@ export const Header: React.FC<HeaderProps> = ({
                 <button
                   onClick={onGitHubLogin}
                   className="px-2.5 py-1.5 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs min-h-[34px]"
-                  title="Sign in to sync tasks via Supabase"
+                  title="登录后同步待办任务"
                 >
                   <Github className="w-3.5 h-3.5 fill-white" />
-                  <span className="hidden sm:inline">Sign In</span>
+                  <span className="hidden sm:inline">登录</span>
                 </button>
               )}
 
@@ -446,7 +446,7 @@ export const Header: React.FC<HeaderProps> = ({
                 id="btn-drop-toggle"
                 onClick={onOpenDropModal}
                 className="p-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors min-h-[34px] min-w-[34px] flex items-center justify-center relative"
-                title="Edge Drop (Notes & Files)"
+                title="随手记（笔记与文件）"
               >
                 <Send className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               </button>
@@ -455,7 +455,7 @@ export const Header: React.FC<HeaderProps> = ({
                 id="btn-vault-toggle"
                 onClick={onOpenVaultModal}
                 className="p-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors min-h-[34px] min-w-[34px] flex items-center justify-center relative"
-                title="Vault"
+                title="密码保险箱"
               >
                 <Shield className="w-4 h-4 text-amber-600 dark:text-amber-400" />
               </button>
@@ -464,7 +464,7 @@ export const Header: React.FC<HeaderProps> = ({
                 id="btn-theme-toggle"
                 onClick={onToggleTheme}
                 className="p-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors min-h-[34px] min-w-[34px] flex items-center justify-center"
-                title={themeMode === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+                title={themeMode === 'light' ? '切换深色模式' : '切换浅色模式'}
               >
                 {themeMode === 'light' ? (
                   <Moon className="w-4 h-4 text-slate-700" />
@@ -478,7 +478,7 @@ export const Header: React.FC<HeaderProps> = ({
                   id="btn-more-menu-toggle"
                   onClick={() => setShowMoreMenu(!showMoreMenu)}
                   className="p-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors min-h-[34px] min-w-[34px] flex items-center justify-center"
-                  title="More"
+                  title="更多"
                 >
                   <MoreVertical className="w-4 h-4" />
                 </button>
@@ -493,7 +493,7 @@ export const Header: React.FC<HeaderProps> = ({
                       className="w-full text-left px-3 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
                     >
                       <Send className="w-3.5 h-3.5 text-blue-500" />
-                      <span>Drop</span>
+                      <span>随手记</span>
                     </button>
 
                     <button
@@ -504,7 +504,7 @@ export const Header: React.FC<HeaderProps> = ({
                       className="w-full text-left px-3 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
                     >
                       <Shield className="w-3.5 h-3.5 text-amber-500" />
-                      <span>Vault</span>
+                      <span>密码保险箱</span>
                     </button>
 
                     <button
@@ -515,7 +515,7 @@ export const Header: React.FC<HeaderProps> = ({
                       className="w-full text-left px-3 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
                     >
                       <Tag className="w-3.5 h-3.5 text-emerald-500" />
-                      <span>Categories</span>
+                      <span>分类</span>
                     </button>
 
                     <button
@@ -526,7 +526,7 @@ export const Header: React.FC<HeaderProps> = ({
                       className="w-full text-left px-3 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
                     >
                       <Database className="w-3.5 h-3.5 text-indigo-500" />
-                      <span>Sync</span>
+                      <span>同步</span>
                     </button>
 
                     <button
@@ -542,11 +542,11 @@ export const Header: React.FC<HeaderProps> = ({
                     >
                       <div className="flex items-center gap-2">
                         <Download className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                        <span>Install</span>
+                        <span>安装</span>
                       </div>
                       {isInstalled && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 font-bold">
-                          Installed
+                          已安装
                         </span>
                       )}
                     </button>
@@ -560,14 +560,14 @@ export const Header: React.FC<HeaderProps> = ({
                         className="w-full text-left px-3 py-2 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 border-t border-slate-100 dark:border-slate-800 mt-1 pt-2"
                       >
                         <LogOut className="w-3.5 h-3.5" />
-                        <span>Sign Out</span>
+                        <span>退出登录</span>
                       </button>
                     )}
 
                     {completedStreak > 0 && (
                       <div className="px-3 py-1.5 text-[11px] text-amber-700 dark:text-amber-300 bg-amber-50/50 dark:bg-amber-950/30 flex items-center gap-1.5">
                         <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                        <span>{completedStreak} Day Streak!</span>
+                        <span>{completedStreak} 天连续完成！</span>
                       </div>
                     )}
                   </div>
@@ -591,7 +591,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="bg-amber-500/10 dark:bg-amber-500/20 border-t border-b border-amber-500/20 px-3 py-1.5 text-center text-xs text-amber-700 dark:text-amber-300 flex items-center justify-center gap-2 font-medium">
             <WifiOff className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
             <span>
-              Offline: edits stay on this device. Pending changes retry when you are back online. Drop and AI need a connection.
+              当前离线：修改将保存在此设备，联网后自动同步。随手记和智能助手需要网络连接。
             </span>
           </div>
         )}
@@ -606,8 +606,8 @@ export const Header: React.FC<HeaderProps> = ({
                   <Smartphone className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">Install Daily TODOs</h4>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Installable app — edit tasks offline, sync when online</p>
+                  <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">安装每日待办</h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">安装应用后可离线编辑任务，联网后同步</p>
                 </div>
               </div>
               <button
@@ -621,7 +621,7 @@ export const Header: React.FC<HeaderProps> = ({
             {isInstalled ? (
               <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
                 <Smartphone className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>App is already installed and running standalone!</span>
+                <span>应用已安装，正在独立运行！</span>
               </div>
             ) : (
               <div className="space-y-3 text-xs text-slate-600 dark:text-slate-300">
@@ -634,24 +634,24 @@ export const Header: React.FC<HeaderProps> = ({
                     className="w-full py-2.5 px-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl flex items-center justify-center gap-2 shadow-xs transition-colors"
                   >
                     <Download className="w-4 h-4" />
-                    <span>Install App Now</span>
+                    <span>立即安装应用</span>
                   </button>
                 )}
 
                 <div className="space-y-2 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200/80 dark:border-slate-700/80">
                   <p className="font-bold text-slate-800 dark:text-slate-200">📱 iPhone / iPad (Safari):</p>
                   <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                    <li>Tap the <span className="font-semibold text-slate-700 dark:text-slate-200">"Share"</span> button at the bottom</li>
-                    <li>Scroll down the options list</li>
-                    <li>Tap <span className="font-semibold text-blue-600 dark:text-blue-400">"Add to Home Screen"</span></li>
+                    <li>点击底部的 <span className="font-semibold text-slate-700 dark:text-slate-200">“分享”</span> 按钮</li>
+                    <li>向下滚动选项列表</li>
+                    <li>点击 <span className="font-semibold text-blue-600 dark:text-blue-400">“添加到主屏幕”</span></li>
                   </ol>
                 </div>
 
                 <div className="space-y-2 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200/80 dark:border-slate-700/80">
-                  <p className="font-bold text-slate-800 dark:text-slate-200">💻 Desktop (Chrome / Edge / Safari):</p>
+                  <p className="font-bold text-slate-800 dark:text-slate-200">💻 电脑（Chrome / Edge / Safari）：</p>
                   <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                    <li>Click the <span className="font-semibold text-slate-700 dark:text-slate-200">"Install"</span> icon in the address bar</li>
-                    <li>Or open browser menu -&gt; <span className="font-semibold text-blue-600 dark:text-blue-400">"Save and share" -&gt; "Install as app"</span></li>
+                    <li>点击地址栏的 <span className="font-semibold text-slate-700 dark:text-slate-200">“安装”</span> 图标</li>
+                    <li>或打开浏览器菜单 → <span className="font-semibold text-blue-600 dark:text-blue-400">“保存并分享” → “安装为应用”</span></li>
                   </ol>
                 </div>
               </div>
@@ -661,7 +661,7 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={() => setShowPwaGuideModal(false)}
               className="w-full py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-xl transition-colors"
             >
-              Got it
+              知道了
             </button>
           </div>
         </div>

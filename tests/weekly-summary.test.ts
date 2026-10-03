@@ -62,14 +62,14 @@ test('formatWeekDisplayLabel prefers This Week when current', () => {
       preferThisWeek: true,
       today: '2026-07-29',
     }),
-    'This Week'
+    '本周'
   );
   assert.match(
     formatWeekDisplayLabel('2026-07-20', '2026-07-26', {
       preferThisWeek: true,
       today: '2026-07-29',
     }),
-    /Jul/
+    /7月/
   );
 });
 

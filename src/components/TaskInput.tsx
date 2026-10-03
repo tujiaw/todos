@@ -81,7 +81,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({
     e.target.value = '';
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
-      showToast('Image file size cannot exceed 5MB', 'error');
+      showToast('图片大小不能超过 5 MB', 'error');
       return;
     }
     setIsUploadingImage(true);
@@ -91,7 +91,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({
       const preview = await resolveMediaUrl(storageRef);
       setImagePreview(preview || URL.createObjectURL(file));
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to upload image', 'error');
+      showToast(err instanceof Error ? err.message : '图片上传失败', 'error');
     } finally {
       setIsUploadingImage(false);
     }
@@ -139,9 +139,9 @@ export const TaskInput: React.FC<TaskInputProps> = ({
 
   const handleRemoveSubtask = async (index: number) => {
     const confirmed = await confirmAction({
-      title: 'Remove this subtask?',
-      description: 'This subtask will be removed from the new task.',
-      confirmLabel: 'Remove',
+      title: '移除此子任务？',
+      description: '将从新任务中移除此子任务。',
+      confirmLabel: '移除',
     });
     if (!confirmed) return;
     setSubtasks(subtasks.filter((_, i) => i !== index));
@@ -160,9 +160,9 @@ export const TaskInput: React.FC<TaskInputProps> = ({
 
   const handleRemoveImage = async () => {
     const confirmed = await confirmAction({
-      title: 'Remove this image?',
-      description: 'The image attachment will be removed from the new task.',
-      confirmLabel: 'Remove',
+      title: '移除此图片？',
+      description: '将从新任务中移除此图片附件。',
+      confirmLabel: '移除',
     });
     if (!confirmed) return;
     setImageUrl('');
@@ -173,14 +173,14 @@ export const TaskInput: React.FC<TaskInputProps> = ({
     <div id="task-input-card" className="task-composer p-3.5 sm:p-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/70 dark:border-slate-800 transition-all">
       <form onSubmit={handleFormSubmit}>
         <div className="mb-2 flex items-baseline justify-between gap-2">
-          <h3 className="text-sm font-bold text-slate-950 dark:text-white">New task</h3>
+          <h3 className="text-sm font-bold text-slate-950 dark:text-white">新建任务</h3>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex-1 relative">
             <input
               type="text"
               id="input-task-title"
-              placeholder="Write a task and press Enter..."
+              placeholder="输入待办任务，按回车添加…"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="w-full h-10 text-sm font-semibold text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 bg-slate-50/80 dark:bg-slate-800/70 rounded-xl px-3.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
@@ -198,8 +198,8 @@ export const TaskInput: React.FC<TaskInputProps> = ({
                   ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300'
                   : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'
               }`}
-              title="More options"
-              aria-label={showDetails ? 'Hide task options' : 'Show more task options'}
+              title="更多选项"
+              aria-label={showDetails ? '收起任务选项' : '展开任务选项'}
               aria-expanded={showDetails}
             >
               <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${showDetails ? 'rotate-180' : ''}`} />
@@ -210,11 +210,11 @@ export const TaskInput: React.FC<TaskInputProps> = ({
               id="btn-add-task-submit"
               disabled={!title.trim() || !categoryId}
               className="min-w-10 px-2.5 sm:px-3 bg-gradient-to-br from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 disabled:opacity-40 text-white transition-all flex items-center justify-center gap-1 border-l border-white/15 active:scale-95"
-              title="Add task (Enter)"
-              aria-label="Add task"
+              title="添加任务（回车）"
+              aria-label="添加任务"
             >
               <Plus className="w-4 h-4 stroke-[2.6]" />
-              <span className="hidden sm:inline text-[11px] font-semibold">Add</span>
+              <span className="hidden sm:inline text-[11px] font-semibold">添加</span>
             </button>
           </div>
         </div>
@@ -231,7 +231,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({
               disabled={categories.length === 0}
               className="bg-transparent text-slate-700 dark:text-slate-200 font-medium focus:outline-none cursor-pointer text-[11px]"
             >
-              {categories.length === 0 && <option value="">Create a category first</option>}
+              {categories.length === 0 && <option value="">请先创建分类</option>}
               {categories.map((c) => (
                 <option key={c.id} value={c.id} className="dark:bg-slate-900 dark:text-slate-100">
                   {c.name}
@@ -249,9 +249,9 @@ export const TaskInput: React.FC<TaskInputProps> = ({
               onChange={(e) => setPriority(e.target.value as Priority)}
               className="bg-transparent text-slate-700 dark:text-slate-200 font-medium focus:outline-none cursor-pointer text-[11px]"
             >
-              <option value="low" className="dark:bg-slate-900 dark:text-slate-100">Low Priority</option>
-              <option value="medium" className="dark:bg-slate-900 dark:text-slate-100">Medium Priority</option>
-              <option value="high" className="dark:bg-slate-900 dark:text-slate-100">High Priority</option>
+              <option value="low" className="dark:bg-slate-900 dark:text-slate-100">低优先级</option>
+              <option value="medium" className="dark:bg-slate-900 dark:text-slate-100">中优先级</option>
+              <option value="high" className="dark:bg-slate-900 dark:text-slate-100">高优先级</option>
             </select>
           </div>
 
@@ -266,17 +266,17 @@ export const TaskInput: React.FC<TaskInputProps> = ({
                     ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-300 font-semibold'
                     : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
-                title={dueTime ? `Due time: ${dueTime}` : 'Set due time'}
+                title={dueTime ? `截止时间：${dueTime}` : '设置截止时间'}
               >
                 <Clock className={`w-3 h-3 ${dueTime ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`} />
-                <span>{dueTime || 'Time'}</span>
+                <span>{dueTime || '时间'}</span>
               </button>
               {dueTime && (
                 <button
                   type="button"
                   onClick={() => setDueTime('')}
                   className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded"
-                  title="Clear time"
+                  title="清除时间"
                 >
                   <X className="w-2.5 h-2.5" />
                 </button>
@@ -289,7 +289,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({
                 <div className="flex items-center justify-between text-slate-700 dark:text-slate-200 font-semibold pb-1 border-b border-slate-100 dark:border-slate-800">
                   <span className="flex items-center gap-1">
                     <Clock className="w-3.5 h-3.5 text-blue-500" />
-                    Set Due Time
+                    设置截止时间
                   </span>
                   <button
                     type="button"
@@ -313,14 +313,14 @@ export const TaskInput: React.FC<TaskInputProps> = ({
 
                 {/* Quick Time Presets */}
                 <div className="space-y-1 pt-1">
-                  <div className="text-[10px] text-slate-400 font-medium">Quick Presets</div>
+                  <div className="text-[10px] text-slate-400 font-medium">快捷时间</div>
                   <div className="grid grid-cols-2 gap-1 text-[11px]">
                     {[
-                      { label: '09:00 Morning', time: '09:00' },
-                      { label: '12:00 Noon', time: '12:00' },
-                      { label: '15:00 Afternoon', time: '15:00' },
-                      { label: '18:00 Evening', time: '18:00' },
-                      { label: '20:00 Night', time: '20:00' },
+                      { label: '09:00 上午', time: '09:00' },
+                      { label: '12:00 中午', time: '12:00' },
+                      { label: '15:00 下午', time: '15:00' },
+                      { label: '18:00 傍晚', time: '18:00' },
+                      { label: '20:00 晚上', time: '20:00' },
                     ].map((preset) => (
                       <button
                         key={preset.time}
@@ -351,7 +351,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({
                       }}
                       className="text-[11px] text-rose-500 hover:underline"
                     >
-                      Clear Time
+                      清除时间
                     </button>
                   ) : <span />}
                   <button
@@ -359,7 +359,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({
                     onClick={() => setShowTimePickerPopover(false)}
                     className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg text-[11px]"
                   >
-                    Done
+                    已完成
                   </button>
                 </div>
               </div>
@@ -372,10 +372,10 @@ export const TaskInput: React.FC<TaskInputProps> = ({
           <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3">
             {/* Description Textarea */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Notes / Description (Optional)</label>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">备注／描述（选填）</label>
               <textarea
                 id="input-task-description"
-                placeholder="Add task details, links, or notes..."
+                placeholder="添加任务详情、链接或备注…"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
@@ -388,7 +388,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({
               <div className="flex items-center justify-between">
                 <label className="text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1">
                   <Image className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                  <span>Image Attachment</span>
+                  <span>图片附件</span>
                 </label>
                 {imageUrl && (
                   <button
@@ -397,7 +397,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({
                     className="text-[11px] text-rose-600 hover:underline flex items-center gap-0.5"
                   >
                     <X className="w-3 h-3" />
-                    Remove Image
+                    移除图片
                   </button>
                 )}
               </div>
@@ -405,7 +405,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({
               <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   type="url"
-                  placeholder="Paste image URL (https://...)"
+                  placeholder="粘贴图片链接（https://…）"
                   value={imageUrl.startsWith('storage:') ? '' : imageUrl}
                   onChange={(e) => {
                     setImageUrl(e.target.value);
@@ -431,7 +431,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({
                   ) : (
                     <Upload className="w-3.5 h-3.5" />
                   )}
-                  Browse
+                  浏览
                 </button>
               </div>
 
@@ -439,7 +439,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({
                 <div className="mt-2 relative rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 max-h-40 bg-black/5 flex items-center justify-center">
                   <img
                     src={imagePreview || imageUrl}
-                    alt="Preview"
+                    alt="预览"
                     className="max-h-40 object-contain rounded-lg"
                   />
                 </div>
@@ -449,10 +449,10 @@ export const TaskInput: React.FC<TaskInputProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Estimated Minutes */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Est. Time (Mins)</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">预计用时（分钟）</label>
                 <input
                   type="number"
-                  placeholder="e.g. 30"
+                  placeholder="例如：30"
                   value={estimatedMinutes}
                   onChange={(e) => setEstimatedMinutes(e.target.value ? parseInt(e.target.value, 10) : '')}
                   className="w-full text-xs p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
@@ -463,11 +463,11 @@ export const TaskInput: React.FC<TaskInputProps> = ({
 
               {/* Subtasks Builder */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Subtasks ({subtasks.length})</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">子任务（{subtasks.length})</label>
                 <div className="flex gap-1.5">
                   <input
                     type="text"
-                    placeholder="Add step..."
+                    placeholder="添加步骤…"
                     value={newSubtaskTitle}
                     onChange={(e) => setNewSubtaskTitle(e.target.value)}
                     onKeyDown={(e) => {

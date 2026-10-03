@@ -142,8 +142,8 @@ function createDefaultWorkCategory(userId: string): Category {
 }
 
 const DEFAULT_DASHBOARD_COPY: DashboardCopy = {
-  title: 'Make today feel lighter.',
-  subtitle: 'Choose what matters, give it a place, and let the rest wait.',
+  title: '让今天更从容。',
+  subtitle: '安排重要的事，其余的慢慢来。',
 };
 
 export default function App() {
@@ -254,7 +254,7 @@ export default function App() {
         }
       } catch (err) {
         console.warn('Could not fetch drop_items from Supabase:', err);
-        setDropError(err instanceof Error ? err.message : 'Failed to load Drop items.');
+        setDropError(err instanceof Error ? err.message : '加载笔记失败。');
       } finally {
         setIsLoadingDropItems(false);
         setIsLoadingMoreDropItems(false);
@@ -349,7 +349,7 @@ export default function App() {
       }
     } catch (err: any) {
       console.error('Failed to add drop item to Supabase:', err);
-      setDropError(err?.message || 'Failed to save note to database.');
+      setDropError(err?.message || '保存笔记失败。');
       throw err;
     }
   };
@@ -361,7 +361,7 @@ export default function App() {
       setDropItems((prev) => prev.filter((i) => i.id !== id));
     } catch (err) {
       console.error('Failed to delete drop item from Supabase:', err);
-      setDropError(err instanceof Error ? err.message : 'Failed to delete Drop item.');
+      setDropError(err instanceof Error ? err.message : '删除笔记失败。');
       throw err;
     }
   };
@@ -374,7 +374,7 @@ export default function App() {
       setHasMoreDropItems(false);
     } catch (err) {
       console.error('Failed to clear drop items from Supabase:', err);
-      setDropError(err instanceof Error ? err.message : 'Failed to clear Drop items.');
+      setDropError(err instanceof Error ? err.message : '清空笔记失败。');
       throw err;
     }
   };
@@ -422,7 +422,7 @@ export default function App() {
       const result = saveTasks(next);
 
       const storageFullToast = () =>
-        showToast('Local storage is full. Remove large task images or free space.', 'error');
+        showToast('本地存储已满，请删除较大的任务图片或释放空间。', 'error');
 
       // Note: `=== true/false` is required for narrowing because strictNullChecks is off.
       const saveFailed = result.ok === false;
@@ -453,7 +453,7 @@ export default function App() {
         return;
       }
       showToast(
-        `Local cache was near its limit. Now caching only the last ${LOCAL_TASK_RETENTION_DAYS} days; full history stays in the cloud.`,
+        `本地缓存接近上限，仅保留最近 ${LOCAL_TASK_RETENTION_DAYS} 天的数据，完整历史记录仍保存在云端。`,
         'info'
       );
     },
@@ -492,7 +492,7 @@ export default function App() {
           setSyncError(flushResult.lastError);
           if (!quiet) {
             showToast(
-              `Could not sync ${flushResult.remaining} change(s). Will retry when online.`,
+              `${flushResult.remaining} 项修改未能同步，联网后将重试。`,
               'error'
             );
           }
@@ -603,7 +603,7 @@ export default function App() {
         }
       } catch (err) {
         console.error('Supabase sync error:', err);
-        const message = err instanceof Error ? err.message : 'Sync failed';
+        const message = err instanceof Error ? err.message : '同步失败';
         setSyncError(message);
         if (!quiet) showToast(message, 'error');
       } finally {
@@ -637,14 +637,14 @@ export default function App() {
   const runFlushOutbox = useCallback(async () => {
     if (!user) return;
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-      showToast('Saved locally. Will sync when you are back online.', 'info');
+      showToast('已保存到本地，联网后自动同步。', 'info');
       return;
     }
 
     const result = await flushOutbox(user);
     refreshPendingCount(user.id);
     if (result.remaining > 0) {
-      showToast(result.lastError || 'Some changes are still pending sync.', 'error');
+      showToast(result.lastError || '部分修改尚未同步。', 'error');
     }
   }, [refreshPendingCount, showToast, user]);
 
@@ -777,7 +777,7 @@ export default function App() {
     if (!user) return;
 
     const onOnline = () => {
-      showToast('Back online. Syncing pending changes…', 'info');
+      showToast('网络已恢复，正在同步待处理的修改…', 'info');
       void handleSyncWithSupabase();
     };
     window.addEventListener('online', onOnline);
@@ -952,7 +952,7 @@ export default function App() {
       appendAiAssistMessage({
         id: createAiAssistMessageId(),
         role: 'assistant',
-        content: 'Stopped. Edit below and send again, or tap Retry.',
+        content: '已停止，可修改下方内容后重新发送，或点击重试。',
         stopped: true,
       });
       if (restorePrompt?.trim()) {
@@ -989,12 +989,12 @@ export default function App() {
       };
 
       if (!aiEnabled) {
-        pushError('AI is off. Enable AI in Settings to use AI Assist.');
+        pushError('智能功能已关闭，请在设置中开启后使用智能助手。');
         setAiAssistLoading(false);
         return;
       }
       if (!user) {
-        pushError('Sign in to use AI Assist.');
+        pushError('请登录后使用智能助手。');
         setAiAssistLoading(false);
         return;
       }
@@ -1031,7 +1031,7 @@ export default function App() {
           return;
         }
         pushError(
-          error instanceof Error ? error.message : 'AI assist failed. Please try again.'
+          error instanceof Error ? error.message : '智能助手请求失败，请重试。'
         );
       } finally {
         if (aiAssistAbortRef.current === controller) {
@@ -1152,11 +1152,11 @@ export default function App() {
   const handleDeleteTask = async (taskId: string) => {
     const taskToDelete = tasks.find((task) => task.id === taskId);
     const confirmed = await confirmAction({
-      title: 'Delete this task?',
+      title: '删除此任务？',
       description: taskToDelete?.title
-        ? `“${taskToDelete.title}” will be permanently deleted.`
-        : 'This task will be permanently deleted.',
-      confirmLabel: 'Delete task',
+        ? `“${taskToDelete.title}”将被永久删除。`
+        : '此任务将被永久删除。',
+      confirmLabel: '删除任务',
     });
     if (!confirmed) return;
 
@@ -1228,7 +1228,7 @@ export default function App() {
     const target = current.find((cat) => cat.id === categoryId);
     if (!target) return;
     if (current.length <= 1) {
-      showToast('Keep at least one category.', 'error');
+      showToast('请至少保留一个分类。', 'error');
       return;
     }
 
@@ -1237,9 +1237,9 @@ export default function App() {
     if (!fallback) return;
 
     const confirmed = await confirmAction({
-      title: 'Delete this category?',
-      description: `Tasks in “${target.name}” will move to “${fallback.name}”.`,
-      confirmLabel: 'Delete category',
+      title: '删除此分类？',
+      description: `“${target.name}”中的任务将移至“${fallback.name}”。`,
+      confirmLabel: '删除分类',
     });
     if (!confirmed) return;
 
@@ -1304,7 +1304,7 @@ export default function App() {
       enqueueOp(user.id, 'upsert_task', task.id, task);
     }
     refreshPendingCount(user.id);
-    showToast(`Imported ${tasksImported.length} tasks. Syncing to cloud…`, 'success');
+    showToast(`已导入 ${tasksImported.length} 个任务，正在同步到云端…`, 'success');
     await handleSyncWithSupabase();
   };
 
@@ -1354,9 +1354,9 @@ export default function App() {
     try {
       if (user && countPendingOps(user.id) > 0) {
         const confirmed = await confirmAction({
-          title: 'Sign out with unsynced changes?',
-          description: `${countPendingOps(user.id)} local change(s) have not reached the cloud yet and will be discarded.`,
-          confirmLabel: 'Sign out anyway',
+          title: '存在未同步的修改，仍要退出登录？',
+          description: `${countPendingOps(user.id)} 项本地修改尚未同步到云端，退出后将被丢弃。`,
+          confirmLabel: '仍然退出',
         });
         if (!confirmed) return;
       }
@@ -1377,7 +1377,7 @@ export default function App() {
       setSyncError(null);
     } catch (err) {
       console.error('Logout error:', err);
-      showToast(err instanceof Error ? err.message : 'Logout failed', 'error');
+      showToast(err instanceof Error ? err.message : '退出登录失败', 'error');
     }
   };
 
@@ -1400,12 +1400,12 @@ export default function App() {
           </div>
           <div className="space-y-1.5">
             <h1 className="text-base font-bold text-slate-800 dark:text-slate-100">
-              {isCompletingSignIn ? 'Completing sign-in' : 'Checking session'}
+              {isCompletingSignIn ? '正在完成登录' : '正在检查登录状态'}
             </h1>
             <p className="text-sm text-slate-500 dark:text-slate-400">
               {isCompletingSignIn
-                ? 'Finishing authorization. This usually takes a moment…'
-                : 'Restoring your account…'}
+                ? '正在完成授权，请稍候…'
+                : '正在恢复账户状态…'}
             </p>
           </div>
         </div>
@@ -1421,7 +1421,7 @@ export default function App() {
             <LockKeyhole className="w-7 h-7" />
           </div>
           <div className="space-y-2">
-            <h1 className="text-xl font-bold">登录 Daily TODOs</h1>
+            <h1 className="text-xl font-bold">登录每日待办</h1>
             <p className="text-sm text-slate-500 dark:text-slate-400">
               使用邮箱或 GitHub 登录后即可同步待办。
             </p>
@@ -1514,13 +1514,13 @@ export default function App() {
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-4 sm:space-y-5 pb-36 sm:pb-14">
         <section className="dashboard-intro">
           <div>
-            <p className="dashboard-kicker">YOUR DAILY SPACE</p>
+            <p className="dashboard-kicker">你的每日空间</p>
             <h2>{dashboardCopy.title}</h2>
             <p>{dashboardCopy.subtitle}</p>
           </div>
-          <div className="dashboard-stat" aria-label={`${pendingTasksCount} tasks remaining`}>
+          <div className="dashboard-stat" aria-label={`剩余 ${pendingTasksCount} 个任务`}>
             <span>{pendingTasksCount}</span>
-            <small>left today</small>
+            <small>今日剩余</small>
           </div>
         </section>
 
@@ -1564,7 +1564,7 @@ export default function App() {
         <span className="mx-1.5 opacity-30">•</span>
         <span>© {new Date().getFullYear()}</span>
         <span className="mx-1.5 opacity-30">•</span>
-        <span>Daily TODOs</span>
+        <span>每日待办</span>
         <span className="mx-1.5 opacity-30">•</span>
         <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" className="hover:text-slate-500 dark:hover:text-slate-400 transition-colors">鄂ICP备17003086号-2</a>
       </footer>

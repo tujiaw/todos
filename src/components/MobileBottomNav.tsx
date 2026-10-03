@@ -40,7 +40,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           }`}
         >
           <Calendar className="w-5 h-5 stroke-[2.2]" />
-          <span className="text-[10px] mt-0.5">Today</span>
+          <span className="text-[10px] mt-0.5">今天</span>
         </button>
 
         <button
@@ -49,7 +49,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           className="flex flex-col items-center justify-center py-1 px-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-all min-w-[56px] min-h-[44px] active:scale-95"
         >
           <CheckSquare className="w-5 h-5 stroke-[2.2]" />
-          <span className="text-[10px] mt-0.5">Tasks</span>
+          <span className="text-[10px] mt-0.5">任务</span>
         </button>
 
         <div className="-mt-5 relative">
@@ -57,7 +57,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             type="button"
             onClick={onFocusTaskInput}
             className="w-12 h-12 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/30 active:scale-90 transition-transform border-2 border-white dark:border-slate-900"
-            title="Quick Add Task"
+            title="快速添加任务"
           >
             <Plus className="w-6 h-6 stroke-[2.8]" />
           </button>
@@ -69,7 +69,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           className="flex flex-col items-center justify-center py-1 px-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-all min-w-[56px] min-h-[44px] active:scale-95"
         >
           <Tag className="w-5 h-5 stroke-[2.2]" />
-          <span className="text-[10px] mt-0.5">Categories</span>
+          <span className="text-[10px] mt-0.5">分类</span>
         </button>
 
         <button
@@ -78,7 +78,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           className="flex flex-col items-center justify-center py-1 px-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-all min-w-[56px] min-h-[44px] active:scale-95"
         >
           <Send className="w-5 h-5 stroke-[2.2]" />
-          <span className="text-[10px] mt-0.5">Drop</span>
+          <span className="text-[10px] mt-0.5">随手记</span>
         </button>
       </div>
     </nav>

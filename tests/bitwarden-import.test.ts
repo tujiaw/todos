@@ -11,7 +11,7 @@ describe('parseBitwardenExport', () => {
   it('rejects encrypted exports', () => {
     assert.throws(
       () => parseBitwardenExport({ encrypted: true, items: [] }),
-      /Unencrypted/
+      /未加密/
     );
   });
 
@@ -91,7 +91,7 @@ describe('parseBitwardenExport', () => {
     assert.equal(identity.type, 'identity');
     assert.equal(identity.fullName, 'Ada Lovelace');
     assert.equal(identity.idNumber, 'P123');
-    assert.ok(identity.fields?.some((field) => field.label === 'Email'));
+    assert.ok(identity.fields?.some((field) => field.label === '邮箱'));
 
     const note = items.find((item) => item.externalId === 'bw-note');
     assert.ok(note);
@@ -116,7 +116,7 @@ describe('parseBitwardenExport', () => {
     });
     assert.ok(ssh);
     assert.equal(ssh.type, 'note');
-    assert.match(ssh.notes || '', /Bitwarden type: 5/);
+    assert.match(ssh.notes || '', /Bitwarden 类型： 5/);
   });
 });
 

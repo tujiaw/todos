@@ -1,6 +1,7 @@
 {
-  "short_name": "DailyTODOs",
-  "name": "Daily TODOs - Task Planner",
+  "lang": "zh-CN",
+  "short_name": "每日待办",
+  "name": "每日待办 - 任务管理",
   "icons": [
     {
       "src": "/icon-192.png",
@@ -32,6 +33,6 @@
   "theme_color": "#2563eb",
   "display": "standalone",
   "orientation": "any",
-  "description": "Minimalist daily task planner. Edit offline; sync when online.",
+  "description": "简洁高效的每日待办管理工具，支持离线编辑与云端同步。",
   "categories": ["productivity", "utilities"]
 }

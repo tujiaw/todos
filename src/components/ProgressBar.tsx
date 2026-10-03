@@ -20,7 +20,7 @@ interface ProgressBarProps {
   onOpenAiAssist?: () => void;
 }
 
-const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const DAY_LABELS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 
 export const ProgressBar: React.FC<ProgressBarProps> = ({
   totalTasks,
@@ -90,7 +90,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
               <span className="p-1 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300">
                 <Sparkles className="w-3.5 h-3.5" />
               </span>
-              <h2 className="text-xs font-semibold text-slate-800 dark:text-white">Daily Progress</h2>
+              <h2 className="text-xs font-semibold text-slate-800 dark:text-white">每日进度</h2>
             </div>
             <div className="flex items-baseline gap-1 text-xs">
               <span className="font-bold text-indigo-700 dark:text-white">{percentage}%</span>
@@ -124,11 +124,11 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
                   ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-200'
                   : 'text-slate-600 dark:text-slate-300 hover:bg-indigo-50/70 dark:hover:bg-slate-800/80'
               }`}
-              title={isExpanded ? 'Collapse week stats' : 'Expand week stats'}
+              title={isExpanded ? '收起本周统计' : '展开本周统计'}
               aria-expanded={isExpanded}
             >
               <BarChart2 className="w-4 h-4" />
-              <span>Week</span>
+              <span>本周</span>
             </button>
             {onOpenAiAssist && (
               <>
@@ -137,10 +137,10 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
                   type="button"
                   onClick={() => onOpenAiAssist()}
                   className="inline-flex items-center gap-1 px-2.5 min-h-[34px] text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-indigo-50/70 dark:hover:bg-slate-800/80 transition-colors"
-                  title="AI Assist"
+                  title="智能助手"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-300" />
-                  <span>AI</span>
+                  <span>智能助手</span>
                 </button>
               </>
             )}
@@ -166,7 +166,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
                     type="button"
                     onClick={() => setWeekOffset((o) => o - 1)}
                     className="p-0.5 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-                    title="Previous Week"
+                    title="上一周"
                   >
                     <ChevronLeft className="w-3.5 h-3.5" />
                   </button>
@@ -178,7 +178,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
                     onClick={() => setWeekOffset((o) => o + 1)}
                     disabled={weekOffset === 0}
                     className="p-0.5 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors disabled:opacity-30 disabled:cursor-default"
-                    title={weekOffset === 0 ? 'Current week' : 'Next Week'}
+                    title={weekOffset === 0 ? '本周' : '下一周'}
                   >
                     <ChevronRight className="w-3.5 h-3.5" />
                   </button>
@@ -187,11 +187,11 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
                 <div className="flex items-center gap-2 ml-auto text-[10px] text-slate-400 dark:text-slate-500">
                   <span className="flex items-center gap-1">
                     <span className="w-2 h-2 rounded-sm bg-emerald-400 dark:bg-emerald-500" />
-                    Done
+                    已完成
                   </span>
                   <span className="flex items-center gap-1">
                     <span className="w-2 h-2 rounded-sm bg-slate-300 dark:bg-slate-600" />
-                    Left
+                    待完成
                   </span>
                 </div>
               </div>
@@ -218,7 +218,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
                       key={day.date}
                       onClick={() => onDateSelect?.(day.date)}
                       className="flex flex-col items-center gap-1 flex-1 min-w-0 group cursor-pointer hover:bg-white/50 dark:hover:bg-white/5 rounded-lg py-1 -my-1 transition-colors"
-                      title={`${DAY_LABELS[dayIndex]}: ${day.total} tasks (${day.completed} done)`}
+                      title={`${DAY_LABELS[dayIndex]}: ${day.total} 个任务（${day.completed} 个已完成）`}
                     >
                       {day.total > 0 ? (
                         <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 leading-none transition-colors">
