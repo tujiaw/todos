@@ -274,9 +274,9 @@ export function buildVaultMergePlan(
 }
 
 export function vaultItemTypeLabel(type: VaultItemType): string {
-  if (type === 'login') return '登录信息';
+  if (type === 'login') return '登录';
   if (type === 'card') return '银行卡';
-  if (type === 'identity') return '身份信息';
+  if (type === 'identity') return '身份';
   if (type === 'note') return '笔记';
   return '自定义';
 }
