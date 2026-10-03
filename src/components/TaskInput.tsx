@@ -172,9 +172,6 @@ export const TaskInput: React.FC<TaskInputProps> = ({
   return (
     <div id="task-input-card" className="task-composer p-3.5 sm:p-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/70 dark:border-slate-800 transition-all">
       <form onSubmit={handleFormSubmit}>
-        <div className="mb-2 flex items-baseline justify-between gap-2">
-          <h3 className="text-sm font-bold text-slate-950 dark:text-white">新建任务</h3>
-        </div>
         <div className="flex items-center gap-2">
           <div className="flex-1 relative">
             <input
