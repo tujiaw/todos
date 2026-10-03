@@ -26,6 +26,7 @@ import { ThemeMode } from '../types';
 interface HeaderProps {
   selectedDate: string;
   setSelectedDate: (date: string) => void;
+  datesWithTasks: ReadonlySet<string>;
   completedStreak: number;
   onOpenSyncModal: () => void;
   onOpenCategoryModal: () => void;
@@ -112,6 +113,7 @@ function formatDateDisplay(dateStr: string, todayStr: string) {
 interface DateNavigatorProps {
   selectedDate: string;
   todayStr: string;
+  datesWithTasks: ReadonlySet<string>;
   compact?: boolean;
   onSelectDate: (date: string) => void;
 }
@@ -119,6 +121,7 @@ interface DateNavigatorProps {
 const DateNavigator: React.FC<DateNavigatorProps> = ({
   selectedDate,
   todayStr,
+  datesWithTasks,
   compact = false,
   onSelectDate,
 }) => {
@@ -273,8 +276,9 @@ const DateNavigator: React.FC<DateNavigatorProps> = ({
             {monthCells.map((cell) => {
               const isSelected = cell.date === selectedDate;
               const isToday = cell.date === todayStr;
+              const hasTasks = datesWithTasks.has(cell.date);
               let dayClass =
-                'h-8 rounded-lg text-xs font-semibold transition-colors cursor-pointer';
+                'relative h-8 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center justify-center';
               if (isSelected) {
                 dayClass += ' bg-indigo-600 text-white hover:bg-indigo-500';
               } else if (isToday) {
@@ -295,8 +299,21 @@ const DateNavigator: React.FC<DateNavigatorProps> = ({
                   className={dayClass}
                   aria-current={isToday ? 'date' : undefined}
                   aria-pressed={isSelected}
+                  aria-label={`${cell.date}${hasTasks ? ', has tasks' : ''}`}
                 >
-                  {cell.day}
+                  <span>{cell.day}</span>
+                  {hasTasks && (
+                    <span
+                      aria-hidden="true"
+                      className={`absolute bottom-1 h-1 w-1 rounded-full ${
+                        isSelected
+                          ? 'bg-white'
+                          : cell.inMonth
+                            ? 'bg-indigo-500 dark:bg-indigo-400'
+                            : 'bg-indigo-300 dark:bg-indigo-700'
+                      }`}
+                    />
+                  )}
                 </button>
               );
             })}
@@ -327,6 +344,7 @@ const DateNavigator: React.FC<DateNavigatorProps> = ({
 export const Header: React.FC<HeaderProps> = ({
   selectedDate,
   setSelectedDate,
+  datesWithTasks,
   completedStreak,
   onOpenSyncModal,
   onOpenCategoryModal,
@@ -384,6 +402,7 @@ export const Header: React.FC<HeaderProps> = ({
               <DateNavigator
                 selectedDate={selectedDate}
                 todayStr={todayStr}
+                datesWithTasks={datesWithTasks}
                 onSelectDate={setSelectedDate}
               />
             </div>
@@ -561,6 +580,7 @@ export const Header: React.FC<HeaderProps> = ({
             <DateNavigator
               selectedDate={selectedDate}
               todayStr={todayStr}
+              datesWithTasks={datesWithTasks}
               compact
               onSelectDate={setSelectedDate}
             />

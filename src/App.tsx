@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useState, useEffect, useCallback, useRef } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { User } from '@supabase/supabase-js';
 import { Category, Task, ThemeMode, DropItem } from './types';
 import {
@@ -812,6 +812,7 @@ export default function App() {
 
   // Filter tasks for the selected date
   const selectedDateTasks = tasks.filter((t) => t.date === selectedDate);
+  const datesWithTasks = useMemo(() => new Set(tasks.map((task) => task.date)), [tasks]);
 
   // Calculate stats for current selected date
   const totalTasksCount = selectedDateTasks.length;
@@ -1492,6 +1493,7 @@ export default function App() {
       <Header
         selectedDate={selectedDate}
         setSelectedDate={setSelectedDate}
+        datesWithTasks={datesWithTasks}
         completedStreak={streakDays}
         themeMode={themeMode}
         onToggleTheme={handleToggleTheme}
